@@ -2,6 +2,7 @@
   "name": "ApnaWalk - Your Fitness Companion",
   "description": "ApnaWalk is a smart, accurate pedometer designed for you. Track steps, earn badges, and stay fit with AI coaching.",
   "requestFramePermissions": [
-    "geolocation"
+    "geolocation",
+    "microphone"
   ]
 }
