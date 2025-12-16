@@ -86,7 +86,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onGuest, onSh
         {/* Footer */}
         <div className="mt-12 text-center space-y-4 animate-fade-in" style={{ animationDelay: '0.5s' }}>
              <p className="text-xs text-dark-muted">
-                By continuing, you agree to our <button onClick={() => onShowLegal('terms')} className="text-brand-500 hover:underline">Terms</button> & <button onClick={() => onShowLegal('privacy')} className="text-brand-500 hover:underline">Privacy Policy</button>.
+                By continuing, you agree to our <a href="/terms-conditions" className="text-brand-500 hover:underline">Terms</a> & <a href="/privacy-policy" className="text-brand-500 hover:underline">Privacy Policy</a>.
              </p>
              
              {/* Developer Credits - Desi Humor */}

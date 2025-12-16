@@ -21,6 +21,8 @@ import { EventsModal } from './components/EventsModal';
 import { LegalModal, DocType } from './components/LegalModal';
 import { StatsDetailModal } from './components/StatsDetailModal'; 
 import { ApnaWalkLogo } from './components/ApnaWalkLogo'; 
+import { PrivacyPolicyPage } from './components/PrivacyPolicyPage';
+import { TermsConditionsPage } from './components/TermsConditionsPage';
 import { usePedometer } from './hooks/usePedometer';
 import { UserSettings, WalkSession, UserProfile, DailyHistory, Badge, RoutePoint, WeatherData, WeeklyPlan, HydrationLog } from './types';
 import { saveHistory, getHistory, saveSettings, getSettings, getBadges, addBadge, hasSeenTutorial, markTutorialSeen, getProfile, saveProfile, saveActivePlan, getActivePlan, getHydration, saveHydration } from './services/storageService';
@@ -61,6 +63,17 @@ const calcDistance = (lat1: number, lon1: number, lat2: number, lon2: number) =>
 };
 
 const App: React.FC = () => {
+  // --- Simple Router Check ---
+  const path = typeof window !== 'undefined' ? window.location.pathname : '/';
+  
+  // Return early for static legal pages
+  if (path === '/privacy-policy') {
+      return <PrivacyPolicyPage />;
+  }
+  if (path === '/terms-conditions') {
+      return <TermsConditionsPage />;
+  }
+
   const [profile, setProfile] = useState<UserProfile>(() => {
     const saved = getProfile();
     return saved || { name: '', email: '', isLoggedIn: false, isGuest: false };
@@ -129,7 +142,11 @@ const App: React.FC = () => {
   const timerRef = useRef<number | null>(null);
   const watchIdRef = useRef<number | null>(null);
   const notificationIntervalRef = useRef<any>(null);
+  
+  // Timestamps for notifications - Initialized to now
   const lastWaterCheckRef = useRef<number>(Date.now());
+  const lastWalkCheckRef = useRef<number>(Date.now());
+  const lastBreathCheckRef = useRef<number>(Date.now());
 
   // --- Theme Toggle Logic ---
   useEffect(() => {
@@ -243,29 +260,17 @@ const App: React.FC = () => {
     // Only run if user is logged in
     if (!profile.isLoggedIn) return;
 
-    // 1. Activate Pedometer (Motion Sensors)
+    // 1. Activate Pedometer (Motion Sensors) automatically
+    // This enables the "offline" step recording for daily steps without user hitting 'Start'
     activateDailyTracking();
 
     // 2. Location Logic
-    // Default to Lucknow immediately
+    // Default to Lucknow immediately so the UI is populated
     useDefaultLocation();
 
-    // Check if permission is ALREADY granted (silent check)
-    // If so, update to real location. If prompt needed, do nothing (wait for click).
-    if (navigator.permissions && navigator.permissions.query) {
-        navigator.permissions.query({ name: 'geolocation' }).then((result) => {
-            if (result.state === 'granted') {
-                navigator.geolocation.getCurrentPosition(
-                    (pos) => {
-                        const { latitude, longitude } = pos.coords;
-                        setLocation(`${latitude.toFixed(2)}°N, ${longitude.toFixed(2)}°E`);
-                        setCoords({ lat: latitude, lng: longitude });
-                        fetchLocalWeather(latitude, longitude);
-                    }
-                );
-            }
-        });
-    }
+    // REMOVED: Automatic permission query. 
+    // Location permission will now only be requested when the user explicitly triggers it
+    // via 'Refresh Location' or starting a session with GPS enabled.
 
   }, [profile.isLoggedIn]);
 
@@ -281,20 +286,33 @@ const App: React.FC = () => {
 
   // Notification Scheduler Loop
   useEffect(() => {
-    if (profile.isLoggedIn && settings.notifications) {
+    // Run only if notifications are enabled and user is logged in
+    const isAnyNotificationEnabled = settings.notifications.water || settings.notifications.walk || settings.notifications.breath;
+    
+    if (profile.isLoggedIn && isAnyNotificationEnabled) {
         if (Notification.permission === 'default') {
              requestNotificationPermission();
         }
-        notificationIntervalRef.current = setInterval(() => {
-            const result = scheduleReminders(
+        
+        const checkReminders = () => {
+             const triggered = scheduleReminders(
                 settings.notifications, 
-                lastWaterCheckRef.current,
+                { 
+                    water: lastWaterCheckRef.current, 
+                    walk: lastWalkCheckRef.current, 
+                    breath: lastBreathCheckRef.current
+                },
                 dailySteps
             );
-            if (result === 'water_sent') {
-                lastWaterCheckRef.current = Date.now();
-            }
-        }, 15 * 60 * 1000); 
+
+            // Update refs if triggered to reset the "timer" for that specific notification
+            if (triggered.includes('water')) lastWaterCheckRef.current = Date.now();
+            if (triggered.includes('walk')) lastWalkCheckRef.current = Date.now();
+            if (triggered.includes('breath')) lastBreathCheckRef.current = Date.now();
+        };
+
+        // Check every 15 minutes (900000 ms)
+        notificationIntervalRef.current = setInterval(checkReminders, 15 * 60 * 1000); 
     }
     return () => clearInterval(notificationIntervalRef.current);
   }, [profile.isLoggedIn, settings.notifications, dailySteps]);

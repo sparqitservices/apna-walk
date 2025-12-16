@@ -30,31 +30,52 @@ export const sendNotification = (title: string, body: string, icon: string = '/i
 
 export const scheduleReminders = (
     settings: { water: boolean, walk: boolean, breath: boolean },
-    lastWaterTime: number,
+    lastTimes: { water: number, walk: number, breath: number },
     stepsToday: number
-) => {
+): string[] => {
     const now = Date.now();
+    const triggered: string[] = [];
+    
+    // Constants for Intervals
     const HOURS_2 = 2 * 60 * 60 * 1000;
+    const HOURS_3 = 3 * 60 * 60 * 1000;
     const HOURS_4 = 4 * 60 * 60 * 1000;
 
-    // Water Reminder (Every 2 hours if not logged)
-    if (settings.water && (now - lastWaterTime > HOURS_2)) {
-        // We actually check this in the main loop, this function just generates the object
+    // 1. Water Reminder (Every 2 hours)
+    if (settings.water && (now - lastTimes.water > HOURS_2)) {
         sendNotification(
-            "💧 Hydration Time!", 
-            "It's been a while. Drink a glass of water to stay energetic."
+            "💧 Hydration Check", 
+            "Time to drink a glass of water and stay energetic!"
         );
-        return 'water_sent';
+        triggered.push('water');
     }
 
-    // Walk Reminder (If sedentary for 4 hours - purely time based mock here)
-    // In a real app we'd track last step timestamp
-    if (settings.walk && stepsToday < 1000 && new Date().getHours() > 10) {
+    // 2. Breath Exercise (Every 3 hours)
+    if (settings.breath && (now - lastTimes.breath > HOURS_3)) {
         sendNotification(
-            "🚶 Time to Move!", 
-            "You haven't walked much today. Let's take a 5-minute stroll!"
+            "🧘 Breathe & Relax", 
+            "Take a moment to center yourself with a quick breathing exercise."
         );
+        triggered.push('breath');
+    }
+
+    // 3. Walk Reminder (Every 4 hours if sedentary)
+    // We check if 4 hours passed. Then we check if user has moved enough today.
+    // If they have < 3000 steps by the check time, we nudge them.
+    if (settings.walk && (now - lastTimes.walk > HOURS_4)) {
+        if (stepsToday < 3000) {
+            sendNotification(
+                "🚶 Time to Move!", 
+                "You haven't moved much lately. Let's take a 5-minute stroll!"
+            );
+            triggered.push('walk');
+        } else {
+            // Even if we don't send a notification (because they are active), 
+            // we treat this as "checked" so we don't spam them immediately again.
+            // We push a special tag or just 'walk' to reset the timer.
+            triggered.push('walk');
+        }
     }
     
-    return null;
+    return triggered;
 };
