@@ -19,12 +19,16 @@ import { HydrationCard } from './components/HydrationCard';
 import { HydrationModal } from './components/HydrationModal';
 import { EventsModal } from './components/EventsModal';
 import { LegalModal, DocType } from './components/LegalModal';
+import { StatsDetailModal } from './components/StatsDetailModal'; 
+import { ApnaWalkLogo } from './components/ApnaWalkLogo'; 
 import { usePedometer } from './hooks/usePedometer';
 import { UserSettings, WalkSession, UserProfile, DailyHistory, Badge, RoutePoint, WeatherData, WeeklyPlan, HydrationLog } from './types';
 import { saveHistory, getHistory, saveSettings, getSettings, getBadges, addBadge, hasSeenTutorial, markTutorialSeen, getProfile, saveProfile, saveActivePlan, getActivePlan, getHydration, saveHydration } from './services/storageService';
 import { generateBadges, getHydrationTip } from './services/geminiService';
 import { getWeather } from './services/weatherService';
 import { scheduleReminders, requestNotificationPermission } from './services/notificationService';
+import { supabase } from './services/supabaseClient'; 
+import { signOut, syncProfile } from './services/authService';
 import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer, Cell, YAxis } from 'recharts';
 
 const THEMES = {
@@ -61,6 +65,8 @@ const App: React.FC = () => {
     const saved = getProfile();
     return saved || { name: '', email: '', isLoggedIn: false, isGuest: false };
   });
+  
+  const [authLoading, setAuthLoading] = useState(true);
 
   const [settings, setSettings] = useState<UserSettings>({
     weightKg: 70,
@@ -84,7 +90,6 @@ const App: React.FC = () => {
   const [weather, setWeather] = useState<WeatherData | null>(null);
   const [weatherLoading, setWeatherLoading] = useState(false);
   const [installPrompt, setInstallPrompt] = useState<any>(null);
-  const [isDarkMode, setIsDarkMode] = useState(true);
   const [route, setRoute] = useState<RoutePoint[]>([]);
   const [gpsError, setGpsError] = useState(false);
   const [newBadgeAlert, setNewBadgeAlert] = useState<Badge | null>(null);
@@ -100,6 +105,7 @@ const App: React.FC = () => {
   const [showEvents, setShowEvents] = useState(false);
   const [legalDoc, setLegalDoc] = useState<DocType>(null);
   const [currentSession, setCurrentSession] = useState<WalkSession | null>(null);
+  const [selectedStat, setSelectedStat] = useState<'calories' | 'distance' | 'time' | null>(null); 
   
   // Pedometer Hook
   const { 
@@ -119,7 +125,52 @@ const App: React.FC = () => {
   const notificationIntervalRef = useRef<any>(null);
   const lastWaterCheckRef = useRef<number>(Date.now());
 
-  // Helper to fetch weather
+  // --- Auth & Initial Load Logic ---
+  useEffect(() => {
+    // 1. Check local storage first
+    const savedSettings = getSettings();
+    if (savedSettings) setSettings(savedSettings);
+    if(savedSettings && typeof savedSettings.enableLocation === 'undefined') {
+        setSettings(prev => ({...prev, enableLocation: true}));
+    }
+    setHistory(getHistory());
+    setEarnedBadges(getBadges());
+    setActivePlan(getActivePlan());
+    setHydration(getHydration());
+
+    // 2. Setup Supabase Auth Listener
+    supabase.auth.getSession().then(({ data: { session } }) => {
+        if (session && session.user) {
+            syncProfile(session.user).then(p => {
+                setProfile(p);
+                saveProfile(p);
+                activateDailyTracking();
+            });
+        }
+        setAuthLoading(false);
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+        if (session?.user) {
+            syncProfile(session.user).then(p => {
+                setProfile(p);
+                saveProfile(p);
+                activateDailyTracking();
+            });
+        } else {
+            // Check if we were in guest mode before clearing
+            const local = getProfile();
+            if (!local?.isGuest) {
+                // If not guest, clear profile on logout
+                setProfile({ name: '', email: '', isLoggedIn: false, isGuest: false });
+            }
+        }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  // --- Location Logic ---
   const fetchLocalWeather = async (lat: number, lng: number) => {
     setWeatherLoading(true);
     const data = await getWeather(lat, lng);
@@ -128,22 +179,6 @@ const App: React.FC = () => {
   };
 
   useEffect(() => {
-    const savedSettings = getSettings();
-    if (savedSettings) setSettings(savedSettings);
-    if(savedSettings && typeof savedSettings.enableLocation === 'undefined') {
-        setSettings(prev => ({...prev, enableLocation: true}));
-    }
-
-    setHistory(getHistory());
-    setEarnedBadges(getBadges());
-    setActivePlan(getActivePlan());
-    setHydration(getHydration());
-
-    // Auto-activate background tracking if user is logged in
-    if(profile.isLoggedIn) {
-        activateDailyTracking();
-    }
-
     const useDefaultLocation = () => {
         const defLat = 28.6139;
         const defLng = 77.2090;
@@ -153,8 +188,10 @@ const App: React.FC = () => {
     };
 
     const checkLocation = () => {
-        if (savedSettings?.enableLocation !== false && navigator.geolocation) {
-            setWeatherLoading(true);
+        if (settings.enableLocation !== false && navigator.geolocation) {
+            // Don't set loading on mount to avoid flicker if coords exist
+            if(!coords) setWeatherLoading(true);
+            
             navigator.geolocation.getCurrentPosition(
                 (pos) => {
                     const { latitude, longitude } = pos.coords;
@@ -168,14 +205,12 @@ const App: React.FC = () => {
                 },
                 { timeout: 5000 }
             );
+        } else if (settings.enableLocation === false) {
+             setLocation("Location Disabled");
+             setWeather(null);
+             setWeatherLoading(false);
         } else {
-            if (savedSettings?.enableLocation === false) {
-                 setLocation("Location Disabled");
-                 setWeather(null);
-                 setWeatherLoading(false);
-            } else {
-                 useDefaultLocation();
-            }
+             useDefaultLocation();
         }
     };
     checkLocation();
@@ -199,11 +234,9 @@ const App: React.FC = () => {
   // Notification Scheduler Loop
   useEffect(() => {
     if (profile.isLoggedIn && settings.notifications) {
-        // Initial request on load if setting is true but permission might be default
         if (Notification.permission === 'default') {
              requestNotificationPermission();
         }
-
         notificationIntervalRef.current = setInterval(() => {
             const result = scheduleReminders(
                 settings.notifications, 
@@ -213,7 +246,7 @@ const App: React.FC = () => {
             if (result === 'water_sent') {
                 lastWaterCheckRef.current = Date.now();
             }
-        }, 15 * 60 * 1000); // Check every 15 mins
+        }, 15 * 60 * 1000); 
     }
     return () => clearInterval(notificationIntervalRef.current);
   }, [profile.isLoggedIn, settings.notifications, dailySteps]);
@@ -228,26 +261,6 @@ const App: React.FC = () => {
     root.style.setProperty('--brand-600', themeColors[600]);
     root.style.setProperty('--brand-900', themeColors[900]);
   }, [settings.theme]);
-
-  useEffect(() => {
-    const root = document.documentElement;
-    const setMode = (dark: boolean) => {
-        setIsDarkMode(dark);
-        if (dark) {
-            root.style.setProperty('--bg-color', '#0f172a');
-            root.style.setProperty('--card-color', '#1e293b');
-            root.style.setProperty('--text-color', '#f8fafc');
-            root.style.setProperty('--muted-color', '#94a3b8');
-        } else {
-            root.style.setProperty('--bg-color', '#f8fafc'); 
-            root.style.setProperty('--card-color', '#ffffff'); 
-            root.style.setProperty('--text-color', '#0f172a');
-            root.style.setProperty('--muted-color', '#64748b');
-        }
-    };
-    const h = new Date().getHours();
-    setMode(h < 6 || h > 18);
-  }, []);
 
   const currentDisplaySteps = isTrackingSession ? sessionSteps : dailySteps;
   
@@ -401,25 +414,19 @@ const App: React.FC = () => {
       markTutorialSeen();
   };
 
-  const handleLogin = (name: string, email: string) => {
-    const newProfile = { name, email, isLoggedIn: true, isGuest: false };
-    setProfile(newProfile);
-    saveProfile(newProfile);
-    activateDailyTracking();
-    requestNotificationPermission(); // Request Notification Permission on Login
-    checkTutorial();
-  };
-
   const handleGuest = () => {
     const newProfile = { name: 'Guest', email: '', isLoggedIn: true, isGuest: true };
     setProfile(newProfile);
     saveProfile(newProfile);
     activateDailyTracking();
-    requestNotificationPermission(); // Request Notification Permission on Guest Login
+    requestNotificationPermission(); 
     checkTutorial();
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    if(!profile.isGuest) {
+        await signOut();
+    }
     const emptyProfile = { name: '', email: '', isLoggedIn: false, isGuest: false };
     setProfile(emptyProfile);
     saveProfile(emptyProfile);
@@ -473,9 +480,17 @@ const App: React.FC = () => {
       setActivePlan(null);
   };
 
+  if (authLoading) {
+      return (
+          <div className="min-h-screen bg-dark-bg flex items-center justify-center">
+              <div className="w-12 h-12 border-4 border-brand-500 border-t-transparent rounded-full animate-spin"></div>
+          </div>
+      );
+  }
+
   if (!profile.isLoggedIn) return (
       <>
-        <LoginScreen onLogin={handleLogin} onGuest={handleGuest} onShowLegal={(type) => setLegalDoc(type)} />
+        <LoginScreen onLogin={() => {}} onGuest={handleGuest} onShowLegal={(type) => setLegalDoc(type)} />
         <LegalModal isOpen={!!legalDoc} type={legalDoc} onClose={() => setLegalDoc(null)} />
       </>
   );
@@ -506,8 +521,11 @@ const App: React.FC = () => {
                 {profile.avatar ? <img src={profile.avatar} alt="Profile" className="w-full h-full object-cover" /> : (profile.isGuest ? <i className="fa-solid fa-user"></i> : profile.name.charAt(0).toUpperCase())}
            </div>
            <div>
-               <h1 className="text-lg font-bold tracking-tight text-dark-text leading-tight">Apna<span className="text-brand-500">Walk</span></h1>
-               <div className="flex items-center gap-1">
+               {/* Updated Logo in Header */}
+               <div className="transform scale-[0.4] origin-left -mb-4 -mt-3 -ml-2">
+                    <ApnaWalkLogo size="small" tagline="" minimal={true} />
+               </div>
+               <div className="flex items-center gap-1 pl-1">
                    <i className="fa-solid fa-location-dot text-[10px] text-dark-muted"></i>
                    <p className="text-dark-muted text-xs font-medium truncate max-w-[100px]">{location}</p>
                </div>
@@ -556,6 +574,7 @@ const App: React.FC = () => {
           calories={displayCalories} 
           distance={displayDistance} 
           duration={duration} 
+          onStatClick={setSelectedStat} 
         />
 
         <div className="flex gap-4 mb-6 w-full max-w-md">
@@ -687,6 +706,15 @@ const App: React.FC = () => {
       <SettingsModal isOpen={showSettings} onClose={() => setShowSettings(false)} settings={settings} profile={profile} onSave={handleSaveData} onLogout={handleLogout} onLoginRequest={() => { setShowSettings(false); handleLogout(); }} />
       <ShareModal isOpen={showShareModal} onClose={() => setShowShareModal(false)} text={`I just walked ${dailySteps} steps with ApnaWalk!`} url={window.location.href} />
       <TutorialModal isOpen={showTutorial} onClose={closeTutorial} />
+      
+      {/* Detail Stat Modal */}
+      <StatsDetailModal 
+         isOpen={!!selectedStat} 
+         onClose={() => setSelectedStat(null)} 
+         type={selectedStat} 
+         data={{ calories: displayCalories, distance: displayDistance, duration: duration, steps: currentDisplaySteps }}
+         route={route} 
+      />
 
     </div>
   );

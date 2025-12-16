@@ -1,20 +1,29 @@
 import React, { useState } from 'react';
+import { ApnaWalkLogo } from './ApnaWalkLogo';
+import { signInWithGoogle } from '../services/authService';
 
 interface LoginScreenProps {
-  onLogin: (name: string, email: string) => void;
+  onLogin: (name: string, email: string) => void; // Kept for Guest flow compatibility
   onGuest: () => void;
   onShowLegal: (type: 'privacy' | 'terms') => void;
 }
 
 export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onGuest, onShowLegal }) => {
   const [isLoading, setIsLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  const handleGoogleLogin = () => {
+  const handleGoogleLogin = async () => {
     setIsLoading(true);
-    // Simulate network delay for realistic feel
-    setTimeout(() => {
-        onLogin("Afzal Hameed", "afzal@sparqit.com");
-    }, 1500);
+    setErrorMsg(null);
+    try {
+        await signInWithGoogle();
+        // The app will reload/redirect due to OAuth, so we don't need to manually call onLogin here.
+        // App.tsx will handle the session check on mount.
+    } catch (error: any) {
+        console.error("Login Failed", error);
+        setErrorMsg(error.message || "Failed to connect to Google.");
+        setIsLoading(false);
+    }
   };
 
   return (
@@ -25,17 +34,19 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onGuest, onSh
       <div className="w-full max-w-md relative z-10 flex flex-col items-center">
         
         {/* Logo Section */}
-        <div className="mb-12 text-center animate-fade-in">
-          <div className="w-24 h-24 bg-gradient-to-br from-brand-400 to-green-700 rounded-full mx-auto flex items-center justify-center mb-6 shadow-2xl shadow-brand-500/40 ring-4 ring-brand-900/50">
-            <i className="fa-solid fa-person-hiking text-5xl text-white ml-2"></i>
-          </div>
-          <h1 className="text-4xl font-bold text-white mb-2 tracking-tight">Apna<span className="text-brand-500">Walk</span></h1>
-          <p className="text-slate-400">Step Towards a Healthier India</p>
+        <div className="mb-8 animate-fade-in scale-90 sm:scale-100">
+           <ApnaWalkLogo size="medium" />
         </div>
 
         {/* Auth Buttons */}
-        <div className="w-full space-y-4">
+        <div className="w-full space-y-4 animate-message-pop" style={{ animationDelay: '0.2s' }}>
           
+          {errorMsg && (
+              <div className="bg-red-500/10 border border-red-500/50 text-red-200 text-xs p-3 rounded-lg text-center mb-2">
+                  {errorMsg}
+              </div>
+          )}
+
           {/* Google Button */}
           <button 
             onClick={handleGoogleLogin}
@@ -64,15 +75,15 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onGuest, onSh
           {/* Guest Button */}
           <button 
             onClick={onGuest}
-            className="w-full bg-slate-800/50 hover:bg-slate-800 text-slate-300 font-medium py-4 rounded-xl border border-slate-700 transition-all active:scale-95"
+            className="w-full bg-slate-800/50 hover:bg-slate-800 text-slate-300 font-medium py-4 rounded-xl border border-slate-700 transition-all active:scale-95 flex items-center justify-center gap-2"
           >
-            Start Walking (Guest Mode)
+            <i className="fa-solid fa-user-secret"></i> Start Walking (Guest Mode)
           </button>
 
         </div>
 
         {/* Footer */}
-        <div className="mt-12 text-center space-y-4">
+        <div className="mt-12 text-center space-y-4 animate-fade-in" style={{ animationDelay: '0.5s' }}>
              <p className="text-xs text-slate-600">
                 By continuing, you agree to our <button onClick={() => onShowLegal('terms')} className="text-brand-500 hover:underline">Terms</button> & <button onClick={() => onShowLegal('privacy')} className="text-brand-500 hover:underline">Privacy Policy</button>.
              </p>
