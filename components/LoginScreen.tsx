@@ -88,7 +88,18 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onGuest, onSh
              <p className="text-xs text-dark-muted">
                 By continuing, you agree to our <button onClick={() => onShowLegal('terms')} className="text-brand-500 hover:underline">Terms</button> & <button onClick={() => onShowLegal('privacy')} className="text-brand-500 hover:underline">Privacy Policy</button>.
              </p>
-             <p className="text-xs text-dark-muted opacity-70">Powered by Sparq IT Service</p>
+             
+             {/* Developer Credits - Desi Humor */}
+             <div className="pt-6 pb-2 border-t border-dark-border/20 mt-4">
+                <p className="text-xs text-dark-muted">
+                    Built with ❤️ & <span className="text-orange-500 font-bold">Masala Chai ☕</span> by 
+                    <span className="block text-brand-500 font-bold mt-1 text-sm tracking-wide">Afzal Hameed</span>
+                    <span className="text-[10px] block opacity-70">from Sparq IT Service</span>
+                </p>
+                <p className="text-[10px] text-slate-500 mt-2 italic font-medium">
+                    "Code phatne ki guarantee nahi, par aapke fat burn hone ki hai!" 🏃‍♂️🔥
+                </p>
+             </div>
         </div>
       </div>
     </div>
