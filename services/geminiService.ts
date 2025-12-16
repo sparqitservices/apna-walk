@@ -1,7 +1,16 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { WalkSession, AIInsight, DailyHistory, Badge, WeeklyPlan, WeatherData, FitnessEvent } from "../types";
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+// DEBUGGING: Check if API Key exists
+const apiKey = process.env.API_KEY;
+if (!apiKey) {
+  console.error("❌ API_KEY is missing! Please check your .env file or Vercel Environment Variables.");
+} else {
+  // Log first few chars for verification (security safe)
+  console.log(`✅ Gemini API Key found: ${apiKey.substring(0, 4)}... (Length: ${apiKey.length})`);
+}
+
+const ai = new GoogleGenAI({ apiKey: apiKey || "" });
 const MODEL_ID = "gemini-2.5-flash";
 
 export const getWalkingInsight = async (session: WalkSession): Promise<AIInsight> => {
@@ -50,7 +59,7 @@ export const getWalkingInsight = async (session: WalkSession): Promise<AIInsight
     }
     throw new Error("No data returned");
   } catch (error) {
-    console.error("Gemini Error:", error);
+    console.error("❌ Gemini Insight Error:", error);
     return {
       summary: "Arre bhai! Great walk, keep it up!",
       motivation: "Thoda aur zor laga, fitness tera wait kar raha hai!",
@@ -60,61 +69,70 @@ export const getWalkingInsight = async (session: WalkSession): Promise<AIInsight
 };
 
 export const chatWithCoach = async (history: {role: string, text: string}[], message: string, audioBase64?: string): Promise<string> => {
-    
-    // Construct the input parts (Text + Optional Audio)
-    const userParts: any[] = [{ text: message }];
-    
-    if (audioBase64) {
-        userParts.push({
-            inlineData: {
-                mimeType: "audio/wav", // Assuming WAV/WebM from MediaRecorder, Gemini handles standard audio types
-                data: audioBase64
-            }
-        });
-    }
+    try {
+        if (!apiKey) throw new Error("API Key is missing in configuration.");
 
-    // Construct full history for context-aware generation
-    // We cannot use chat.sendMessage easily with mixed modality in history in the SDK's current Chat helper 
-    // effectively without careful construction, so we will use generateContent with the full history manually.
-    const contents = [
-        ...history.map(h => ({
-            role: h.role,
-            parts: [{ text: h.text }]
-        })),
-        {
-            role: "user",
-            parts: userParts
+        // Construct the input parts (Text + Optional Audio)
+        const userParts: any[] = [{ text: message }];
+        
+        if (audioBase64) {
+            userParts.push({
+                inlineData: {
+                    mimeType: "audio/wav", 
+                    data: audioBase64
+                }
+            });
         }
-    ];
 
-    const response = await ai.models.generateContent({
-        model: MODEL_ID,
-        config: {
-            systemInstruction: `
-                You are "Apna Coach", a witty, energetic, and purely Desi fitness companion from India.
-                
-                **Persona:**
-                - You are like a strict PT teacher mixed with a loving grandmother. You scold for laziness but celebrate success grandly.
-                - **Language:** Heavy Hinglish. Use phrases like "Ek number!", "Bhai wah!", "Kya baat hai!", "Chalo chalo", "Thoda adjust kar lo", "Bindass".
-                - **Cultural References:** 
-                   - Compare speed to the Mumbai Local or a Virat Kohli cover drive.
-                   - Compare laziness to a Sunday afternoon after Rajma Chawal.
-                   - Treat calories like unwanted relatives—get rid of them!
-                
-                **Response Guidelines:**
-                1. **Praise (BE VERBOSE):** If the user walked well, don't just say "Good job". Be dramatic. 
-                   *Example:* "Arre Waah! Aaj toh tumne road pe aag laga di! Dil garden-garden ho gaya teri speed dekh ke. Bas aise hi consistency rakho, toh film star ban jaoge!"
-                2. **Advice (Concise):** Keep technical advice short, but wrap it in warmth.
-                3. **Voice Notes:** If the user sends audio, listen carefully to their tone. If they sound tired, motivate them. If happy, celebrate.
-                4. **Length:** Keep general responses under 60 words, but allow praise to go up to 80 words.
+        const contents = [
+            ...history.map(h => ({
+                role: h.role,
+                parts: [{ text: h.text }]
+            })),
+            {
+                role: "user",
+                parts: userParts
+            }
+        ];
 
-                **Restriction:** If the user asks about something unrelated to fitness/health, say "Arre boss, focus on fitness na! Samosa baad mein discuss karenge."
-            `,
-        },
-        contents: contents
-    });
+        const response = await ai.models.generateContent({
+            model: MODEL_ID,
+            config: {
+                systemInstruction: `
+                    You are "Apna Coach", a witty, energetic, and purely Desi fitness companion from India.
+                    
+                    **Persona:**
+                    - You are like a strict PT teacher mixed with a loving grandmother. You scold for laziness but celebrate success grandly.
+                    - **Language:** Heavy Hinglish. Use phrases like "Ek number!", "Bhai wah!", "Kya baat hai!", "Chalo chalo", "Thoda adjust kar lo", "Bindass".
+                    - **Cultural References:** 
+                       - Compare speed to the Mumbai Local or a Virat Kohli cover drive.
+                       - Compare laziness to a Sunday afternoon after Rajma Chawal.
+                       - Treat calories like unwanted relatives—get rid of them!
+                    
+                    **Response Guidelines:**
+                    1. **Praise (BE VERBOSE):** If the user walked well, don't just say "Good job". Be dramatic. 
+                       *Example:* "Arre Waah! Aaj toh tumne road pe aag laga di! Dil garden-garden ho gaya teri speed dekh ke. Bas aise hi consistency rakho, toh film star ban jaoge!"
+                    2. **Advice (Concise):** Keep technical advice short, but wrap it in warmth.
+                    3. **Voice Notes:** If the user sends audio, listen carefully to their tone. If they sound tired, motivate them. If happy, celebrate.
+                    4. **Length:** Keep general responses under 60 words, but allow praise to go up to 80 words.
 
-    return response.text || "Arre, signal weak hai shayad. Phir se bolo?";
+                    **Restriction:** If the user asks about something unrelated to fitness/health, say "Arre boss, focus on fitness na! Samosa baad mein discuss karenge."
+                `,
+            },
+            contents: contents
+        });
+
+        return response.text || "Arre, signal weak hai shayad. Phir se bolo?";
+
+    } catch (error: any) {
+        console.error("❌ Gemini Chat Error:", error);
+        
+        // Throw specific error to be caught by UI
+        if (error.message && error.message.includes("API key")) {
+             throw new Error("Invalid API Key. Please check Vercel settings.");
+        }
+        throw error;
+    }
 };
 
 export const generateBadges = async (
@@ -123,7 +141,6 @@ export const generateBadges = async (
     existingBadges: Badge[]
 ): Promise<Badge | null> => {
     
-    // Only request a badge if the session was significant
     if (session.steps < 500) return null;
 
     const prompt = `
@@ -187,7 +204,7 @@ export const generateBadges = async (
         }
         return null;
     } catch (e) {
-        console.error("Error generating badge", e);
+        console.error("❌ Gemini Badge Error", e);
         return null;
     }
 };
@@ -258,7 +275,7 @@ export const generateWeeklyPlan = async (goal: string, intensityLevel: string): 
         }
         throw new Error("Empty plan generated");
     } catch (e) {
-        console.error("Plan Gen Error", e);
+        console.error("❌ Gemini Plan Error", e);
         throw e;
     }
 };
@@ -301,7 +318,7 @@ export const getHydrationTip = async (
     });
     return response.text?.trim() || "";
   } catch (error) {
-    console.error("Hydration Tip Error", error);
+    console.error("❌ Gemini Hydration Error", error);
     return "";
   }
 };
@@ -374,7 +391,7 @@ export const findLocalEvents = async (city: string): Promise<FitnessEvent[]> => 
         }
         return [];
     } catch (e) {
-        console.error("Event Gen Error", e);
+        console.error("❌ Gemini Event Error", e);
         // Fallback Mock Data
         return [
             {
@@ -430,7 +447,7 @@ export const getDailyHealthTip = async (
     });
     return response.text?.trim() || "Chalo, thoda walk kar lete hain!";
   } catch (error) {
-    console.error("Health Tip Error", error);
+    console.error("❌ Gemini Health Tip Error", error);
     return "Health is wealth, chalo walk pe!";
   }
 };

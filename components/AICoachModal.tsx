@@ -107,7 +107,9 @@ export const AICoachModal: React.FC<AICoachModalProps> = ({ session, isOpen, onC
         const contextMessages = messages.map(m => ({ role: m.role, text: m.text }));
         const response = await chatWithCoach(contextMessages, textToSend);
         setMessages(prev => [...prev, { role: 'model', text: response, timestamp: getTimeString() }]);
-    } catch (err) {
+    } catch (err: any) {
+        // ERROR LOGGING HERE
+        console.error("Chat Error:", err);
         setMessages(prev => [...prev, { role: 'model', text: "Arre yaar, signal drop ho gaya. Phir se bolo?", timestamp: getTimeString() }]);
     } finally {
         setChatLoading(false);
@@ -210,6 +212,7 @@ export const AICoachModal: React.FC<AICoachModalProps> = ({ session, isOpen, onC
                       const response = await chatWithCoach(contextMessages, "Process this voice note", base64String);
                       setMessages(prev => [...prev, { role: 'model', text: response, timestamp: getTimeString() }]);
                   } catch (e) {
+                       console.error("Voice Note Error:", e);
                        setMessages(prev => [...prev, { role: 'model', text: "Voice note samajh nahi aaya. Phir se try karo!", timestamp: getTimeString() }]);
                   } finally {
                       setChatLoading(false);
