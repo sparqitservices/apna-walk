@@ -91,7 +91,7 @@ const App: React.FC = () => {
   const [earnedBadges, setEarnedBadges] = useState<Badge[]>([]);
   const [hydration, setHydration] = useState<HydrationLog>({ date: '', currentMl: 0, goalMl: 2500 });
   const [hydrationTip, setHydrationTip] = useState<string>("");
-  const [location, setLocation] = useState<string>("Locating...");
+  const [location, setLocation] = useState<string>("Lucknow, UP"); // Default location
   const [coords, setCoords] = useState<{lat: number, lng: number} | null>(null);
   const [weather, setWeather] = useState<WeatherData | null>(null);
   const [weatherLoading, setWeatherLoading] = useState(false);
@@ -166,8 +166,6 @@ const App: React.FC = () => {
             syncProfile(session.user).then(p => {
                 setProfile(p);
                 saveProfile(p);
-                // NOTE: Do not activate daily tracking here to avoid permission prompts on load
-                // activateDailyTracking(); // Moved to isLoggedIn check
             });
         }
         setAuthLoading(false);
@@ -178,7 +176,6 @@ const App: React.FC = () => {
             syncProfile(session.user).then(p => {
                 setProfile(p);
                 saveProfile(p);
-                // activateDailyTracking(); // Moved to isLoggedIn check
             });
         } else {
             // Check if we were in guest mode before clearing
@@ -207,6 +204,41 @@ const App: React.FC = () => {
     setWeatherLoading(false);
   };
 
+  const useDefaultLocation = () => {
+        // Lucknow Coordinates
+        const defLat = 26.8467;
+        const defLng = 80.9462;
+        setLocation("Lucknow, UP");
+        setCoords({ lat: defLat, lng: defLng });
+        fetchLocalWeather(defLat, defLng);
+  };
+
+  const handleRefreshLocation = () => {
+    if (!navigator.geolocation) {
+        alert("Geolocation is not supported by your browser");
+        return;
+    }
+    
+    setLocation("Locating...");
+    navigator.geolocation.getCurrentPosition(
+        (pos) => {
+            const { latitude, longitude } = pos.coords;
+            setLocation(`${latitude.toFixed(2)}°N, ${longitude.toFixed(2)}°E`);
+            setCoords({ lat: latitude, lng: longitude });
+            fetchLocalWeather(latitude, longitude);
+        },
+        (err) => {
+            console.warn("GPS failed", err);
+            // Revert to default if failed
+            useDefaultLocation();
+            if (err.code === 1) { // PERMISSION_DENIED
+                alert("Please allow location access to get local weather.");
+            }
+        },
+        { timeout: 10000 }
+    );
+  };
+
   useEffect(() => {
     // Only run if user is logged in
     if (!profile.isLoggedIn) return;
@@ -215,43 +247,27 @@ const App: React.FC = () => {
     activateDailyTracking();
 
     // 2. Location Logic
-    const useDefaultLocation = () => {
-        const defLat = 28.6139;
-        const defLng = 77.2090;
-        setLocation("New Delhi");
-        setCoords({ lat: defLat, lng: defLng });
-        fetchLocalWeather(defLat, defLng);
-    };
+    // Default to Lucknow immediately
+    useDefaultLocation();
 
-    const checkLocation = () => {
-        if (settings.enableLocation !== false && navigator.geolocation) {
-            // Don't set loading on mount to avoid flicker if coords exist
-            if(!coords) setWeatherLoading(true);
-            
-            navigator.geolocation.getCurrentPosition(
-                (pos) => {
-                    const { latitude, longitude } = pos.coords;
-                    setLocation(`${latitude.toFixed(2)}°N, ${longitude.toFixed(2)}°E`);
-                    setCoords({ lat: latitude, lng: longitude });
-                    fetchLocalWeather(latitude, longitude);
-                },
-                (err) => {
-                    console.warn("GPS failed", err);
-                    useDefaultLocation();
-                },
-                { timeout: 5000 }
-            );
-        } else if (settings.enableLocation === false) {
-             setLocation("Location Disabled");
-             setWeather(null);
-             setWeatherLoading(false);
-        } else {
-             useDefaultLocation();
-        }
-    };
-    checkLocation();
+    // Check if permission is ALREADY granted (silent check)
+    // If so, update to real location. If prompt needed, do nothing (wait for click).
+    if (navigator.permissions && navigator.permissions.query) {
+        navigator.permissions.query({ name: 'geolocation' }).then((result) => {
+            if (result.state === 'granted') {
+                navigator.geolocation.getCurrentPosition(
+                    (pos) => {
+                        const { latitude, longitude } = pos.coords;
+                        setLocation(`${latitude.toFixed(2)}°N, ${longitude.toFixed(2)}°E`);
+                        setCoords({ lat: latitude, lng: longitude });
+                        fetchLocalWeather(latitude, longitude);
+                    }
+                );
+            }
+        });
+    }
 
-  }, [profile.isLoggedIn, settings.enableLocation]);
+  }, [profile.isLoggedIn]);
 
   // Fetch Hydration Tip when weather is ready
   useEffect(() => {
@@ -556,9 +572,13 @@ const App: React.FC = () => {
                <div className="-ml-2">
                     <ApnaWalkLogo size={36} showText={true} />
                </div>
-               <div className="flex items-center gap-1 pl-1 mt-0.5">
-                   <i className="fa-solid fa-location-dot text-[10px] text-dark-muted"></i>
-                   <p className="text-dark-muted text-xs font-medium truncate max-w-[100px]">{location}</p>
+               <div 
+                    className="flex items-center gap-1 pl-1 mt-0.5 cursor-pointer hover:text-brand-400 transition-colors group"
+                    onClick={(e) => { e.stopPropagation(); handleRefreshLocation(); }}
+                    title="Click to update location"
+               >
+                   <i className="fa-solid fa-location-dot text-[10px] text-dark-muted group-hover:text-brand-400 transition-colors"></i>
+                   <p className="text-dark-muted text-xs font-medium truncate max-w-[100px] group-hover:text-brand-400 transition-colors">{location}</p>
                </div>
            </div>
         </div>
