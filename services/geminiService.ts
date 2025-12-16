@@ -13,6 +13,34 @@ if (!apiKey) {
 const ai = new GoogleGenAI({ apiKey: apiKey || "" });
 const MODEL_ID = "gemini-2.5-flash";
 
+// --- FALLBACK DATA FOR OFFLINE/QUOTA LIMITS ---
+const FALLBACK_INSIGHTS = [
+    {
+        summary: "Quota hit, but you crushed it! Great consistency today.",
+        motivation: "Consistency is key, aur aaj tumne kamaal kar diya!",
+        tips: ["Drink more water", "Stretch your calves", "Sleep early today"]
+    },
+    {
+        summary: "Server is busy, but your legs aren't! Good walk.",
+        motivation: "Rukna mana hai! Bas chalte raho.",
+        tips: ["Check your posture", "Swing your arms", "Breath deeply"]
+    }
+];
+
+const FALLBACK_TIPS = [
+    "Bhai, server tired hai, par tu pani pee le!",
+    "Signal weak hai, motivation strong rakho!",
+    "Quota khatam, par stamina nahi! Pani piyo.",
+    "Technical break chal raha hai, tab tak sip lelo."
+];
+
+const FALLBACK_HEALTH_TIPS = [
+    "Walk more, worry less!",
+    "Sehat hi wealth hai boss.",
+    "Aaj lift nahi, seedhi use karo.",
+    "Thoda aur chal lo, pizza burn hoga."
+];
+
 export const getWalkingInsight = async (session: WalkSession): Promise<AIInsight> => {
   const prompt = `
     I just finished a walking session. Here are my stats:
@@ -58,13 +86,10 @@ export const getWalkingInsight = async (session: WalkSession): Promise<AIInsight
       return JSON.parse(response.text) as AIInsight;
     }
     throw new Error("No data returned");
-  } catch (error) {
+  } catch (error: any) {
     console.error("❌ Gemini Insight Error:", error);
-    return {
-      summary: "Arre bhai! Great walk, keep it up!",
-      motivation: "Thoda aur zor laga, fitness tera wait kar raha hai!",
-      tips: ["Drink pani properly", "Shoulders straight rakhna", "Daily aana, chutti mat lena"]
-    };
+    // Return a random fallback if quota exceeded
+    return FALLBACK_INSIGHTS[Math.floor(Math.random() * FALLBACK_INSIGHTS.length)];
   }
 };
 
@@ -127,7 +152,11 @@ export const chatWithCoach = async (history: {role: string, text: string}[], mes
     } catch (error: any) {
         console.error("❌ Gemini Chat Error:", error);
         
-        // Throw specific error to be caught by UI
+        // Handle Quota Limits Gracefully
+        if (error.status === 429 || (error.message && error.message.includes('429'))) {
+             return "Arre dost! Too many people are asking for advice right now (Quota Limit Reached). Give me a 2-minute chai break and try again!";
+        }
+        
         if (error.message && error.message.includes("API key")) {
              throw new Error("Invalid API Key. Please check Vercel settings.");
         }
@@ -319,7 +348,8 @@ export const getHydrationTip = async (
     return response.text?.trim() || "";
   } catch (error) {
     console.error("❌ Gemini Hydration Error", error);
-    return "";
+    // Return random fallback tip
+    return FALLBACK_TIPS[Math.floor(Math.random() * FALLBACK_TIPS.length)];
   }
 };
 
@@ -392,21 +422,21 @@ export const findLocalEvents = async (city: string): Promise<FitnessEvent[]> => 
         return [];
     } catch (e) {
         console.error("❌ Gemini Event Error", e);
-        // Fallback Mock Data
+        // Fallback Mock Data - Always return this if API fails/quota hits
         return [
             {
-                id: 'mock1', title: 'Sunrise Yoga', date: '2024-05-20', time: '06:00 AM', 
-                location: 'Central Park', type: 'Yoga', attendees: 30, distanceKm: 1.2, 
-                description: 'Start your day with peace and mindfulness.',
-                link: 'https://www.google.com/search?q=Sunrise+Yoga+Events',
-                image: 'yoga'
+                id: 'mock1', title: 'Community Morning Walk', date: new Date().toISOString().split('T')[0], time: '06:00 AM', 
+                location: 'City Central Park', type: 'Walk', attendees: 30, distanceKm: 1.2, 
+                description: 'Join locals for a refreshing morning walk. (Offline Mode)',
+                link: 'https://www.google.com/search?q=Morning+Walk+Events',
+                image: 'walk'
             },
             {
-                id: 'mock2', title: 'City Marathon Prep', date: '2024-05-21', time: '05:30 AM', 
-                location: 'Main Stadium', type: 'Marathon', attendees: 120, distanceKm: 5.0, 
-                description: 'Join the community run for 5k and 10k prep.',
-                link: 'https://www.google.com/search?q=City+Marathon',
-                image: 'marathon'
+                id: 'mock2', title: 'Weekend Yoga Session', date: new Date(Date.now() + 86400000).toISOString().split('T')[0], time: '07:30 AM', 
+                location: 'Community Center', type: 'Yoga', attendees: 120, distanceKm: 5.0, 
+                description: 'Free yoga session for beginners. (Offline Mode)',
+                link: 'https://www.google.com/search?q=Yoga+Events',
+                image: 'yoga'
             }
         ];
     }
@@ -448,6 +478,6 @@ export const getDailyHealthTip = async (
     return response.text?.trim() || "Chalo, thoda walk kar lete hain!";
   } catch (error) {
     console.error("❌ Gemini Health Tip Error", error);
-    return "Health is wealth, chalo walk pe!";
+    return FALLBACK_HEALTH_TIPS[Math.floor(Math.random() * FALLBACK_HEALTH_TIPS.length)];
   }
 };
