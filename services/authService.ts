@@ -1,18 +1,11 @@
 import { supabase } from './supabaseClient';
 import { UserProfile } from '../types';
 
-const getRedirectUrl = () => {
-  // If we are in development (localhost), use the current origin
-  if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-    return window.location.origin;
-  }
-  // In production, force the main domain to prevent issues with Vercel preview URLs
-  // or fallback defaults.
-  return 'https://apnawalk.com'; 
-};
-
 export const signInWithGoogle = async () => {
-  const redirectTo = getRedirectUrl();
+  // Always redirect back to the current domain (e.g., apnawalk.com or localhost:5173)
+  // IMPORTANT: Ensure this URL is added to "Redirect URLs" in Supabase Auth Settings.
+  const redirectTo = window.location.origin;
+  
   console.log("Initiating Google Login with redirect to:", redirectTo);
 
   const { data, error } = await supabase.auth.signInWithOAuth({
