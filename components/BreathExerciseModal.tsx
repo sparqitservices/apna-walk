@@ -211,10 +211,15 @@ export const BreathExerciseModal: React.FC<BreathExerciseModalProps> = ({ isOpen
       <div className="flex-1 flex flex-col items-center justify-center w-full max-w-md relative">
           
           {/* Main Visualizer */}
-          <div className="relative w-72 h-72 flex items-center justify-center mb-12">
+          <div 
+            className="relative w-72 h-72 flex items-center justify-center mb-12 cursor-pointer group touch-manipulation"
+            onClick={toggleTimer}
+            role="button"
+            aria-label={isRunning ? "Stop breathing exercise" : "Start breathing exercise"}
+          >
               {/* Outer Glow Ring */}
               <div 
-                className={`absolute inset-0 rounded-full bg-gradient-to-tr ${technique.gradient} blur-[60px] transition-all ease-in-out`}
+                className={`absolute inset-0 rounded-full bg-gradient-to-tr ${technique.gradient} blur-[60px] transition-all ease-in-out group-hover:opacity-40`}
                 style={{ 
                     transform: isRunning ? `scale(${currentPhase.scale * 1.15})` : 'scale(0.8)',
                     opacity: isRunning ? (currentPhase.scale > 1.0 ? 0.6 : 0.3) : 0.1,
@@ -224,7 +229,7 @@ export const BreathExerciseModal: React.FC<BreathExerciseModalProps> = ({ isOpen
 
               {/* Main Breathing Circle */}
               <div 
-                 className={`w-48 h-48 rounded-full border-4 ${technique.border} ${technique.shadow} flex items-center justify-center relative bg-slate-900/90 backdrop-blur-xl transition-all ease-in-out z-10 shadow-2xl`}
+                 className={`w-48 h-48 rounded-full border-4 ${technique.border} ${technique.shadow} flex items-center justify-center relative bg-slate-900/90 backdrop-blur-xl transition-all ease-in-out z-10 shadow-2xl group-active:scale-95`}
                  style={{ 
                      transform: isRunning ? `scale(${currentPhase.scale})` : 'scale(1)',
                      transitionDuration: isRunning ? `${currentPhase.duration}s` : '1s'
@@ -242,11 +247,12 @@ export const BreathExerciseModal: React.FC<BreathExerciseModalProps> = ({ isOpen
                           <>
                             <span className={`text-2xl font-bold ${technique.color} drop-shadow-md animate-fade-in`}>{currentPhase.text}</span>
                             <span className="text-5xl font-light text-white mt-2 tabular-nums">{secondsLeft}</span>
+                            <span className="text-[10px] text-slate-500 mt-2 font-medium">Tap to Stop</span>
                           </>
                       ) : (
                           <div className="text-center animate-fade-in">
                               <i className={`fa-solid fa-lungs text-3xl ${technique.color} mb-3`}></i>
-                              <p className="text-slate-300 font-medium animate-breathing">Tap Start</p>
+                              <p className="text-slate-300 font-medium animate-breathing">Tap to Start</p>
                           </div>
                       )}
                   </div>
