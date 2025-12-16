@@ -35,7 +35,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onGuest, onSh
         
         {/* Logo Section */}
         <div className="mb-8 animate-fade-in scale-90 sm:scale-100">
-           <ApnaWalkLogo size="medium" />
+           <ApnaWalkLogo size={120} />
         </div>
 
         {/* Auth Buttons */}

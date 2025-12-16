@@ -522,10 +522,10 @@ const App: React.FC = () => {
            </div>
            <div>
                {/* Updated Logo in Header */}
-               <div className="transform scale-[0.4] origin-left -mb-4 -mt-3 -ml-2">
-                    <ApnaWalkLogo size="small" tagline="" minimal={true} />
+               <div className="-ml-2">
+                    <ApnaWalkLogo size={40} showText={true} />
                </div>
-               <div className="flex items-center gap-1 pl-1">
+               <div className="flex items-center gap-1 pl-1 mt-1">
                    <i className="fa-solid fa-location-dot text-[10px] text-dark-muted"></i>
                    <p className="text-dark-muted text-xs font-medium truncate max-w-[100px]">{location}</p>
                </div>

@@ -1,91 +1,92 @@
-import React from 'react';
-import './ApnaWalkLogo.css';
+import React from "react";
 
-interface ApnaWalkLogoProps {
-  size?: 'small' | 'medium' | 'large';
-  tagline?: string;
+export interface ApnaWalkLogoProps {
+  size?: number;
   className?: string;
-  minimal?: boolean; // New prop to toggle background effects
+  showText?: boolean;
 }
 
-export const ApnaWalkLogo: React.FC<ApnaWalkLogoProps> = ({ 
-    size = 'medium', 
-    tagline = "Step Towards a Healthier India",
-    className = "",
-    minimal = false
+export const ApnaWalkLogo: React.FC<ApnaWalkLogoProps> = ({
+  size = 48,
+  className = "",
+  showText = true,
 }) => {
-  const sizes = {
-    small: { fontSize: '1.5rem', iconSize: '24px' },
-    medium: { fontSize: '3rem', iconSize: '50px' },
-    large: { fontSize: '4rem', iconSize: '80px' }
-  };
-
-  // Adjust for mobile screens automatically
-  const currentSize = sizes[size] || sizes.medium;
+  const svgSize = size;
+  
+  // Calculate font sizes proportional to the logo size
+  // Title roughly 45% of icon size, tagline roughly 25%
+  const titleSize = Math.max(16, size * 0.45);
+  const tagSize = Math.max(10, size * 0.25);
 
   return (
-    <div className={`logo-container ${className} ${minimal ? 'p-0' : ''}`}>
-      {/* Background Pulse Rings - Hidden in minimal mode */}
-      {!minimal && (
-        <div className="bg-pulse">
-            <div className="pulse-ring"></div>
-            <div className="pulse-ring"></div>
-            <div className="pulse-ring"></div>
+    <div
+      className={`flex items-center gap-3 ${className}`}
+      role="img"
+      aria-label="Apna Walk logo"
+    >
+      <svg
+        width={svgSize}
+        height={svgSize}
+        viewBox="0 0 64 64"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+        className="shrink-0"
+      >
+        {/* Sun */}
+        <circle cx="48" cy="16" r="8" fill="#FF9800" />
+
+        {/* Hills */}
+        <path
+          d="M0 44C8 36 16 32 24 36C32 40 40 44 48 40C56 36 64 32 64 32V64H0V44Z"
+          fill="#4CAF50"
+        />
+        <path
+          d="M0 48C10 40 20 38 28 42C36 46 44 48 52 44C58 42 64 40 64 40V64H0V48Z"
+          fill="#1B5E20"
+        />
+
+        {/* City skyline - white with low opacity for dark theme visibility */}
+        <g fill="white" opacity="0.2">
+          <rect x="6" y="30" width="4" height="10" />
+          <rect x="12" y="26" width="5" height="14" />
+          <rect x="20" y="28" width="4" height="12" />
+          <rect x="26" y="24" width="6" height="16" />
+          <rect x="34" y="27" width="5" height="13" />
+        </g>
+
+        {/* Walking person - white stroke for dark theme visibility */}
+        <g
+          stroke="white"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          fill="none"
+        >
+          {/* Head */}
+          <circle cx="20" cy="18" r="3" fill="white" stroke="none" />
+          {/* Body */}
+          <line x1="20" y1="21" x2="20" y2="30" />
+          {/* Arms */}
+          <line x1="20" y1="24" x2="15" y2="28" />
+          <line x1="20" y1="24" x2="25" y2="26" />
+          {/* Legs */}
+          <line x1="20" y1="30" x2="16" y2="38" />
+          <line x1="20" y1="30" x2="24" y2="36" />
+        </g>
+      </svg>
+
+      {showText && (
+        <div
+          className="flex flex-col leading-none justify-center"
+        >
+          <span className="font-bold tracking-tight text-white leading-tight" style={{ fontSize: `${titleSize}px` }}>
+            Apna <span className="text-[#FF9800]">Walk</span>
+          </span>
+          <span className="text-slate-400 leading-tight mt-0.5" style={{ fontSize: `${tagSize}px` }}>
+            Walk Towards Fitness
+          </span>
         </div>
       )}
-      
-      {/* Heartbeat Line Background - Hidden in minimal mode */}
-      {!minimal && (
-        <div className="heartbeat-line">
-            <svg className="heartbeat-svg" viewBox="0 0 2000 100" preserveAspectRatio="none">
-            <g className="heartbeat-path">
-                <path d="M0,50 L200,50 L220,30 L240,70 L260,50 L400,50 L420,30 L440,70 L460,50 L600,50 L620,30 L640,70 L660,50 L800,50 L820,30 L840,70 L860,50 L1000,50 L1020,30 L1040,70 L1060,50 L1200,50 L1220,30 L1240,70 L1260,50 L1400,50 L1420,30 L1440,70 L1460,50 L1600,50 L1620,30 L1640,70 L1660,50 L1800,50 L1820,30 L1840,70 L1860,50 L2000,50" 
-                    fill="none" stroke="rgba(255,255,255,0.4)" strokeWidth="3"/>
-            </g>
-            </svg>
-        </div>
-      )}
-      
-      {/* Floating Footsteps - Hidden in minimal mode */}
-      {!minimal && (
-        <div className="footsteps">
-            {[...Array(5)].map((_, i) => (
-            <svg key={i} className="footstep" viewBox="0 0 30 40" fill="rgba(255,255,255,0.4)">
-                <ellipse cx="15" cy="25" rx="10" ry="15"/>
-                <circle cx="10" cy="10" r="4"/>
-                <circle cx="15" cy="8" r="4"/>
-                <circle cx="20" cy="10" r="4"/>
-            </svg>
-            ))}
-        </div>
-      )}
-      
-      {/* Main Logo Text */}
-      <div className="logo-text">
-        <h1 className="brand-name" style={{ fontSize: currentSize.fontSize }}>
-          APNA
-          <svg className="walk-icon" style={{ width: currentSize.iconSize, height: currentSize.iconSize }} viewBox="0 0 50 50">
-            <defs>
-              <linearGradient id="walkGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" style={{ stopColor: 'rgb(var(--brand-400))', stopOpacity: 1 }} />
-                <stop offset="100%" style={{ stopColor: 'rgb(var(--brand-600))', stopOpacity: 1 }} />
-              </linearGradient>
-            </defs>
-            <circle cx="25" cy="12" r="6" fill="url(#walkGrad)"/>
-            <line x1="25" y1="18" x2="25" y2="32" stroke="url(#walkGrad)" strokeWidth="4" strokeLinecap="round"/>
-            <line x1="25" y1="24" x2="18" y2="30" stroke="url(#walkGrad)" strokeWidth="3" strokeLinecap="round"/>
-            <line x1="25" y1="24" x2="32" y2="22" stroke="url(#walkGrad)" strokeWidth="3" strokeLinecap="round"/>
-            <line x1="25" y1="32" x2="20" y2="42" stroke="url(#walkGrad)" strokeWidth="3" strokeLinecap="round"/>
-            <line x1="25" y1="32" x2="30" y2="40" stroke="url(#walkGrad)" strokeWidth="3" strokeLinecap="round"/>
-          </svg>
-          <span className="gradient-text">WALK</span>
-        </h1>
-        {tagline && (
-            <p className="tagline" style={{ fontSize: `calc(${currentSize.fontSize} * 0.3)` }}>
-                {tagline}
-            </p>
-        )}
-      </div>
     </div>
   );
 };
