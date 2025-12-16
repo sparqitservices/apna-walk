@@ -79,6 +79,12 @@ const App: React.FC = () => {
     theme: 'green'
   });
 
+  // Dark Mode State
+  const [isDarkMode, setIsDarkMode] = useState(() => {
+    const saved = localStorage.getItem('strideai_theme_mode');
+    return saved ? saved === 'dark' : true; // Default to dark if not set
+  });
+
   const [history, setHistory] = useState<DailyHistory[]>([]);
   const [historyRange, setHistoryRange] = useState<'week' | 'month'>('week');
   const [sessionSort, setSessionSort] = useState<'recent' | 'longest' | 'steps'>('recent');
@@ -125,6 +131,22 @@ const App: React.FC = () => {
   const notificationIntervalRef = useRef<any>(null);
   const lastWaterCheckRef = useRef<number>(Date.now());
 
+  // --- Theme Toggle Logic ---
+  useEffect(() => {
+    const root = document.documentElement;
+    if (isDarkMode) {
+      root.classList.add('dark');
+      localStorage.setItem('strideai_theme_mode', 'dark');
+    } else {
+      root.classList.remove('dark');
+      localStorage.setItem('strideai_theme_mode', 'light');
+    }
+  }, [isDarkMode]);
+
+  const toggleThemeMode = () => {
+    setIsDarkMode(!isDarkMode);
+  };
+
   // --- Auth & Initial Load Logic ---
   useEffect(() => {
     // 1. Check local storage first
@@ -144,7 +166,8 @@ const App: React.FC = () => {
             syncProfile(session.user).then(p => {
                 setProfile(p);
                 saveProfile(p);
-                activateDailyTracking();
+                // NOTE: Do not activate daily tracking here to avoid permission prompts on load
+                // activateDailyTracking(); // Moved to isLoggedIn check
             });
         }
         setAuthLoading(false);
@@ -155,7 +178,7 @@ const App: React.FC = () => {
             syncProfile(session.user).then(p => {
                 setProfile(p);
                 saveProfile(p);
-                activateDailyTracking();
+                // activateDailyTracking(); // Moved to isLoggedIn check
             });
         } else {
             // Check if we were in guest mode before clearing
@@ -167,10 +190,16 @@ const App: React.FC = () => {
         }
     });
 
+    // PWA Install Prompt Listener
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      setInstallPrompt(e);
+    });
+
     return () => subscription.unsubscribe();
   }, []);
 
-  // --- Location Logic ---
+  // --- Location & Permission Logic (ONLY AFTER LOGIN) ---
   const fetchLocalWeather = async (lat: number, lng: number) => {
     setWeatherLoading(true);
     const data = await getWeather(lat, lng);
@@ -179,6 +208,13 @@ const App: React.FC = () => {
   };
 
   useEffect(() => {
+    // Only run if user is logged in
+    if (!profile.isLoggedIn) return;
+
+    // 1. Activate Pedometer (Motion Sensors)
+    activateDailyTracking();
+
+    // 2. Location Logic
     const useDefaultLocation = () => {
         const defLat = 28.6139;
         const defLng = 77.2090;
@@ -215,11 +251,7 @@ const App: React.FC = () => {
     };
     checkLocation();
 
-    window.addEventListener('beforeinstallprompt', (e) => {
-        e.preventDefault();
-        setInstallPrompt(e);
-    });
-  }, []);
+  }, [profile.isLoggedIn, settings.enableLocation]);
 
   // Fetch Hydration Tip when weather is ready
   useEffect(() => {
@@ -418,8 +450,7 @@ const App: React.FC = () => {
     const newProfile = { name: 'Guest', email: '', isLoggedIn: true, isGuest: true };
     setProfile(newProfile);
     saveProfile(newProfile);
-    activateDailyTracking();
-    requestNotificationPermission(); 
+    // requestNotificationPermission(); // Delayed to allow user context
     checkTutorial();
   };
 
@@ -515,17 +546,17 @@ const App: React.FC = () => {
       )}
 
       {/* Top Bar */}
-      <div className="flex justify-between items-center p-6 bg-gradient-to-b from-dark-card to-transparent">
+      <div className="flex justify-between items-center p-6 bg-gradient-to-b from-dark-card to-transparent border-b border-dark-border/10">
         <div className="flex items-center gap-3" onClick={() => setShowSettings(true)}>
-           <div className={`w-10 h-10 rounded-full border-2 border-slate-700 flex items-center justify-center font-bold cursor-pointer hover:border-brand-500 transition-all overflow-hidden ${profile.isGuest ? 'bg-slate-600 text-slate-300' : 'bg-brand-600 text-white shadow-lg shadow-brand-500/20'}`}>
+           <div className={`w-10 h-10 rounded-full border-2 border-dark-border flex items-center justify-center font-bold cursor-pointer hover:border-brand-500 transition-all overflow-hidden ${profile.isGuest ? 'bg-slate-600 text-slate-300' : 'bg-brand-600 text-white shadow-lg shadow-brand-500/20'}`}>
                 {profile.avatar ? <img src={profile.avatar} alt="Profile" className="w-full h-full object-cover" /> : (profile.isGuest ? <i className="fa-solid fa-user"></i> : profile.name.charAt(0).toUpperCase())}
            </div>
            <div>
                {/* Updated Logo in Header */}
                <div className="-ml-2">
-                    <ApnaWalkLogo size={40} showText={true} />
+                    <ApnaWalkLogo size={36} showText={true} />
                </div>
-               <div className="flex items-center gap-1 pl-1 mt-1">
+               <div className="flex items-center gap-1 pl-1 mt-0.5">
                    <i className="fa-solid fa-location-dot text-[10px] text-dark-muted"></i>
                    <p className="text-dark-muted text-xs font-medium truncate max-w-[100px]">{location}</p>
                </div>
@@ -533,23 +564,33 @@ const App: React.FC = () => {
         </div>
         <div className="flex gap-2">
             {installPrompt && (
-                <button onClick={handleInstall} className="w-10 h-10 rounded-full bg-dark-card text-brand-400 border border-brand-500/30 flex items-center justify-center animate-pulse"><i className="fa-solid fa-download"></i></button>
+                <button onClick={handleInstall} className="w-10 h-10 rounded-full bg-dark-card text-brand-400 border border-brand-500/30 flex items-center justify-center animate-pulse shadow-md"><i className="fa-solid fa-download"></i></button>
             )}
-            <button onClick={() => setShowSettings(true)} className="w-10 h-10 rounded-full bg-dark-card border border-slate-700 flex items-center justify-center text-dark-muted hover:text-dark-text hover:bg-slate-700 transition-colors"><i className="fa-solid fa-gear"></i></button>
+            
+            {/* Theme Toggle Button */}
+            <button 
+              onClick={toggleThemeMode}
+              className="w-10 h-10 rounded-full bg-dark-card border border-dark-border flex items-center justify-center text-dark-muted hover:text-dark-text hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors shadow-sm"
+              aria-label="Toggle Dark Mode"
+            >
+              <i className={`fa-solid ${isDarkMode ? 'fa-sun' : 'fa-moon'}`}></i>
+            </button>
+
+            <button onClick={() => setShowSettings(true)} className="w-10 h-10 rounded-full bg-dark-card border border-dark-border flex items-center justify-center text-dark-muted hover:text-dark-text hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors shadow-sm"><i className="fa-solid fa-gear"></i></button>
         </div>
       </div>
 
       <main className="px-4 flex flex-col items-center">
         
         {motionError && (
-            <div className="w-full max-w-md bg-red-900/20 border border-red-500/50 text-red-200 p-3 rounded-lg text-sm mb-4 text-center animate-pulse">
+            <div className="w-full max-w-md bg-red-900/20 border border-red-500/50 text-red-400 p-3 rounded-lg text-sm mb-4 text-center animate-pulse">
                 <i className="fa-solid fa-triangle-exclamation mr-2"></i>
                 {motionError} <span className="opacity-75 block text-xs mt-1">Tap start to request permission.</span>
             </div>
         )}
         
         {!motionPermissionGranted && !profile.isGuest && (
-             <div className="w-full max-w-md bg-brand-500/10 border border-brand-500/30 text-brand-200 p-3 rounded-lg text-sm mb-4 text-center cursor-pointer" onClick={() => activateDailyTracking()}>
+             <div className="w-full max-w-md bg-brand-500/10 border border-brand-500/30 text-brand-500 p-3 rounded-lg text-sm mb-4 text-center cursor-pointer" onClick={() => activateDailyTracking()}>
                 <i className="fa-solid fa-person-walking mr-2"></i>
                 Tap here to enable automatic step counting
              </div>
@@ -644,34 +685,34 @@ const App: React.FC = () => {
 
         <div className="w-full max-w-md mb-8">
             <div className="flex justify-between items-center mb-4 px-2">
-                <h3 className="font-bold text-lg text-white">Activity History</h3>
-                <div className="bg-slate-800 rounded-full p-1 flex">
-                    <button onClick={() => setHistoryRange('week')} className={`text-xs px-3 py-1 rounded-full font-medium transition-all ${historyRange === 'week' ? 'bg-brand-600 text-white' : 'text-slate-400'}`}>Week</button>
-                    <button onClick={() => setHistoryRange('month')} className={`text-xs px-3 py-1 rounded-full font-medium transition-all ${historyRange === 'month' ? 'bg-brand-600 text-white' : 'text-slate-400'}`}>Month</button>
+                <h3 className="font-bold text-lg text-dark-text">Activity History</h3>
+                <div className="bg-dark-card border border-dark-border rounded-full p-1 flex">
+                    <button onClick={() => setHistoryRange('week')} className={`text-xs px-3 py-1 rounded-full font-medium transition-all ${historyRange === 'week' ? 'bg-brand-600 text-white' : 'text-dark-muted hover:text-dark-text'}`}>Week</button>
+                    <button onClick={() => setHistoryRange('month')} className={`text-xs px-3 py-1 rounded-full font-medium transition-all ${historyRange === 'month' ? 'bg-brand-600 text-white' : 'text-dark-muted hover:text-dark-text'}`}>Month</button>
                 </div>
             </div>
-            <div className="bg-dark-card p-6 rounded-3xl border border-slate-800 shadow-xl">
+            <div className="bg-dark-card p-6 rounded-3xl border border-dark-border shadow-xl">
                 <div className="h-48 w-full mb-6">
                     <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={analytics.chartData}>
                         <XAxis dataKey="date" tickFormatter={(val) => val.substring(5)} axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 10 }} dy={10} />
-                        <Tooltip cursor={{ fill: 'rgba(255,255,255,0.05)' }} contentStyle={{ backgroundColor: 'var(--card-color)', border: 'none', borderRadius: '8px', color: 'var(--text-color)' }} />
+                        <Tooltip cursor={{ fill: 'rgba(255,255,255,0.05)' }} contentStyle={{ backgroundColor: 'var(--card-color)', border: '1px solid var(--border-color)', borderRadius: '8px', color: 'var(--text-color)' }} />
                         <Bar dataKey="steps" radius={[4, 4, 4, 4]}>
                             {analytics.chartData.map((entry, index) => (
-                                <Cell key={`cell-${index}`} fill={entry.steps > settings.stepGoal ? '#22c55e' : '#334155'} />
+                                <Cell key={`cell-${index}`} fill={entry.steps > settings.stepGoal ? '#22c55e' : '#64748b'} />
                             ))}
                         </Bar>
                     </BarChart>
                     </ResponsiveContainer>
                 </div>
                 <div className="grid grid-cols-2 gap-3 mb-6">
-                    <div className="bg-slate-800/50 p-3 rounded-xl border border-slate-700 flex flex-col items-center text-center">
-                        <span className="text-[10px] text-slate-400 font-bold uppercase">Best Day</span>
-                        <span className="text-xl font-bold text-white">{analytics.bestDay.steps.toLocaleString()}</span>
+                    <div className="bg-slate-800/50 dark:bg-slate-800/50 bg-slate-200/50 p-3 rounded-xl border border-dark-border flex flex-col items-center text-center">
+                        <span className="text-[10px] text-dark-muted font-bold uppercase">Best Day</span>
+                        <span className="text-xl font-bold text-dark-text">{analytics.bestDay.steps.toLocaleString()}</span>
                     </div>
-                    <div className="bg-slate-800/50 p-3 rounded-xl border border-slate-700 flex flex-col items-center text-center">
-                        <span className="text-[10px] text-slate-400 font-bold uppercase">Longest Walk</span>
-                        <span className="text-xl font-bold text-white">{(analytics.longestSession.distance / 1000).toFixed(2)} km</span>
+                    <div className="bg-slate-800/50 dark:bg-slate-800/50 bg-slate-200/50 p-3 rounded-xl border border-dark-border flex flex-col items-center text-center">
+                        <span className="text-[10px] text-dark-muted font-bold uppercase">Longest Walk</span>
+                        <span className="text-xl font-bold text-dark-text">{(analytics.longestSession.distance / 1000).toFixed(2)} km</span>
                     </div>
                 </div>
             </div>
@@ -683,7 +724,7 @@ const App: React.FC = () => {
         
         <button 
             onClick={() => setShowHydrationModal(true)} 
-            className="fixed bottom-24 left-6 w-12 h-12 bg-slate-800 rounded-full shadow-xl border border-slate-700 flex items-center justify-center overflow-hidden z-40 hover:scale-105 hover:bg-slate-700 transition-all group"
+            className="fixed bottom-24 left-6 w-12 h-12 bg-dark-card rounded-full shadow-xl border border-dark-border flex items-center justify-center overflow-hidden z-40 hover:scale-105 hover:bg-slate-100 dark:hover:bg-slate-700 transition-all group"
         >
             <div 
                 className="absolute bottom-0 left-0 w-full bg-blue-500/30 transition-all duration-1000 ease-out group-hover:bg-blue-500/40"
@@ -692,7 +733,7 @@ const App: React.FC = () => {
             <i className="fa-solid fa-glass-water text-xl text-blue-400 relative z-10 drop-shadow-sm"></i>
         </button>
 
-        <button onClick={() => setShowBreath(true)} className="fixed bottom-6 left-6 w-12 h-12 bg-slate-800 rounded-full shadow-xl border border-slate-700 flex items-center justify-center text-cyan-400 z-40 hover:scale-105 hover:bg-slate-700 transition-all"><i className="fa-solid fa-lungs text-xl"></i></button>
+        <button onClick={() => setShowBreath(true)} className="fixed bottom-6 left-6 w-12 h-12 bg-dark-card rounded-full shadow-xl border border-dark-border flex items-center justify-center text-cyan-400 z-40 hover:scale-105 hover:bg-slate-100 dark:hover:bg-slate-700 transition-all"><i className="fa-solid fa-lungs text-xl"></i></button>
 
       </main>
 

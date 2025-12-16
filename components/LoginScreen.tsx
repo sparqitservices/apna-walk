@@ -27,22 +27,23 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onGuest, onSh
   };
 
   return (
-    <div className="min-h-screen bg-dark-bg flex flex-col items-center justify-center p-6 relative overflow-hidden">
-      {/* Background Ambience */}
-      <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-brand-900/40 via-dark-bg to-dark-bg z-0"></div>
+    <div className="min-h-screen bg-dark-bg flex flex-col items-center justify-center p-6 relative overflow-hidden transition-colors duration-500">
+      {/* Background Ambience - Dynamic for Light/Dark */}
+      <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-brand-500/10 via-dark-bg to-dark-bg z-0"></div>
       
       <div className="w-full max-w-md relative z-10 flex flex-col items-center">
         
         {/* Logo Section */}
-        <div className="mb-8 animate-fade-in scale-90 sm:scale-100">
-           <ApnaWalkLogo size={120} />
+        <div className="mb-12 animate-fade-in scale-110">
+           <ApnaWalkLogo size={48} />
+           <p className="text-dark-muted text-xs font-medium tracking-widest uppercase mt-2 text-center">Walk Towards Fitness</p>
         </div>
 
         {/* Auth Buttons */}
         <div className="w-full space-y-4 animate-message-pop" style={{ animationDelay: '0.2s' }}>
           
           {errorMsg && (
-              <div className="bg-red-500/10 border border-red-500/50 text-red-200 text-xs p-3 rounded-lg text-center mb-2">
+              <div className="bg-red-500/10 border border-red-500/50 text-red-400 text-xs p-3 rounded-lg text-center mb-2">
                   {errorMsg}
               </div>
           )}
@@ -51,7 +52,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onGuest, onSh
           <button 
             onClick={handleGoogleLogin}
             disabled={isLoading}
-            className="w-full bg-white hover:bg-slate-100 text-slate-800 font-medium py-4 rounded-xl shadow-lg transition-all transform active:scale-95 flex items-center justify-center gap-3 relative overflow-hidden group"
+            className="w-full bg-white dark:bg-white text-slate-800 font-medium py-4 rounded-xl shadow-lg hover:shadow-xl transition-all transform active:scale-95 flex items-center justify-center gap-3 relative overflow-hidden group border border-slate-200"
           >
              {isLoading ? (
                 <i className="fa-solid fa-circle-notch fa-spin text-slate-600"></i>
@@ -65,17 +66,17 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onGuest, onSh
 
           <div className="relative py-4">
             <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-slate-700"></div>
+                <div className="w-full border-t border-dark-border/50"></div>
             </div>
             <div className="relative flex justify-center text-xs">
-                <span className="bg-dark-bg px-2 text-slate-500 uppercase tracking-wider">Or</span>
+                <span className="bg-dark-bg px-2 text-dark-muted uppercase tracking-wider">Or</span>
             </div>
           </div>
 
           {/* Guest Button */}
           <button 
             onClick={onGuest}
-            className="w-full bg-slate-800/50 hover:bg-slate-800 text-slate-300 font-medium py-4 rounded-xl border border-slate-700 transition-all active:scale-95 flex items-center justify-center gap-2"
+            className="w-full bg-slate-200/50 dark:bg-slate-800/50 hover:bg-slate-300 dark:hover:bg-slate-800 text-dark-text font-medium py-4 rounded-xl border border-dark-border transition-all active:scale-95 flex items-center justify-center gap-2"
           >
             <i className="fa-solid fa-user-secret"></i> Start Walking (Guest Mode)
           </button>
@@ -84,10 +85,10 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onGuest, onSh
 
         {/* Footer */}
         <div className="mt-12 text-center space-y-4 animate-fade-in" style={{ animationDelay: '0.5s' }}>
-             <p className="text-xs text-slate-600">
+             <p className="text-xs text-dark-muted">
                 By continuing, you agree to our <button onClick={() => onShowLegal('terms')} className="text-brand-500 hover:underline">Terms</button> & <button onClick={() => onShowLegal('privacy')} className="text-brand-500 hover:underline">Privacy Policy</button>.
              </p>
-             <p className="text-xs text-slate-700">Powered by Sparq IT Service</p>
+             <p className="text-xs text-dark-muted opacity-70">Powered by Sparq IT Service</p>
         </div>
       </div>
     </div>
