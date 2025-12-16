@@ -170,7 +170,7 @@
   font-size: 0.3em; /* Relative to brand name size */
 }
 
-/* Gradient text effect */
+/* Gradient text effect for headings */
 .gradient-text {
   background: linear-gradient(90deg, #fff, rgb(var(--brand-400)), rgb(var(--brand-500)), #fff);
   background-size: 200% auto;
@@ -183,4 +183,43 @@
 @keyframes gradient-shift {
   0% { background-position: 0% center; }
   100% { background-position: 200% center; }
+}
+
+/* Premium Shimmer Effect for 'Walk' text */
+.walk-text-shimmer {
+  background: linear-gradient(
+    110deg,
+    #F57C00 0%,     /* Deep Orange */
+    #FF9800 20%,    /* Base Orange */
+    #FFC107 40%,    /* Amber */
+    #FFFFFF 50%,    /* Bright White Highlight */
+    #FFC107 60%,    /* Amber */
+    #FF9800 80%,    /* Base Orange */
+    #F57C00 100%    /* Deep Orange */
+  );
+  background-size: 200% auto;
+  
+  /* Text Clip Magic */
+  -webkit-background-clip: text;
+  background-clip: text;
+  
+  /* Transparent fill to show gradient, but fallback color for safety */
+  -webkit-text-fill-color: transparent;
+  color: #FF9800; 
+
+  /* Animation */
+  animation: shimmer-flow 3.5s linear infinite;
+  
+  /* Ensure transform doesn't clip */
+  display: inline-block; 
+  padding-bottom: 2px; /* Prevent descender clipping */
+}
+
+@keyframes shimmer-flow {
+  0% {
+    background-position: -200% center;
+  }
+  100% {
+    background-position: 200% center;
+  }
 }

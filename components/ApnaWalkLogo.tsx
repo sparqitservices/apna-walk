@@ -1,4 +1,5 @@
 import React from "react";
+import "./ApnaWalkLogo.css";
 
 export interface ApnaWalkLogoProps {
   size?: number;
@@ -80,7 +81,7 @@ export const ApnaWalkLogo: React.FC<ApnaWalkLogoProps> = ({
           className="flex flex-col leading-none justify-center"
         >
           <span className="font-bold tracking-tight text-white leading-tight" style={{ fontSize: `${titleSize}px` }}>
-            Apna <span className="text-[#FF9800]">Walk</span>
+            Apna <span className="walk-text-shimmer">Walk</span>
           </span>
           <span className="text-slate-400 leading-tight mt-0.5" style={{ fontSize: `${tagSize}px` }}>
             Walk Towards Fitness
