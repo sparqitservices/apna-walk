@@ -22,6 +22,7 @@ import { ActivePlanCard } from './components/ActivePlanCard';
 import { HydrationCard } from './components/HydrationCard';
 import { HydrationModal } from './components/HydrationModal';
 import { EventsModal } from './components/EventsModal';
+import { SocialHub } from './components/SocialHub'; // NEW IMPORT
 import { LegalModal, DocType } from './components/LegalModal';
 import { StatsDetailModal } from './components/StatsDetailModal'; 
 import { ApnaWalkLogo } from './components/ApnaWalkLogo'; 
@@ -138,6 +139,7 @@ const App: React.FC = () => {
   const [showCoach, setShowCoach] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showEvents, setShowEvents] = useState(false);
+  const [showSocialHub, setShowSocialHub] = useState(false); // NEW STATE
   const [legalDoc, setLegalDoc] = useState<DocType>(null);
   const [currentSession, setCurrentSession] = useState<WalkSession | null>(null);
   const [selectedStat, setSelectedStat] = useState<'calories' | 'distance' | 'time' | null>(null);
@@ -804,13 +806,13 @@ const App: React.FC = () => {
                             <div className="text-slate-400 text-xs">AI-curated schedule</div>
                         </button>
                         
-                        <button onClick={() => setShowEvents(true)} className="bg-gradient-to-r from-apna-navy to-slate-900 border border-slate-700 p-3 rounded-2xl flex flex-col justify-center items-start shadow-lg hover:border-blue-500/30 transition-all group h-28 relative overflow-hidden">
+                        <button onClick={() => setShowSocialHub(true)} className="bg-gradient-to-r from-apna-navy to-slate-900 border border-slate-700 p-3 rounded-2xl flex flex-col justify-center items-start shadow-lg hover:border-blue-500/30 transition-all group h-28 relative overflow-hidden">
                             <div className="absolute inset-0 bg-blue-500/5 opacity-0 group-hover:opacity-100 transition-opacity"></div>
                             <div className="w-8 h-8 rounded-full bg-blue-900/30 flex items-center justify-center text-blue-400 group-hover:scale-110 transition-transform mb-2 relative z-10">
                                 <i className="fa-solid fa-users"></i>
                             </div>
-                            <div className="text-white font-bold text-sm relative z-10">Community Events</div>
-                            <div className="text-slate-400 text-xs relative z-10">Join local marathons</div>
+                            <div className="text-white font-bold text-sm relative z-10">Community Hub</div>
+                            <div className="text-slate-400 text-xs relative z-10">Groups & Challenges</div>
                         </button>
                     </div>
                 )}
@@ -992,6 +994,7 @@ const App: React.FC = () => {
       <SettingsModal isOpen={showSettings} onClose={() => setShowSettings(false)} settings={settings} profile={profile} onSave={handleSaveData} onLogout={handleLogout} onLoginRequest={() => { setShowSettings(false); handleLogout(); }} />
       <ShareModal isOpen={showShareModal} onClose={() => setShowShareModal(false)} text={`I just walked ${dailySteps} steps with ApnaWalk!`} url={window.location.href} />
       <TutorialModal isOpen={showTutorial} onClose={closeTutorial} />
+      <SocialHub isOpen={showSocialHub} onClose={() => setShowSocialHub(false)} profile={profile} /> 
       <RhythmDetailModal 
           isOpen={showRhythmDetail} 
           onClose={() => setShowRhythmDetail(false)} 

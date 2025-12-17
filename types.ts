@@ -121,3 +121,61 @@ export interface AdminUserView {
   total_steps?: number; // Calculated field
   today_steps?: number; // Calculated field
 }
+
+// --- Social & Community Types ---
+
+export interface WalkingGroup {
+  id: string;
+  name: string;
+  description: string;
+  location: string;
+  privacy: 'public' | 'private';
+  member_limit: number;
+  created_by: string;
+  member_count?: number; // Joined view
+  is_member?: boolean;
+}
+
+export interface GroupMember {
+  id: string;
+  user_id: string;
+  role: 'admin' | 'member';
+  status: 'active' | 'pending';
+  profile?: {
+    full_name: string;
+    avatar_url: string;
+  }
+}
+
+export interface GroupPost {
+  id: string;
+  user_id: string;
+  content: string;
+  created_at: string;
+  profile?: {
+    full_name: string;
+    avatar_url: string;
+  }
+}
+
+export interface Challenge {
+  id: string;
+  name: string;
+  description: string;
+  type: 'monthly' | 'custom';
+  target_steps: number;
+  start_date: string;
+  end_date: string;
+  participant_count?: number;
+  is_joined?: boolean;
+}
+
+export interface ChallengeParticipant {
+  user_id: string;
+  current_steps: number;
+  rank?: number;
+  profile?: {
+    full_name: string;
+    avatar_url: string;
+  }
+}
