@@ -5,31 +5,39 @@ import { WalkingGroup, Challenge, GroupMember, GroupPost, ChallengeParticipant }
 // --- GROUPS ---
 
 export const fetchGroups = async (userId?: string): Promise<WalkingGroup[]> => {
-    const { data, error } = await supabase
-        .from('walking_groups')
-        .select('*, group_members(count)')
-        .order('created_at', { ascending: false });
+    try {
+        const { data, error } = await supabase
+            .from('walking_groups')
+            .select('*, group_members(count)')
+            .order('created_at', { ascending: false });
 
-    if (error) throw error;
-    
-    let userMemberships: any[] = [];
-    if (userId) {
-        const { data: membershipData } = await supabase
-            .from('group_members')
-            .select('group_id, status')
-            .eq('user_id', userId);
-        userMemberships = membershipData || [];
+        if (error) throw error;
+        
+        let userMemberships: any[] = [];
+        if (userId) {
+            const { data: membershipData, error: mError } = await supabase
+                .from('group_members')
+                .select('group_id, status')
+                .eq('user_id', userId);
+            
+            if (!mError) {
+                userMemberships = membershipData || [];
+            }
+        }
+
+        return data.map((g: any) => {
+            const membership = userMemberships.find(m => m.group_id === g.id);
+            return {
+                ...g,
+                member_count: g.group_members?.[0]?.count || 0,
+                is_member: !!membership && membership.status === 'active',
+                is_pending: !!membership && membership.status === 'pending'
+            };
+        });
+    } catch (e) {
+        console.error("fetchGroups error:", e);
+        return [];
     }
-
-    return data.map((g: any) => {
-        const membership = userMemberships.find(m => m.group_id === g.id);
-        return {
-            ...g,
-            member_count: g.group_members[0]?.count || 0,
-            is_member: !!membership && membership.status === 'active',
-            is_pending: !!membership && membership.status === 'pending'
-        };
-    });
 };
 
 export const createGroup = async (group: Partial<WalkingGroup>) => {
@@ -76,20 +84,33 @@ export const deleteGroup = async (groupId: string) => {
 };
 
 export const requestJoinGroup = async (groupId: string, userId: string) => {
-    // Use upsert to handle cases where a record might already exist (e.g., previously rejected or left)
-    // This targets the unique constraint on (group_id, user_id)
-    const { error } = await supabase
+    // 1. Try a standard insert first. 
+    // Sometimes 'upsert' causes schema cache issues in PostgREST when columns are newly added.
+    const { error: insertError } = await supabase
         .from('group_members')
-        .upsert({ 
+        .insert([{ 
             group_id: groupId, 
             user_id: userId, 
             role: 'member',
             status: 'pending' 
-        }, { onConflict: 'group_id, user_id' });
+        }]);
         
-    if (error) {
-        console.error("Supabase Error joining group:", error);
-        throw error;
+    // 2. If it's a duplicate key error (23505), it means the record exists. 
+    // We update it to 'pending' just in case they were previously rejected or left.
+    if (insertError && (insertError.code === '23505' || insertError.message.includes('unique'))) {
+        const { error: updateError } = await supabase
+            .from('group_members')
+            .update({ status: 'pending' })
+            .match({ group_id: groupId, user_id: userId });
+            
+        if (updateError) {
+            console.error("Update fallback failed:", updateError);
+            throw updateError;
+        }
+    } else if (insertError) {
+        // If the error is about the 'status' column specifically, it's likely a schema mismatch.
+        console.error("Supabase Error joining group:", insertError);
+        throw insertError;
     }
 };
 
@@ -176,7 +197,7 @@ export const fetchChallenges = async (userId?: string): Promise<Challenge[]> => 
 
     return data.map((c: any) => ({
         ...c,
-        participant_count: c.challenge_participants[0]?.count || 0,
+        participant_count: c.challenge_participants?.[0]?.count || 0,
         is_joined: userChallengeIds.includes(c.id)
     }));
 };
