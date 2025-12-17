@@ -186,16 +186,25 @@ export const SocialHub: React.FC<SocialHubProps> = ({ isOpen, onClose, profile }
       try {
           await approveMember(m.id);
           
-          // 1. Remove from local pending list
+          // 1. Instant local removal from pending list
           setPendingRequests(prev => prev.filter(r => r.id !== m.id));
           
-          // 2. Update selected group state to show the user as "active" in our heads
+          // 2. Instant local update of member count in the sidebar groups list
+          setGroups(prev => prev.map(g => 
+              g.id === selectedGroup?.id 
+              ? { ...g, member_count: (g.member_count || 0) + 1 } 
+              : g
+          ));
+
+          // 3. Update the selected group view instantly
+          if (selectedGroup) {
+              setSelectedGroup(prev => prev ? { ...prev, member_count: (prev.member_count || 0) + 1 } : null);
+          }
+          
           alert(`${m.profile?.full_name} is now a member of ${selectedGroup?.name}!`);
           
-          // 3. Refresh sidebar groups and pending counts
-          await loadData();
-          
-          // 4. Refresh posts/members in current view
+          // 4. Refresh to sync with DB
+          loadData();
           if (selectedGroup) {
               const posts = await fetchGroupPosts(selectedGroup.id);
               setGroupFeed(posts);
@@ -616,7 +625,7 @@ export const SocialHub: React.FC<SocialHubProps> = ({ isOpen, onClose, profile }
                                     value={inviteId}
                                     onChange={e => setInviteId(e.target.value)}
                                     placeholder="Enter Friend's Profile ID to Invite..." 
-                                    className="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-orange-500"
+                                    className="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-brand-500"
                                 />
                                 <button onClick={() => { inviteToChallenge(selectedChallenge.id, inviteId); setInviteId(''); alert("Invite sent!"); }} className="bg-orange-500 text-white px-6 rounded-xl font-bold text-xs uppercase transition-all active:scale-95">Invite</button>
                             </div>
