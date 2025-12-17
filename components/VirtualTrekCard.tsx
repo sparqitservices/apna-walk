@@ -92,7 +92,7 @@ export const VirtualTrekCard: React.FC<VirtualTrekCardProps> = ({ totalLifetimeS
   const { current, percent, stepsLeft, completed } = progressData;
 
   return (
-    <div className="w-full max-w-md mb-8 relative group overflow-hidden rounded-3xl shadow-xl shadow-black/20">
+    <div className="w-full max-w-md h-full min-h-[300px] relative group overflow-hidden rounded-3xl shadow-xl shadow-black/20 flex flex-col justify-between">
        
        {/* Background Image */}
        <div className="absolute inset-0 z-0">
@@ -104,27 +104,29 @@ export const VirtualTrekCard: React.FC<VirtualTrekCardProps> = ({ totalLifetimeS
           <div className="absolute inset-0 bg-gradient-to-t from-dark-card via-dark-card/80 to-transparent"></div>
        </div>
 
-       <div className="relative z-10 p-6">
-          <div className="flex justify-between items-start mb-4">
-             <div>
-                <div className="flex items-center gap-2 mb-1">
-                    <span className="bg-brand-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">
-                        Current Expedition
-                    </span>
-                </div>
-                <h3 className="text-white font-bold text-xl leading-tight">{current.name}</h3>
-                <p className="text-brand-400 text-sm font-medium"><i className="fa-solid fa-location-dot mr-1"></i> {current.location}</p>
-             </div>
-             {completed && (
-                 <div className="w-10 h-10 rounded-full bg-yellow-500 flex items-center justify-center text-dark-bg shadow-lg animate-bounce">
-                     <i className="fa-solid fa-trophy"></i>
+       <div className="relative z-10 p-6 flex flex-col h-full justify-between">
+          <div>
+              <div className="flex justify-between items-start mb-4">
+                 <div>
+                    <div className="flex items-center gap-2 mb-1">
+                        <span className="bg-brand-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">
+                            Current Expedition
+                        </span>
+                    </div>
+                    <h3 className="text-white font-bold text-xl leading-tight">{current.name}</h3>
+                    <p className="text-brand-400 text-sm font-medium"><i className="fa-solid fa-location-dot mr-1"></i> {current.location}</p>
                  </div>
-             )}
-          </div>
+                 {completed && (
+                     <div className="w-10 h-10 rounded-full bg-yellow-500 flex items-center justify-center text-dark-bg shadow-lg animate-bounce">
+                         <i className="fa-solid fa-trophy"></i>
+                     </div>
+                 )}
+              </div>
 
-          <p className="text-slate-300 text-xs mb-4 line-clamp-2 opacity-80">
-              {current.description}
-          </p>
+              <p className="text-slate-300 text-xs mb-4 line-clamp-2 opacity-80">
+                  {current.description}
+              </p>
+          </div>
 
           <div className="space-y-2">
              <div className="flex justify-between text-xs font-bold">

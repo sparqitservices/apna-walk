@@ -772,33 +772,28 @@ const App: React.FC = () => {
         )}
 
         {/* --- INFORMATION GRID LAYOUT --- */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full max-w-4xl mx-auto">
+        {/* Simplified grid to ensure equal heights for all cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full max-w-4xl mx-auto items-stretch">
             
-            {/* Column 1 */}
-            <div className="flex flex-col gap-6">
-                <RhythmGuide />
-                
-                {settings.enableLocation && (coords || weatherLoading) && (
-                    <WeatherCard 
-                        weather={weather} 
-                        loading={weatherLoading} 
-                        onRefresh={() => coords && fetchLocalWeather(coords.lat, coords.lng)}
-                        onClick={() => setShowWeatherDetail(true)}
-                    />
-                )}
-            </div>
-
-            {/* Column 2 */}
-            <div className="flex flex-col gap-6">
-                <HydrationCard 
-                    data={hydration} 
-                    onClick={() => setShowHydrationModal(true)} 
-                    onQuickAdd={handleQuickHydration}
-                    recommendation={hydrationTip}
+            <RhythmGuide />
+            
+            <HydrationCard 
+                data={hydration} 
+                onClick={() => setShowHydrationModal(true)} 
+                onQuickAdd={handleQuickHydration}
+                recommendation={hydrationTip}
+            />
+            
+            {settings.enableLocation && (coords || weatherLoading) && (
+                <WeatherCard 
+                    weather={weather} 
+                    loading={weatherLoading} 
+                    onRefresh={() => coords && fetchLocalWeather(coords.lat, coords.lng)}
+                    onClick={() => setShowWeatherDetail(true)}
                 />
-                
-                <VirtualTrekCard totalLifetimeSteps={totalLifetimeSteps} />
-            </div>
+            )}
+            
+            <VirtualTrekCard totalLifetimeSteps={totalLifetimeSteps} />
         </div>
 
         {/* --- FULL WIDTH SECTIONS --- */}

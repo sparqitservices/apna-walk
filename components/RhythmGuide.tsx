@@ -79,7 +79,7 @@ export const RhythmGuide: React.FC = () => {
   };
 
   return (
-    <div className="w-full max-w-md bg-dark-card border border-slate-800 p-5 rounded-3xl mb-6 shadow-lg relative overflow-hidden transition-all">
+    <div className="w-full max-w-md h-full min-h-[260px] bg-dark-card border border-slate-800 p-5 rounded-3xl shadow-lg relative overflow-hidden transition-all flex flex-col justify-between">
       
       {/* Background Pulse Effect */}
       {isPlaying && (

@@ -31,7 +31,7 @@ export const WeatherCard: React.FC<WeatherCardProps> = ({ weather, loading, onRe
 
   if (loading) {
     return (
-      <div className="w-full max-w-md bg-dark-card border border-slate-800 p-6 rounded-3xl mb-8 shadow-lg relative overflow-hidden min-h-[220px] flex flex-col justify-center">
+      <div className="w-full max-w-md h-full min-h-[300px] bg-dark-card border border-slate-800 p-6 rounded-3xl shadow-lg relative overflow-hidden flex flex-col justify-center">
         <div className="flex items-center gap-5 w-full animate-pulse">
             <div className="w-16 h-16 rounded-full bg-slate-800 shrink-0"></div>
             <div className="flex-1 space-y-4">
@@ -52,7 +52,7 @@ export const WeatherCard: React.FC<WeatherCardProps> = ({ weather, loading, onRe
   return (
     <div 
         onClick={onClick}
-        className="w-full max-w-md bg-gradient-to-br from-dark-card to-slate-900 border border-slate-700 p-6 rounded-3xl mb-8 flex flex-col justify-between shadow-xl relative overflow-hidden group cursor-pointer transition-transform active:scale-[0.98] min-h-[220px]"
+        className="w-full max-w-md h-full min-h-[300px] bg-gradient-to-br from-dark-card to-slate-900 border border-slate-700 p-6 rounded-3xl flex flex-col justify-between shadow-xl relative overflow-hidden group cursor-pointer transition-transform active:scale-[0.98]"
     >
         {/* Background Accent */}
         <div className={`absolute -right-10 -top-10 w-48 h-48 rounded-full opacity-10 blur-3xl transition-colors duration-1000 ${color.replace('text-', 'bg-')}`}></div>

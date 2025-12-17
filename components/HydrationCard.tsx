@@ -34,7 +34,7 @@ export const HydrationCard: React.FC<HydrationCardProps> = ({ data, onClick, onQ
   return (
     <div 
         onClick={onClick}
-        className="w-full max-w-md bg-dark-card border border-blue-500/20 rounded-3xl mb-8 relative overflow-hidden group cursor-pointer shadow-lg shadow-blue-900/5 hover:border-blue-500/40 transition-all active:scale-[0.99]"
+        className="w-full max-w-md h-full min-h-[260px] bg-dark-card border border-blue-500/20 rounded-3xl relative overflow-hidden group cursor-pointer shadow-lg shadow-blue-900/5 hover:border-blue-500/40 transition-all active:scale-[0.99] flex flex-col justify-between"
     >
         {/* Background Water Fill - Rising Animation */}
         <div 
@@ -65,7 +65,7 @@ export const HydrationCard: React.FC<HydrationCardProps> = ({ data, onClick, onQ
         </div>
 
         {/* Main Content */}
-        <div className="relative z-10 p-5">
+        <div className="relative z-10 p-5 flex flex-col h-full justify-between">
             <div className="flex justify-between items-start">
                 
                 {/* Left Side: Icon & Stats */}
