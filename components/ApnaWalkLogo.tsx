@@ -26,9 +26,9 @@ export const ApnaWalkLogo: React.FC<ApnaWalkLogoProps> = ({
     >
       {/* Text Only Logo */}
       <div className="flex flex-col leading-none justify-center items-start">
-          <span className="font-black tracking-tight text-dark-text leading-none flex items-baseline gap-1" style={{ fontSize: `${textSize}px` }}>
+          <span className="font-black tracking-tight text-white leading-none flex items-baseline gap-1 drop-shadow-md" style={{ fontSize: `${textSize}px` }}>
             Apna 
-            <span className="bg-gradient-to-r from-brand-500 to-brand-400 bg-clip-text text-transparent">
+            <span className="bg-gradient-to-r from-apna-orange to-apna-amber bg-clip-text text-transparent">
                 Walk
             </span>
           </span>

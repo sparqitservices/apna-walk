@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>ApnaWalk</title>
     <link rel="manifest" href="./manifest.json" />
-    <meta name="theme-color" content="#0f172a" />
+    <meta name="theme-color" content="#00695C" />
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <!-- Leaflet Map CSS & JS -->
@@ -25,6 +25,15 @@
                 500: 'rgb(var(--brand-500) / <alpha-value>)',
                 600: 'rgb(var(--brand-600) / <alpha-value>)',
                 900: 'rgb(var(--brand-900) / <alpha-value>)',
+              },
+              // New Professional Palette
+              apna: {
+                teal: '#00695C',      /* Headers & Nav */
+                orange: '#FF9800',    /* CTAs */
+                amber: '#FFA726',     /* Accents */
+                navy: '#263238',      /* Text/Dark BG */
+                success: '#66BB6A',
+                gray: '#F5F5F5'
               },
               // These map to CSS variables that flip based on the .dark class
               dark: {
@@ -66,29 +75,29 @@
     </script>
     <style>
       :root {
-        /* LIGHT MODE (Default) */
-        --bg-color: #f1f5f9;       /* Slate 100 */
-        --card-color: #ffffff;     /* White */
-        --text-color: #0f172a;     /* Slate 900 */
-        --muted-color: #64748b;    /* Slate 500 */
-        --border-color: #cbd5e1;   /* Slate 300 */
+        /* LIGHT MODE - Professional Wellness Palette */
+        --bg-color: #F5F5F5;       /* Cool Gray */
+        --card-color: #FFFFFF;     /* Pure White */
+        --text-color: #212121;     /* Text Primary */
+        --muted-color: #757575;    /* Text Secondary */
+        --border-color: #E0E0E0;   /* Divider */
 
-        /* Brand Colors (Dynamic) */
-        --brand-50: 240 253 244;
-        --brand-100: 220 252 231;
-        --brand-400: 74 222 128;
-        --brand-500: 34 197 94;
-        --brand-600: 22 163 74;
-        --brand-900: 20 83 45;
+        /* Primary Green (#4CAF50) Scales */
+        --brand-50: 232 245 233;   /* #E8F5E9 */
+        --brand-100: 200 230 201;  /* #C8E6C9 (Light Green) */
+        --brand-400: 102 187 106;  /* #66BB6A (Success Green) */
+        --brand-500: 76 175 80;    /* #4CAF50 (Primary Green) */
+        --brand-600: 56 142 60;    /* #388E3C */
+        --brand-900: 27 94 32;     /* #1B5E20 */
       }
 
-      /* DARK MODE OVERRIDES */
+      /* DARK MODE OVERRIDES - Deep Navy Base */
       html.dark {
-        --bg-color: #0f172a;       /* Slate 900 */
-        --card-color: #1e293b;     /* Slate 800 */
-        --text-color: #f8fafc;     /* Slate 50 */
-        --muted-color: #94a3b8;    /* Slate 400 */
-        --border-color: #334155;   /* Slate 700 */
+        --bg-color: #1a2327;       /* Deep Navy (Darkened) */
+        --card-color: #263238;     /* Deep Navy (Base) */
+        --text-color: #ECEFF1;     /* Light Gray/Blue */
+        --muted-color: #B0BEC5;    /* Blue Gray */
+        --border-color: #37474F;   /* Lighter Navy */
       }
       
       body {

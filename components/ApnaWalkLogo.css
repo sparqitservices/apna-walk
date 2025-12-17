@@ -36,19 +36,21 @@
   width: 200px; 
   height: 200px; 
   animation-delay: 0s; 
+  border-color: rgba(76, 175, 80, 0.2); /* Primary Green */
 }
 
 .pulse-ring:nth-child(2) { 
   width: 280px; 
   height: 280px; 
   animation-delay: 1s; 
-  border-color: rgb(var(--brand-400) / 0.2);
+  border-color: rgba(255, 152, 0, 0.2); /* Primary Orange */
 }
 
 .pulse-ring:nth-child(3) { 
   width: 360px; 
   height: 360px; 
   animation-delay: 2s; 
+  border-color: rgba(76, 175, 80, 0.1);
 }
 
 @keyframes pulse-expand {
@@ -187,15 +189,16 @@
 
 /* Premium Shimmer Effect for 'Walk' text */
 .walk-text-shimmer {
+  /* Updated to Primary Orange (#FF9800) range */
   background: linear-gradient(
     110deg,
     #F57C00 0%,     /* Deep Orange */
-    #FF9800 20%,    /* Base Orange */
-    #FFC107 40%,    /* Amber */
+    #FF9800 20%,    /* Primary Orange */
+    #FFB74D 40%,    /* Light Orange */
     #FFFFFF 50%,    /* Bright White Highlight */
-    #FFC107 60%,    /* Amber */
-    #FF9800 80%,    /* Base Orange */
-    #F57C00 100%    /* Deep Orange */
+    #FFB74D 60%,    
+    #FF9800 80%,    
+    #F57C00 100%    
   );
   background-size: 200% auto;
   

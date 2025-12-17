@@ -33,9 +33,11 @@ import { supabase } from './services/supabaseClient';
 import { signOut, syncProfile } from './services/authService';
 import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer, Cell, YAxis } from 'recharts';
 
+// THEMES Updated to match Professional Palette
 const THEMES = {
   green: {
-    50: '240 253 244', 100: '220 252 231', 400: '74 222 128', 500: '34 197 94', 600: '22 163 74', 900: '20 83 45'
+    // Primary Green #4CAF50 Scale
+    50: '232 245 233', 100: '200 230 201', 400: '102 187 106', 500: '76 175 80', 600: '56 142 60', 900: '27 94 32'
   },
   blue: {
     50: '239 246 255', 100: '219 234 254', 400: '96 165 250', 500: '59 130 246', 600: '37 99 235', 900: '30 58 138'
@@ -579,10 +581,10 @@ const App: React.FC = () => {
           </div>
       )}
 
-      {/* Top Bar */}
-      <div className="flex justify-between items-center p-6 bg-gradient-to-b from-dark-card to-transparent border-b border-dark-border/10">
+      {/* Top Bar - Updated to Dark Teal for Professional Look */}
+      <div className="flex justify-between items-center p-6 bg-apna-teal text-white border-b border-apna-teal/50 shadow-md">
         <div className="flex items-center gap-3" onClick={() => setShowSettings(true)}>
-           <div className={`w-10 h-10 rounded-full border-2 border-dark-border flex items-center justify-center font-bold cursor-pointer hover:border-brand-500 transition-all overflow-hidden ${profile.isGuest ? 'bg-slate-600 text-slate-300' : 'bg-brand-600 text-white shadow-lg shadow-brand-500/20'}`}>
+           <div className={`w-10 h-10 rounded-full border-2 border-white/20 flex items-center justify-center font-bold cursor-pointer hover:border-brand-500 transition-all overflow-hidden ${profile.isGuest ? 'bg-slate-600 text-slate-300' : 'bg-brand-600 text-white shadow-lg shadow-brand-500/20'}`}>
                 {profile.avatar ? <img src={profile.avatar} alt="Profile" className="w-full h-full object-cover" /> : (profile.isGuest ? <i className="fa-solid fa-user"></i> : profile.name.charAt(0).toUpperCase())}
            </div>
            <div>
@@ -591,34 +593,34 @@ const App: React.FC = () => {
                     <ApnaWalkLogo size={36} showText={true} />
                </div>
                <div 
-                    className="flex items-center gap-1 pl-1 mt-0.5 cursor-pointer hover:text-brand-400 transition-colors group"
+                    className="flex items-center gap-1 pl-1 mt-0.5 cursor-pointer hover:text-brand-100 transition-colors group"
                     onClick={(e) => { e.stopPropagation(); handleRefreshLocation(); }}
                     title="Click to update location"
                >
-                   <i className="fa-solid fa-location-dot text-[10px] text-dark-muted group-hover:text-brand-400 transition-colors"></i>
-                   <p className="text-dark-muted text-xs font-medium truncate max-w-[100px] group-hover:text-brand-400 transition-colors">{location}</p>
+                   <i className="fa-solid fa-location-dot text-[10px] text-brand-200 group-hover:text-white transition-colors"></i>
+                   <p className="text-brand-100 text-xs font-medium truncate max-w-[100px] group-hover:text-white transition-colors">{location}</p>
                </div>
            </div>
         </div>
         <div className="flex gap-2">
             {installPrompt && (
-                <button onClick={handleInstall} className="w-10 h-10 rounded-full bg-dark-card text-brand-400 border border-brand-500/30 flex items-center justify-center animate-pulse shadow-md"><i className="fa-solid fa-download"></i></button>
+                <button onClick={handleInstall} className="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 text-white border border-white/20 flex items-center justify-center animate-pulse shadow-md"><i className="fa-solid fa-download"></i></button>
             )}
             
             {/* Theme Toggle Button */}
             <button 
               onClick={toggleThemeMode}
-              className="w-10 h-10 rounded-full bg-dark-card border border-dark-border flex items-center justify-center text-dark-muted hover:text-dark-text hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors shadow-sm"
+              className="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 border border-white/20 flex items-center justify-center text-white transition-colors shadow-sm"
               aria-label="Toggle Dark Mode"
             >
               <i className={`fa-solid ${isDarkMode ? 'fa-sun' : 'fa-moon'}`}></i>
             </button>
 
-            <button onClick={() => setShowSettings(true)} className="w-10 h-10 rounded-full bg-dark-card border border-dark-border flex items-center justify-center text-dark-muted hover:text-dark-text hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors shadow-sm"><i className="fa-solid fa-gear"></i></button>
+            <button onClick={() => setShowSettings(true)} className="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 border border-white/20 flex items-center justify-center text-white transition-colors shadow-sm"><i className="fa-solid fa-gear"></i></button>
         </div>
       </div>
 
-      <main className="px-4 flex flex-col items-center">
+      <main className="px-4 flex flex-col items-center pt-6">
         
         {motionError && (
             <div className="w-full max-w-md bg-red-900/20 border border-red-500/50 text-red-400 p-3 rounded-lg text-sm mb-4 text-center animate-pulse">
@@ -628,14 +630,14 @@ const App: React.FC = () => {
         )}
         
         {!motionPermissionGranted && !profile.isGuest && (
-             <div className="w-full max-w-md bg-brand-500/10 border border-brand-500/30 text-brand-500 p-3 rounded-lg text-sm mb-4 text-center cursor-pointer" onClick={() => activateDailyTracking()}>
+             <div className="w-full max-w-md bg-brand-500/10 border border-brand-500/30 text-brand-600 p-3 rounded-lg text-sm mb-4 text-center cursor-pointer" onClick={() => activateDailyTracking()}>
                 <i className="fa-solid fa-person-walking mr-2"></i>
                 Tap here to enable automatic step counting
              </div>
         )}
 
         {isTrackingSession && (
-            <div className={`w-full max-w-md px-3 py-1 rounded-full text-xs flex items-center justify-center mb-4 gap-2 border ${gpsError ? 'bg-orange-500/10 border-orange-500/20 text-orange-400' : 'bg-brand-500/10 border-brand-500/20 text-brand-400'}`}>
+            <div className={`w-full max-w-md px-3 py-1 rounded-full text-xs flex items-center justify-center mb-4 gap-2 border ${gpsError ? 'bg-orange-500/10 border-orange-500/20 text-orange-400' : 'bg-brand-500/10 border-brand-500/20 text-brand-600'}`}>
                 {gpsError ? <span>Indoor Workout Mode</span> : <span>GPS Active ({route.length} pts)</span>}
             </div>
         )}
@@ -657,12 +659,13 @@ const App: React.FC = () => {
         />
 
         <div className="flex gap-4 mb-6 w-full max-w-md">
+          {/* Main CTA - Updated to Primary Orange (#FF9800) */}
           <button 
             onClick={handleToggleTracking}
             className={`flex-1 py-4 rounded-2xl font-bold text-lg shadow-lg transform transition-all active:scale-95 flex items-center justify-center gap-2 ${
               isTrackingSession 
-                ? 'bg-yellow-500/10 text-yellow-500 border border-yellow-500/50 hover:bg-yellow-500/20' 
-                : 'bg-brand-600 text-white shadow-brand-500/20 hover:bg-brand-500 animate-breathing hover:animate-none'
+                ? 'bg-red-500 text-white border border-red-600 hover:bg-red-600' 
+                : 'bg-apna-orange text-white shadow-apna-orange/20 hover:bg-orange-600 animate-breathing hover:animate-none'
             }`}
           >
             {isTrackingSession ? <><i className="fa-solid fa-stop"></i> End Session</> : <><i className="fa-solid fa-play"></i> Start Workout</>}
@@ -672,7 +675,7 @@ const App: React.FC = () => {
         {!isTrackingSession && !profile.isGuest && (
             activePlan ? <ActivePlanCard plan={activePlan} onRemove={handleRemovePlan} /> : (
             <div className="grid grid-cols-2 gap-4 w-full max-w-md mb-6">
-                <button onClick={() => setShowPlanner(true)} className="bg-gradient-to-r from-slate-800 to-slate-900 border border-slate-700 p-3 rounded-2xl flex flex-col justify-center items-start shadow-lg hover:border-brand-500/30 transition-all group h-28">
+                <button onClick={() => setShowPlanner(true)} className="bg-gradient-to-r from-apna-navy to-slate-900 border border-slate-700 p-3 rounded-2xl flex flex-col justify-center items-start shadow-lg hover:border-brand-500/30 transition-all group h-28">
                     <div className="w-8 h-8 rounded-full bg-brand-900/30 flex items-center justify-center text-brand-400 group-hover:scale-110 transition-transform mb-2">
                         <i className="fa-solid fa-calendar-days"></i>
                     </div>
@@ -680,7 +683,7 @@ const App: React.FC = () => {
                     <div className="text-slate-400 text-xs">AI-curated schedule</div>
                 </button>
                 
-                <button onClick={() => setShowEvents(true)} className="bg-gradient-to-r from-slate-800 to-slate-900 border border-slate-700 p-3 rounded-2xl flex flex-col justify-center items-start shadow-lg hover:border-blue-500/30 transition-all group h-28 relative overflow-hidden">
+                <button onClick={() => setShowEvents(true)} className="bg-gradient-to-r from-apna-navy to-slate-900 border border-slate-700 p-3 rounded-2xl flex flex-col justify-center items-start shadow-lg hover:border-blue-500/30 transition-all group h-28 relative overflow-hidden">
                     <div className="absolute inset-0 bg-blue-500/5 opacity-0 group-hover:opacity-100 transition-opacity"></div>
                     <div className="w-8 h-8 rounded-full bg-blue-900/30 flex items-center justify-center text-blue-400 group-hover:scale-110 transition-transform mb-2 relative z-10">
                         <i className="fa-solid fa-users"></i>
@@ -707,7 +710,7 @@ const App: React.FC = () => {
         <DailyQuote />
         
         {dailySteps > 0 && (
-             <button onClick={handleShare} className="mb-8 flex items-center gap-2 text-sm font-medium text-brand-400 bg-brand-400/10 px-4 py-2 rounded-full hover:bg-brand-400/20 transition-colors border border-brand-500/20">
+             <button onClick={handleShare} className="mb-8 flex items-center gap-2 text-sm font-medium text-brand-600 bg-brand-50 px-4 py-2 rounded-full hover:bg-brand-100 transition-colors border border-brand-200">
                 <i className="fa-solid fa-share-nodes"></i> Share Today's Progress
              </button>
         )}
@@ -737,18 +740,18 @@ const App: React.FC = () => {
                         <Tooltip cursor={{ fill: 'rgba(255,255,255,0.05)' }} contentStyle={{ backgroundColor: 'var(--card-color)', border: '1px solid var(--border-color)', borderRadius: '8px', color: 'var(--text-color)' }} />
                         <Bar dataKey="steps" radius={[4, 4, 4, 4]}>
                             {analytics.chartData.map((entry, index) => (
-                                <Cell key={`cell-${index}`} fill={entry.steps > settings.stepGoal ? '#22c55e' : '#64748b'} />
+                                <Cell key={`cell-${index}`} fill={entry.steps > settings.stepGoal ? '#4CAF50' : '#B0BEC5'} />
                             ))}
                         </Bar>
                     </BarChart>
                     </ResponsiveContainer>
                 </div>
                 <div className="grid grid-cols-2 gap-3 mb-6">
-                    <div className="bg-slate-800/50 dark:bg-slate-800/50 bg-slate-200/50 p-3 rounded-xl border border-dark-border flex flex-col items-center text-center">
+                    <div className="bg-slate-100 dark:bg-slate-800/50 p-3 rounded-xl border border-dark-border flex flex-col items-center text-center">
                         <span className="text-[10px] text-dark-muted font-bold uppercase">Best Day</span>
                         <span className="text-xl font-bold text-dark-text">{analytics.bestDay.steps.toLocaleString()}</span>
                     </div>
-                    <div className="bg-slate-800/50 dark:bg-slate-800/50 bg-slate-200/50 p-3 rounded-xl border border-dark-border flex flex-col items-center text-center">
+                    <div className="bg-slate-100 dark:bg-slate-800/50 p-3 rounded-xl border border-dark-border flex flex-col items-center text-center">
                         <span className="text-[10px] text-dark-muted font-bold uppercase">Longest Walk</span>
                         <span className="text-xl font-bold text-dark-text">{(analytics.longestSession.distance / 1000).toFixed(2)} km</span>
                     </div>
