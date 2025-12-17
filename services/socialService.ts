@@ -4,7 +4,8 @@ import { WalkingGroup, Challenge, GroupMember, GroupPost, ChallengeParticipant }
 
 // --- GROUPS ---
 
-export const fetchGroups = async (): Promise<WalkingGroup[]> => {
+export const fetchGroups = async (userId?: string): Promise<WalkingGroup[]> => {
+    // Fetch all groups and the count of members
     const { data, error } = await supabase
         .from('walking_groups')
         .select('*, group_members(count)')
@@ -12,10 +13,19 @@ export const fetchGroups = async (): Promise<WalkingGroup[]> => {
 
     if (error) throw error;
     
-    // Map count properly
+    let userGroupIds: string[] = [];
+    if (userId) {
+        const { data: membershipData } = await supabase
+            .from('group_members')
+            .select('group_id')
+            .eq('user_id', userId);
+        userGroupIds = membershipData?.map(m => m.group_id) || [];
+    }
+
     return data.map((g: any) => ({
         ...g,
-        member_count: g.group_members[0]?.count || 0
+        member_count: g.group_members[0]?.count || 0,
+        is_member: userGroupIds.includes(g.id)
     }));
 };
 
@@ -26,13 +36,19 @@ export const createGroup = async (group: Partial<WalkingGroup>) => {
         .select()
         .single();
     if (error) throw error;
+    
+    // Auto-join creator as admin
+    if (data && group.created_by) {
+        await joinGroup(data.id, group.created_by, 'admin');
+    }
+    
     return data;
 };
 
-export const joinGroup = async (groupId: string, userId: string) => {
+export const joinGroup = async (groupId: string, userId: string, role: string = 'member') => {
     const { error } = await supabase
         .from('group_members')
-        .insert([{ group_id: groupId, user_id: userId, role: 'member' }]);
+        .insert([{ group_id: groupId, user_id: userId, role }]);
     if (error) throw error;
 };
 
@@ -70,21 +86,31 @@ export const createPost = async (groupId: string, userId: string, content: strin
 
 // --- CHALLENGES ---
 
-export const fetchChallenges = async (): Promise<Challenge[]> => {
+export const fetchChallenges = async (userId?: string): Promise<Challenge[]> => {
     const { data, error } = await supabase
         .from('challenges')
         .select('*, challenge_participants(count)')
-        .order('end_date', { ascending: true }); // Show ending soonest first
+        .order('end_date', { ascending: true });
 
     if (error) throw error;
+
+    let userChallengeIds: string[] = [];
+    if (userId) {
+        const { data: participationData } = await supabase
+            .from('challenge_participants')
+            .select('challenge_id')
+            .eq('user_id', userId);
+        userChallengeIds = participationData?.map(p => p.challenge_id) || [];
+    }
+
     return data.map((c: any) => ({
         ...c,
-        participant_count: c.challenge_participants[0]?.count || 0
+        participant_count: c.challenge_participants[0]?.count || 0,
+        is_joined: userChallengeIds.includes(c.id)
     }));
 };
 
 export const joinChallenge = async (challengeId: string, userId: string) => {
-    // Check if daily_logs exist to sync immediately (handled by trigger, but we insert row)
     const { error } = await supabase
         .from('challenge_participants')
         .insert([{ challenge_id: challengeId, user_id: userId }]);
@@ -110,18 +136,15 @@ export const fetchLeaderboard = async (challengeId: string): Promise<ChallengePa
 };
 
 export const createSystemMonthlyChallenge = async () => {
-    // This would typically be a cron job, but we can check/create on app load for demo
     const date = new Date();
     const monthName = date.toLocaleString('default', { month: 'long' });
     const name = `${monthName} ${date.getFullYear()} Challenge`;
     
-    // Check if exists
-    const { data } = await supabase.from('challenges').select('id').eq('name', name).single();
+    const { data } = await supabase.from('challenges').select('id').eq('name', name).maybeSingle();
     if (!data) {
-        // Create it
         await supabase.from('challenges').insert([{
             name: name,
-            description: `Walk 200,000 steps in ${monthName}!`,
+            description: `Walk 200,000 steps in ${monthName}! Chalo dikha do apna dum!`,
             type: 'monthly',
             target_steps: 200000,
             start_date: new Date(date.getFullYear(), date.getMonth(), 1).toISOString(),
