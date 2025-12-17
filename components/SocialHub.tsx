@@ -161,7 +161,11 @@ export const SocialHub: React.FC<SocialHubProps> = ({ isOpen, onClose, profile }
           loadData();
       } catch(e: any) { 
           const msg = e?.message || "Check your connection.";
-          alert(`Could not send join request. ${msg}`); 
+          if (msg.includes("Database schema")) {
+              alert("DATABASE UPDATE REQUIRED:\nPlease run the SQL provided by the assistant in your Supabase SQL editor to enable the 'status' column.");
+          } else {
+              alert(`Could not send join request. ${msg}`); 
+          }
           console.error("Join group error:", e);
       }
   };

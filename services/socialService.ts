@@ -15,6 +15,7 @@ export const fetchGroups = async (userId?: string): Promise<WalkingGroup[]> => {
         
         let userMemberships: any[] = [];
         if (userId) {
+            // Fetch only necessary columns to avoid schema cache issues if others are missing
             const { data: membershipData, error: mError } = await supabase
                 .from('group_members')
                 .select('group_id, status')
@@ -84,33 +85,36 @@ export const deleteGroup = async (groupId: string) => {
 };
 
 export const requestJoinGroup = async (groupId: string, userId: string) => {
-    // 1. Try a standard insert first. 
-    // Sometimes 'upsert' causes schema cache issues in PostgREST when columns are newly added.
-    const { error: insertError } = await supabase
+    // We try to insert with explicit columns. 
+    // If the DB hasn't been updated yet, this will fail with the 'status' column error.
+    const { error } = await supabase
         .from('group_members')
-        .insert([{ 
+        .insert({ 
             group_id: groupId, 
             user_id: userId, 
             role: 'member',
             status: 'pending' 
-        }]);
+        });
         
-    // 2. If it's a duplicate key error (23505), it means the record exists. 
-    // We update it to 'pending' just in case they were previously rejected or left.
-    if (insertError && (insertError.code === '23505' || insertError.message.includes('unique'))) {
-        const { error: updateError } = await supabase
-            .from('group_members')
-            .update({ status: 'pending' })
-            .match({ group_id: groupId, user_id: userId });
+    if (error) {
+        // Handle duplicate requests (already exists)
+        if (error.code === '23505' || error.message.toLowerCase().includes('unique')) {
+            const { error: updateError } = await supabase
+                .from('group_members')
+                .update({ status: 'pending' })
+                .match({ group_id: groupId, user_id: userId });
             
-        if (updateError) {
-            console.error("Update fallback failed:", updateError);
-            throw updateError;
+            if (updateError) throw updateError;
+            return;
         }
-    } else if (insertError) {
-        // If the error is about the 'status' column specifically, it's likely a schema mismatch.
-        console.error("Supabase Error joining group:", insertError);
-        throw insertError;
+
+        // If it's the specific "column not found" error, provide a helpful message
+        if (error.message.includes('status')) {
+            throw new Error("Database schema out of date. Please run the SQL migration to add the 'status' column to 'group_members'.");
+        }
+
+        console.error("Join Group Error:", error);
+        throw error;
     }
 };
 
@@ -197,7 +201,7 @@ export const fetchChallenges = async (userId?: string): Promise<Challenge[]> => 
 
     return data.map((c: any) => ({
         ...c,
-        participant_count: c.challenge_participants?.[0]?.count || 0,
+        participant_count: c.challenge_participants[0]?.count || 0,
         is_joined: userChallengeIds.includes(c.id)
     }));
 };
