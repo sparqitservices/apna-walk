@@ -1,3 +1,4 @@
+
 .logo-container {
   position: relative;
   text-align: center;
@@ -187,16 +188,17 @@
   100% { background-position: 200% center; }
 }
 
-/* Premium Shimmer Effect for 'Walk' text */
+/* Indian Flag Tricolor Shimmer Effect for 'Walk' text */
 .walk-text-shimmer {
-  /* Premium Gold/Orange Gradient */
+  /* Tiranga Palette: Saffron, White, Green */
   background: linear-gradient(
     110deg,
-    #e65100 0%,      /* Deepest Orange */
-    #f57c00 30%,     /* Dark Orange */
-    #ffffff 50%,     /* Sharp White Glint */
-    #f57c00 70%,     /* Dark Orange */
-    #e65100 100%     /* Deepest Orange */
+    #FF9933 0%,    /* Saffron */
+    #FF9933 20%,
+    #FFFFFF 40%,   /* White */
+    #FFFFFF 60%,
+    #138808 80%,   /* Green */
+    #138808 100%
   );
   
   background-size: 200% auto;
@@ -207,17 +209,17 @@
   
   /* Transparent fill to show gradient */
   -webkit-text-fill-color: transparent;
-  color: #FF9800; 
+  color: #FF9933; 
 
   /* Animation */
-  animation: shimmer-flow 4s linear infinite;
+  animation: shimmer-flow 5s linear infinite;
   
   /* Layout */
   display: inline-block; 
   padding-bottom: 2px;
   
-  /* Subtle glow for extra premium feel */
-  filter: drop-shadow(0 2px 8px rgba(245, 124, 0, 0.4));
+  /* Subtle shadow to make it pop against any background */
+  filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.4));
 }
 
 @keyframes shimmer-flow {
