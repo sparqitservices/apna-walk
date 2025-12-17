@@ -22,6 +22,8 @@ export interface UserProfile {
   isLoggedIn: boolean;
   isGuest?: boolean;
   avatar?: string; // Base64 image string
+  id?: string; // Supabase Auth ID
+  role?: 'user' | 'admin';
 }
 
 export interface UserSettings {
@@ -105,4 +107,16 @@ export interface FitnessEvent {
   image?: string;
   link: string; // URL to external event page
   isJoined?: boolean;
+}
+
+// --- Admin Types ---
+export interface AdminUserView {
+  id: string;
+  full_name: string;
+  email: string;
+  avatar_url?: string;
+  last_location?: string;
+  last_active?: string;
+  total_steps?: number; // Calculated field
+  today_steps?: number; // Calculated field
 }

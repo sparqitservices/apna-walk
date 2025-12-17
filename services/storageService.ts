@@ -1,4 +1,5 @@
-import { DailyHistory, UserSettings, Badge, WalkSession, UserProfile, WeeklyPlan, HydrationLog } from '../types';
+import { DailyHistory, UserSettings, Badge, WalkSession, UserProfile, WeeklyPlan, HydrationLog, AdminUserView } from '../types';
+import { supabase } from './supabaseClient';
 
 const KEYS = {
   HISTORY: 'strideai_history',
@@ -125,4 +126,127 @@ export const getHydration = (): HydrationLog => {
 
 export const saveHydration = (log: HydrationLog) => {
     localStorage.setItem(KEYS.HYDRATION, JSON.stringify(log));
+};
+
+// --- CLOUD SYNC METHODS (SUPABASE) ---
+
+export const syncDailyStatsToCloud = async (userId: string, date: string, steps: number, calories: number, distance: number) => {
+    try {
+        const { error } = await supabase
+            .from('daily_logs')
+            .upsert({ 
+                user_id: userId, 
+                date, 
+                steps, 
+                calories, 
+                distance_meters: distance,
+                updated_at: new Date().toISOString()
+            }, { onConflict: 'user_id, date' });
+            
+        if (error) console.error("Sync Error (Daily Stats):", error);
+    } catch (e) {
+        console.error("Sync Exception:", e);
+    }
+};
+
+export const syncSessionToCloud = async (userId: string, session: WalkSession) => {
+    try {
+        const { error } = await supabase
+            .from('walking_sessions')
+            .upsert({
+                id: session.id,
+                user_id: userId,
+                start_time: session.startTime,
+                duration_seconds: session.durationSeconds,
+                steps: session.steps,
+                distance_meters: session.distanceMeters,
+                route_data: session.route ? JSON.stringify(session.route) : null,
+                created_at: new Date().toISOString()
+            });
+            
+        if (error) console.error("Sync Error (Session):", error);
+    } catch (e) {
+        console.error("Sync Exception:", e);
+    }
+};
+
+export const syncLocationToCloud = async (userId: string, locationName: string) => {
+    try {
+        const { error } = await supabase
+            .from('profiles')
+            .update({ 
+                last_location: locationName,
+                last_active: new Date().toISOString()
+            })
+            .eq('id', userId);
+            
+        if (error) console.error("Sync Error (Location):", error);
+    } catch (e) {
+        console.error("Sync Exception:", e);
+    }
+};
+
+// --- ADMIN FETCH METHODS ---
+
+export const fetchAllUsersAdmin = async (): Promise<AdminUserView[]> => {
+    try {
+        // 1. Get all profiles
+        const { data: profiles, error: profileError } = await supabase
+            .from('profiles')
+            .select('*');
+            
+        if (profileError) throw profileError;
+
+        // 2. Get today's stats for everyone
+        const today = new Date().toISOString().split('T')[0];
+        const { data: dailyLogs, error: logsError } = await supabase
+            .from('daily_logs')
+            .select('user_id, steps')
+            .eq('date', today);
+
+        if (logsError) throw logsError;
+
+        // Merge data
+        return profiles.map((p: any) => {
+             const todayLog = dailyLogs?.find((l: any) => l.user_id === p.id);
+             return {
+                 id: p.id,
+                 full_name: p.full_name || 'Unknown',
+                 email: p.email,
+                 avatar_url: p.avatar_url,
+                 last_location: p.last_location || 'Unknown',
+                 last_active: p.last_active,
+                 today_steps: todayLog ? todayLog.steps : 0
+             };
+        });
+    } catch (e) {
+        console.error("Admin Fetch Error:", e);
+        return [];
+    }
+};
+
+export const fetchUserSessionsAdmin = async (userId: string): Promise<WalkSession[]> => {
+    try {
+        const { data, error } = await supabase
+            .from('walking_sessions')
+            .select('*')
+            .eq('user_id', userId)
+            .order('start_time', { ascending: false })
+            .limit(10);
+            
+        if (error) throw error;
+        
+        return data.map((s: any) => ({
+            id: s.id,
+            startTime: s.start_time,
+            steps: s.steps,
+            durationSeconds: s.duration_seconds,
+            distanceMeters: s.distance_meters,
+            calories: Math.round(s.steps * 0.04), // approx
+            route: s.route_data ? JSON.parse(s.route_data) : undefined
+        }));
+    } catch (e) {
+        console.error("Admin Session Fetch Error:", e);
+        return [];
+    }
 };

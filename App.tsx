@@ -23,9 +23,10 @@ import { StatsDetailModal } from './components/StatsDetailModal';
 import { ApnaWalkLogo } from './components/ApnaWalkLogo'; 
 import { PrivacyPolicyPage } from './components/PrivacyPolicyPage';
 import { TermsConditionsPage } from './components/TermsConditionsPage';
+import { AdminDashboard } from './components/AdminDashboard'; // Import Admin
 import { usePedometer } from './hooks/usePedometer';
 import { UserSettings, WalkSession, UserProfile, DailyHistory, Badge, RoutePoint, WeatherData, WeeklyPlan, HydrationLog } from './types';
-import { saveHistory, getHistory, saveSettings, getSettings, getBadges, addBadge, hasSeenTutorial, markTutorialSeen, getProfile, saveProfile, saveActivePlan, getActivePlan, getHydration, saveHydration } from './services/storageService';
+import { saveHistory, getHistory, saveSettings, getSettings, getBadges, addBadge, hasSeenTutorial, markTutorialSeen, getProfile, saveProfile, saveActivePlan, getActivePlan, getHydration, saveHydration, syncDailyStatsToCloud, syncSessionToCloud, syncLocationToCloud } from './services/storageService';
 import { generateBadges, getHydrationTip } from './services/geminiService';
 import { getWeather } from './services/weatherService';
 import { scheduleReminders, requestNotificationPermission } from './services/notificationService';
@@ -68,12 +69,16 @@ const App: React.FC = () => {
   // --- Simple Router Check ---
   const path = typeof window !== 'undefined' ? window.location.pathname : '/';
   
-  // Return early for static legal pages
+  // Static Page Routes
   if (path === '/privacy-policy') {
       return <PrivacyPolicyPage />;
   }
   if (path === '/terms-conditions') {
       return <TermsConditionsPage />;
+  }
+  // ADMIN ROUTE
+  if (path === '/admin') {
+      return <AdminDashboard />;
   }
 
   const [profile, setProfile] = useState<UserProfile>(() => {
@@ -149,6 +154,9 @@ const App: React.FC = () => {
   const lastWaterCheckRef = useRef<number>(Date.now());
   const lastWalkCheckRef = useRef<number>(Date.now());
   const lastBreathCheckRef = useRef<number>(Date.now());
+  
+  // Sync Debounce Ref
+  const syncTimeoutRef = useRef<any>(null);
 
   // --- Theme Toggle Logic ---
   useEffect(() => {
@@ -183,8 +191,9 @@ const App: React.FC = () => {
     supabase.auth.getSession().then(({ data: { session } }) => {
         if (session && session.user) {
             syncProfile(session.user).then(p => {
-                setProfile(p);
-                saveProfile(p);
+                const fullProfile = { ...p, id: session.user.id };
+                setProfile(fullProfile);
+                saveProfile(fullProfile);
             });
         }
         setAuthLoading(false);
@@ -193,8 +202,9 @@ const App: React.FC = () => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
         if (session?.user) {
             syncProfile(session.user).then(p => {
-                setProfile(p);
-                saveProfile(p);
+                const fullProfile = { ...p, id: session.user.id };
+                setProfile(fullProfile);
+                saveProfile(fullProfile);
             });
         } else {
             // Check if we were in guest mode before clearing
@@ -214,6 +224,30 @@ const App: React.FC = () => {
 
     return () => subscription.unsubscribe();
   }, []);
+  
+  // --- CLOUD SYNC LOGIC ---
+  useEffect(() => {
+      if (!profile.isLoggedIn || profile.isGuest || !profile.id) return;
+      
+      // Debounced Sync for Daily Stats
+      if (syncTimeoutRef.current) clearTimeout(syncTimeoutRef.current);
+      
+      syncTimeoutRef.current = setTimeout(() => {
+          const today = new Date().toISOString().split('T')[0];
+          const dist = (dailySteps * settings.strideLengthCm) / 100;
+          const cal = Math.round((dailySteps * 0.04) * (settings.weightKg / 70));
+          
+          syncDailyStatsToCloud(profile.id!, today, dailySteps, cal, dist);
+      }, 5000); // Sync 5 seconds after last step update to reduce DB writes
+      
+      return () => { if (syncTimeoutRef.current) clearTimeout(syncTimeoutRef.current); };
+  }, [dailySteps, profile.id, profile.isLoggedIn, profile.isGuest]);
+  
+  // Sync Location when updated
+  useEffect(() => {
+      if (!profile.isLoggedIn || profile.isGuest || !profile.id || location === "Lucknow, UP") return;
+      syncLocationToCloud(profile.id, location);
+  }, [location, profile.id]);
 
   // --- Location & Permission Logic (ONLY AFTER LOGIN) ---
   const fetchLocalWeather = async (lat: number, lng: number) => {
@@ -439,6 +473,11 @@ const App: React.FC = () => {
         
         setCurrentSession(sessionData);
         const newHistory = saveHistory(0, sessionData);
+        
+        // --- SYNC SESSION TO CLOUD ---
+        if (!profile.isGuest && profile.id) {
+            syncSessionToCloud(profile.id, sessionData);
+        }
         
         const today = new Date().toISOString().split('T')[0];
         const dayIdx = newHistory.findIndex(h => h.date === today);
