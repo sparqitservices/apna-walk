@@ -23,7 +23,7 @@ import { StatsDetailModal } from './components/StatsDetailModal';
 import { ApnaWalkLogo } from './components/ApnaWalkLogo'; 
 import { PrivacyPolicyPage } from './components/PrivacyPolicyPage';
 import { TermsConditionsPage } from './components/TermsConditionsPage';
-import { AdminDashboard } from './components/AdminDashboard'; // Import Admin
+import { AdminDashboard } from './components/AdminDashboard'; 
 import { usePedometer } from './hooks/usePedometer';
 import { UserSettings, WalkSession, UserProfile, DailyHistory, Badge, RoutePoint, WeatherData, WeeklyPlan, HydrationLog } from './types';
 import { saveHistory, getHistory, saveSettings, getSettings, getBadges, addBadge, hasSeenTutorial, markTutorialSeen, getProfile, saveProfile, saveActivePlan, getActivePlan, getHydration, saveHydration, syncDailyStatsToCloud, syncSessionToCloud, syncLocationToCloud } from './services/storageService';
@@ -32,7 +32,7 @@ import { getWeather } from './services/weatherService';
 import { scheduleReminders, requestNotificationPermission } from './services/notificationService';
 import { supabase } from './services/supabaseClient'; 
 import { signOut, syncProfile } from './services/authService';
-import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer, Cell, YAxis } from 'recharts';
+import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 
 // THEMES Updated to match Professional Palette
 const THEMES = {
@@ -187,7 +187,7 @@ const App: React.FC = () => {
     setActivePlan(getActivePlan());
     setHydration(getHydration());
 
-    // 2. Setup Supabase Auth Listener
+    // 2. Setup Supabase Auth Listener with Persistent Session Handling
     supabase.auth.getSession().then(({ data: { session } }) => {
         if (session && session.user) {
             syncProfile(session.user).then(p => {
@@ -199,19 +199,19 @@ const App: React.FC = () => {
         setAuthLoading(false);
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
         if (session?.user) {
             syncProfile(session.user).then(p => {
                 const fullProfile = { ...p, id: session.user.id };
                 setProfile(fullProfile);
                 saveProfile(fullProfile);
             });
-        } else {
-            // Check if we were in guest mode before clearing
+        } else if (event === 'SIGNED_OUT') {
+            // Explicitly handle sign out event
+            // Only clear if not in guest mode intentionally
             const local = getProfile();
             if (!local?.isGuest) {
-                // If not guest, clear profile on logout
-                setProfile({ name: '', email: '', isLoggedIn: false, isGuest: false });
+                 setProfile({ name: '', email: '', isLoggedIn: false, isGuest: false });
             }
         }
     });
@@ -237,16 +237,35 @@ const App: React.FC = () => {
           const dist = (dailySteps * settings.strideLengthCm) / 100;
           const cal = Math.round((dailySteps * 0.04) * (settings.weightKg / 70));
           
-          syncDailyStatsToCloud(profile.id!, today, dailySteps, cal, dist);
-      }, 5000); // Sync 5 seconds after last step update to reduce DB writes
+          if (navigator.onLine) {
+             syncDailyStatsToCloud(profile.id!, today, dailySteps, cal, dist);
+          }
+      }, 5000); // Sync 5 seconds after last step update
       
       return () => { if (syncTimeoutRef.current) clearTimeout(syncTimeoutRef.current); };
   }, [dailySteps, profile.id, profile.isLoggedIn, profile.isGuest]);
   
+  // Online listener to sync when connection restores
+  useEffect(() => {
+      const handleOnline = () => {
+          if (profile.isLoggedIn && !profile.isGuest && profile.id && dailySteps > 0) {
+              const today = new Date().toISOString().split('T')[0];
+              const dist = (dailySteps * settings.strideLengthCm) / 100;
+              const cal = Math.round((dailySteps * 0.04) * (settings.weightKg / 70));
+              syncDailyStatsToCloud(profile.id, today, dailySteps, cal, dist);
+              console.log("Back online: Synced stats");
+          }
+      };
+      window.addEventListener('online', handleOnline);
+      return () => window.removeEventListener('online', handleOnline);
+  }, [profile, dailySteps]);
+
   // Sync Location when updated
   useEffect(() => {
       if (!profile.isLoggedIn || profile.isGuest || !profile.id || location === "Lucknow, UP") return;
-      syncLocationToCloud(profile.id, location);
+      if (navigator.onLine) {
+          syncLocationToCloud(profile.id, location);
+      }
   }, [location, profile.id]);
 
   // --- Location & Permission Logic (ONLY AFTER LOGIN) ---
@@ -304,10 +323,6 @@ const App: React.FC = () => {
     // Default to Lucknow immediately so the UI is populated
     useDefaultLocation();
 
-    // REMOVED: Automatic permission query. 
-    // Location permission will now only be requested when the user explicitly triggers it
-    // via 'Refresh Location' or starting a session with GPS enabled.
-
   }, [profile.isLoggedIn]);
 
   // Fetch Hydration Tip when weather is ready
@@ -322,12 +337,12 @@ const App: React.FC = () => {
 
   // Notification Scheduler Loop
   useEffect(() => {
-    // Run only if notifications are enabled and user is logged in
     const isAnyNotificationEnabled = settings.notifications.water || settings.notifications.walk || settings.notifications.breath;
     
     if (profile.isLoggedIn && isAnyNotificationEnabled) {
+        // Request permission if not already done, but usually triggered in settings
         if (Notification.permission === 'default') {
-             requestNotificationPermission();
+             // We don't force request here to avoid annoyance on load, waiting for user setting toggle
         }
         
         const checkReminders = () => {
@@ -341,7 +356,6 @@ const App: React.FC = () => {
                 dailySteps
             );
 
-            // Update refs if triggered to reset the "timer" for that specific notification
             if (triggered.includes('water')) lastWaterCheckRef.current = Date.now();
             if (triggered.includes('walk')) lastWalkCheckRef.current = Date.now();
             if (triggered.includes('breath')) lastBreathCheckRef.current = Date.now();
@@ -475,7 +489,7 @@ const App: React.FC = () => {
         const newHistory = saveHistory(0, sessionData);
         
         // --- SYNC SESSION TO CLOUD ---
-        if (!profile.isGuest && profile.id) {
+        if (!profile.isGuest && profile.id && navigator.onLine) {
             syncSessionToCloud(profile.id, sessionData);
         }
         
@@ -840,4 +854,5 @@ const App: React.FC = () => {
     </div>
   );
 };
+
 export default App;
