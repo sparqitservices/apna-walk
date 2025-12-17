@@ -5,7 +5,6 @@ import { WalkingGroup, Challenge, GroupMember, GroupPost, ChallengeParticipant }
 // --- GROUPS ---
 
 export const fetchGroups = async (userId?: string): Promise<WalkingGroup[]> => {
-    // Fetch all groups and the count of members
     const { data, error } = await supabase
         .from('walking_groups')
         .select('*, group_members(count)')
@@ -13,20 +12,24 @@ export const fetchGroups = async (userId?: string): Promise<WalkingGroup[]> => {
 
     if (error) throw error;
     
-    let userGroupIds: string[] = [];
+    let userMemberships: any[] = [];
     if (userId) {
         const { data: membershipData } = await supabase
             .from('group_members')
-            .select('group_id')
+            .select('group_id, status')
             .eq('user_id', userId);
-        userGroupIds = membershipData?.map(m => m.group_id) || [];
+        userMemberships = membershipData || [];
     }
 
-    return data.map((g: any) => ({
-        ...g,
-        member_count: g.group_members[0]?.count || 0,
-        is_member: userGroupIds.includes(g.id)
-    }));
+    return data.map((g: any) => {
+        const membership = userMemberships.find(m => m.group_id === g.id);
+        return {
+            ...g,
+            member_count: g.group_members[0]?.count || 0,
+            is_member: !!membership && membership.status === 'active',
+            is_pending: !!membership && membership.status === 'pending'
+        };
+    });
 };
 
 export const createGroup = async (group: Partial<WalkingGroup>) => {
@@ -37,18 +40,79 @@ export const createGroup = async (group: Partial<WalkingGroup>) => {
         .single();
     if (error) throw error;
     
-    // Auto-join creator as admin
+    // Auto-join creator as admin with active status
     if (data && group.created_by) {
-        await joinGroup(data.id, group.created_by, 'admin');
+        const { error: joinError } = await supabase
+            .from('group_members')
+            .insert([{ 
+                group_id: data.id, 
+                user_id: group.created_by, 
+                role: 'admin',
+                status: 'active' 
+            }]);
+        if (joinError) console.error("Error auto-joining creator", joinError);
     }
     
     return data;
 };
 
-export const joinGroup = async (groupId: string, userId: string, role: string = 'member') => {
+export const updateGroup = async (groupId: string, updates: Partial<WalkingGroup>) => {
+    const { data, error } = await supabase
+        .from('walking_groups')
+        .update(updates)
+        .eq('id', groupId)
+        .select()
+        .single();
+    if (error) throw error;
+    return data;
+};
+
+export const deleteGroup = async (groupId: string) => {
+    const { error } = await supabase
+        .from('walking_groups')
+        .delete()
+        .eq('id', groupId);
+    if (error) throw error;
+};
+
+export const requestJoinGroup = async (groupId: string, userId: string) => {
     const { error } = await supabase
         .from('group_members')
-        .insert([{ group_id: groupId, user_id: userId, role }]);
+        .insert([{ 
+            group_id: groupId, 
+            user_id: userId, 
+            role: 'member',
+            status: 'pending' 
+        }]);
+    if (error) throw error;
+};
+
+export const fetchPendingRequests = async (groupId: string): Promise<GroupMember[]> => {
+    const { data, error } = await supabase
+        .from('group_members')
+        .select('*, profile:profiles(full_name, avatar_url)')
+        .eq('group_id', groupId)
+        .eq('status', 'pending');
+    if (error) throw error;
+    return data.map((m: any) => ({
+        ...m,
+        profile: m.profile
+    }));
+};
+
+export const approveMember = async (memberRecordId: string) => {
+    const { error } = await supabase
+        .from('group_members')
+        .update({ status: 'active' })
+        .eq('id', memberRecordId);
+    if (error) throw error;
+};
+
+export const rejectMember = async (memberRecordId: string) => {
+    const { error } = await supabase
+        .from('group_members')
+        .delete()
+        .eq('id', memberRecordId);
     if (error) throw error;
 };
 
@@ -56,7 +120,8 @@ export const fetchGroupMembers = async (groupId: string): Promise<GroupMember[]>
     const { data, error } = await supabase
         .from('group_members')
         .select('*, profile:profiles(full_name, avatar_url)')
-        .eq('group_id', groupId);
+        .eq('group_id', groupId)
+        .eq('status', 'active');
     if (error) throw error;
     return data.map((m: any) => ({
         ...m,

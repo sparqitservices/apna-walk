@@ -1,7 +1,12 @@
 
 import React, { useState, useEffect } from 'react';
-import { UserProfile, WalkingGroup, Challenge, ChallengeParticipant, GroupPost } from '../types';
-import { fetchGroups, createGroup, joinGroup, fetchChallenges, joinChallenge, fetchLeaderboard, createSystemMonthlyChallenge, fetchGroupPosts, createPost } from '../services/socialService';
+import { UserProfile, WalkingGroup, Challenge, ChallengeParticipant, GroupPost, GroupMember } from '../types';
+import { 
+  fetchGroups, createGroup, updateGroup, deleteGroup, 
+  requestJoinGroup, fetchPendingRequests, approveMember, rejectMember,
+  fetchChallenges, joinChallenge, fetchLeaderboard, 
+  createSystemMonthlyChallenge, fetchGroupPosts, createPost 
+} from '../services/socialService';
 
 interface SocialHubProps {
   isOpen: boolean;
@@ -20,12 +25,16 @@ export const SocialHub: React.FC<SocialHubProps> = ({ isOpen, onClose, profile }
   const [selectedChallenge, setSelectedChallenge] = useState<Challenge | null>(null);
   const [leaderboard, setLeaderboard] = useState<ChallengeParticipant[]>([]);
   const [groupFeed, setGroupFeed] = useState<GroupPost[]>([]);
+  const [pendingRequests, setPendingRequests] = useState<GroupMember[]>([]);
   const [postContent, setPostContent] = useState('');
 
-  // Creation Forms
+  // Management UI
   const [showCreateGroup, setShowCreateGroup] = useState(false);
   const [newGroupName, setNewGroupName] = useState('');
   const [newGroupLoc, setNewGroupLoc] = useState('');
+  const [editGroupName, setEditGroupName] = useState('');
+  const [showSettings, setShowSettings] = useState(false);
+  const [showRequests, setShowRequests] = useState(false);
 
   useEffect(() => {
     if (isOpen && !profile.isGuest) {
@@ -70,28 +79,69 @@ export const SocialHub: React.FC<SocialHubProps> = ({ isOpen, onClose, profile }
       }
   };
 
-  const handleJoinGroup = async (gid: string) => {
+  const handleUpdateGroup = async () => {
+      if (!selectedGroup || !editGroupName.trim()) return;
       try {
-          await joinGroup(gid, profile.id!);
-          alert('Joined successfully! Welcome to the squad.');
+          const updated = await updateGroup(selectedGroup.id, { name: editGroupName });
+          setSelectedGroup(prev => prev ? { ...prev, name: updated.name } : null);
+          setGroups(prev => prev.map(g => g.id === updated.id ? { ...g, name: updated.name } : g));
+          setShowSettings(false);
+          alert("Group name updated!");
+      } catch (e) { alert("Failed to update group."); }
+  };
+
+  const handleDeleteGroup = async () => {
+      if (!selectedGroup || !confirm("Are you sure you want to delete this group forever?")) return;
+      try {
+          await deleteGroup(selectedGroup.id);
+          setSelectedGroup(null);
           loadData();
-          // Update local state to reflect join
-          setGroups(prev => prev.map(g => g.id === gid ? { ...g, is_member: true, member_count: (g.member_count || 0) + 1 } : g));
-          if (selectedGroup?.id === gid) {
-              setSelectedGroup(prev => prev ? { ...prev, is_member: true } : null);
-          }
-      } catch(e) { alert('Could not join group.'); }
+          alert("Group deleted.");
+      } catch (e) { alert("Failed to delete group."); }
+  };
+
+  const handleJoinRequest = async (gid: string) => {
+      try {
+          await requestJoinGroup(gid, profile.id!);
+          alert('Request sent! Please wait for the owner to approve you.');
+          loadData();
+          setGroups(prev => prev.map(g => g.id === gid ? { ...g, is_pending: true } : g));
+      } catch(e) { alert('Could not send join request.'); }
   };
 
   const openGroup = async (group: WalkingGroup) => {
       setSelectedGroup(group);
+      setEditGroupName(group.name);
+      setShowSettings(false);
+      setShowRequests(false);
       try {
           const posts = await fetchGroupPosts(group.id);
           setGroupFeed(posts);
+          
+          if (group.created_by === profile.id) {
+              const reqs = await fetchPendingRequests(group.id);
+              setPendingRequests(reqs);
+          }
       } catch (e) {
           setGroupFeed([]);
       }
   };
+
+  const handleApprove = async (m: GroupMember) => {
+      try {
+          await approveMember(m.id);
+          setPendingRequests(prev => prev.filter(r => r.id !== m.id));
+          alert(`${m.profile?.full_name} is now a member!`);
+      } catch (e) { alert("Approval failed."); }
+  };
+
+  const handleReject = async (m: GroupMember) => {
+    try {
+        await rejectMember(m.id);
+        setPendingRequests(prev => prev.filter(r => r.id !== m.id));
+        alert(`Request rejected.`);
+    } catch (e) { alert("Rejection failed."); }
+};
 
   const handlePost = async () => {
       if(!postContent.trim() || !selectedGroup) return;
@@ -120,7 +170,6 @@ export const SocialHub: React.FC<SocialHubProps> = ({ isOpen, onClose, profile }
           await joinChallenge(cid, profile.id!);
           alert("Shabaash! You've joined the challenge. Step high!");
           loadData();
-          // Update local state
           setChallenges(prev => prev.map(c => c.id === cid ? { ...c, is_joined: true, participant_count: (c.participant_count || 0) + 1 } : c));
           if (selectedChallenge?.id === cid) {
               setSelectedChallenge(prev => prev ? { ...prev, is_joined: true } : null);
@@ -228,6 +277,7 @@ export const SocialHub: React.FC<SocialHubProps> = ({ isOpen, onClose, profile }
                                 <div className="flex justify-between items-start mb-2">
                                     <h4 className={`font-black text-base truncate ${selectedGroup?.id === g.id ? 'text-white' : 'text-slate-100'}`}>{g.name}</h4>
                                     {g.is_member && <i className="fa-solid fa-circle-check text-brand-400 bg-white rounded-full"></i>}
+                                    {g.is_pending && <i className="fa-solid fa-clock text-yellow-500"></i>}
                                 </div>
                                 <div className="flex justify-between items-center mt-2">
                                     <span className={`text-[10px] font-bold uppercase tracking-wide ${selectedGroup?.id === g.id ? 'text-brand-100' : 'text-slate-400'}`}><i className="fa-solid fa-location-dot mr-1"></i> {g.location}</span>
@@ -238,24 +288,12 @@ export const SocialHub: React.FC<SocialHubProps> = ({ isOpen, onClose, profile }
                     </div>
                 ) : (
                     <div className="flex-1 overflow-y-auto p-4 space-y-4 no-scrollbar">
-                        {challenges.length === 0 && !loading && (
-                            <div className="text-center py-10">
-                                <i className="fa-solid fa-trophy text-slate-700 text-3xl mb-3"></i>
-                                <p className="text-slate-500 text-xs">No active challenges. Check back later!</p>
-                            </div>
-                        )}
-
                         {challenges.map(c => (
                             <div 
                                 key={c.id} 
                                 onClick={() => openChallenge(c)} 
                                 className={`p-4 rounded-2xl border cursor-pointer transition-all hover:scale-[1.02] active:scale-95 relative overflow-hidden ${selectedChallenge?.id === c.id ? 'bg-orange-600 border-orange-400 shadow-xl' : 'bg-slate-800/60 border-slate-700 hover:border-slate-500'}`}
                             >
-                                {selectedChallenge?.id === c.id && (
-                                    <div className="absolute top-0 right-0 p-8 opacity-20 text-4xl transform translate-x-1/4 -translate-y-1/4">
-                                        <i className="fa-solid fa-medal"></i>
-                                    </div>
-                                )}
                                 <span className={`text-[9px] uppercase font-black tracking-[2px] ${selectedChallenge?.id === c.id ? 'text-orange-200' : 'text-orange-400'}`}>{c.type}</span>
                                 <h4 className={`font-black text-base mt-1 leading-tight ${selectedChallenge?.id === c.id ? 'text-white' : 'text-slate-100'}`}>{c.name}</h4>
                                 <div className="flex justify-between items-center mt-4">
@@ -279,40 +317,98 @@ export const SocialHub: React.FC<SocialHubProps> = ({ isOpen, onClose, profile }
                                     <span className="text-[10px] font-black uppercase text-brand-400 tracking-widest bg-brand-500/10 px-2 py-0.5 rounded border border-brand-500/20">Walking Squad</span>
                                 </div>
                                 <h2 className="text-3xl font-black text-white leading-none">{selectedGroup.name}</h2>
-                                <p className="text-slate-400 text-xs mt-2 font-medium"><i className="fa-solid fa-map-pin text-brand-500 mr-1"></i> Based in {selectedGroup.location}</p>
+                                <p className="text-slate-400 text-xs mt-2 font-medium"><i className="fa-solid fa-map-pin text-brand-500 mr-1"></i> {selectedGroup.location}</p>
                             </div>
-                            {!selectedGroup.is_member && (
-                                <button onClick={() => handleJoinGroup(selectedGroup.id)} className="bg-brand-600 hover:bg-brand-500 text-white px-8 py-3 rounded-2xl font-black text-sm transition-all shadow-lg active:scale-95">
-                                    Join Group
-                                </button>
-                            )}
+                            <div className="flex items-center gap-3">
+                                {selectedGroup.created_by === profile.id && (
+                                    <>
+                                        <button onClick={() => { setShowRequests(!showRequests); setShowSettings(false); }} className="w-11 h-11 rounded-xl bg-slate-700 text-white flex items-center justify-center relative">
+                                            <i className="fa-solid fa-user-plus"></i>
+                                            {pendingRequests.length > 0 && <div className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center text-[10px] font-bold">{pendingRequests.length}</div>}
+                                        </button>
+                                        <button onClick={() => { setShowSettings(!showSettings); setShowRequests(false); }} className="w-11 h-11 rounded-xl bg-slate-700 text-white flex items-center justify-center">
+                                            <i className="fa-solid fa-gear"></i>
+                                        </button>
+                                    </>
+                                )}
+                                {!selectedGroup.is_member && !selectedGroup.is_pending && (
+                                    <button onClick={() => handleJoinRequest(selectedGroup.id)} className="bg-brand-600 hover:bg-brand-500 text-white px-8 py-3 rounded-2xl font-black text-sm transition-all shadow-lg active:scale-95">
+                                        Join Group
+                                    </button>
+                                )}
+                                {selectedGroup.is_pending && (
+                                    <div className="bg-yellow-500/10 border border-yellow-500/30 text-yellow-500 px-6 py-3 rounded-2xl font-black text-sm">
+                                        Request Pending
+                                    </div>
+                                )}
+                            </div>
                         </div>
+
+                        {/* Management Overlays */}
+                        {showSettings && (
+                            <div className="bg-slate-800 p-6 border-b border-slate-700 animate-fade-in space-y-4">
+                                <h4 className="text-white font-bold text-sm uppercase tracking-widest">Group Settings</h4>
+                                <div className="flex gap-4">
+                                    <input value={editGroupName} onChange={e => setEditGroupName(e.target.value)} className="flex-1 bg-slate-900 border border-slate-700 rounded-xl p-3 text-white text-sm outline-none focus:border-brand-500" placeholder="New Name" />
+                                    <button onClick={handleUpdateGroup} className="bg-brand-600 text-white px-6 py-3 rounded-xl text-sm font-bold">Update Name</button>
+                                </div>
+                                <button onClick={handleDeleteGroup} className="w-full border border-red-500/50 text-red-500 py-3 rounded-xl text-sm font-bold hover:bg-red-500 hover:text-white transition-all">Delete Group Permanently</button>
+                            </div>
+                        )}
+
+                        {showRequests && (
+                            <div className="bg-slate-800 p-6 border-b border-slate-700 animate-fade-in">
+                                <h4 className="text-white font-bold text-sm uppercase tracking-widest mb-4">Pending Requests</h4>
+                                {pendingRequests.length === 0 ? (
+                                    <p className="text-slate-500 text-xs italic">No pending requests.</p>
+                                ) : (
+                                    <div className="space-y-3">
+                                        {pendingRequests.map(m => (
+                                            <div key={m.id} className="bg-slate-900 p-3 rounded-xl flex items-center justify-between">
+                                                <div className="flex items-center gap-3">
+                                                    <img src={m.profile?.avatar_url || 'https://www.gravatar.com/avatar?d=mp'} className="w-10 h-10 rounded-full" />
+                                                    <span className="text-white font-bold text-sm">{m.profile?.full_name}</span>
+                                                </div>
+                                                <div className="flex gap-2">
+                                                    <button onClick={() => handleApprove(m)} className="bg-brand-600 text-white px-4 py-1.5 rounded-lg text-xs font-bold">Approve</button>
+                                                    <button onClick={() => handleReject(m)} className="bg-slate-700 text-slate-300 px-4 py-1.5 rounded-lg text-xs font-bold">Reject</button>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        )}
                         
                         <div className="flex-1 overflow-y-auto p-6 space-y-6 no-scrollbar pb-24">
                             {groupFeed.length === 0 ? (
                                 <div className="h-full flex flex-col items-center justify-center text-slate-600 opacity-50">
                                     <i className="fa-solid fa-comments text-5xl mb-4"></i>
-                                    <p className="font-bold">Be the first to say something!</p>
+                                    <p className="font-bold">Chat with the squad here!</p>
                                 </div>
                             ) : (
-                                groupFeed.map(post => (
-                                    <div key={post.id} className="bg-slate-800/40 p-5 rounded-2xl border border-slate-700/50 flex gap-4 animate-message-pop">
-                                        <div className="w-10 h-10 rounded-full bg-brand-600 flex items-center justify-center font-black text-white text-sm shrink-0 shadow-lg">
-                                            {post.profile?.avatar_url ? <img src={post.profile.avatar_url} className="w-full h-full rounded-full object-cover" /> : post.profile?.full_name?.charAt(0) || 'U'}
-                                        </div>
-                                        <div className="flex-1">
-                                            <div className="flex justify-between items-center mb-1">
-                                                <span className="text-sm font-black text-white">{post.profile?.full_name}</span>
-                                                <span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">{new Date(post.created_at).toLocaleDateString()}</span>
+                                groupFeed.map(post => {
+                                    const isMe = post.user_id === profile.id;
+                                    return (
+                                        <div key={post.id} className={`flex gap-3 animate-message-pop ${isMe ? 'flex-row-reverse' : ''}`}>
+                                            <div className="w-9 h-9 rounded-full bg-slate-700 shrink-0 overflow-hidden border border-slate-600">
+                                                {post.profile?.avatar_url ? <img src={post.profile.avatar_url} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-[10px] text-white font-black">{post.profile?.full_name?.charAt(0) || 'U'}</div>}
                                             </div>
-                                            <p className="text-slate-300 text-sm leading-relaxed">{post.content}</p>
+                                            <div className={`max-w-[80%] flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
+                                                {!isMe && <span className="text-[10px] font-bold text-slate-500 mb-1 ml-1">{post.profile?.full_name}</span>}
+                                                <div className={`p-4 rounded-2xl shadow-sm text-sm relative ${isMe ? 'bg-brand-600 text-white rounded-tr-none' : 'bg-slate-800 text-slate-200 rounded-tl-none border border-slate-700'}`}>
+                                                    {post.content}
+                                                </div>
+                                                <span className="text-[9px] text-slate-500 mt-1 uppercase font-bold tracking-widest px-1">
+                                                    {new Date(post.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                </span>
+                                            </div>
                                         </div>
-                                    </div>
-                                ))
+                                    );
+                                })
                             )}
                         </div>
 
-                        {/* Input Area */}
                         {selectedGroup.is_member ? (
                             <div className="absolute bottom-6 left-6 right-6 flex gap-3 p-3 bg-slate-800/90 backdrop-blur-xl border border-slate-700 rounded-2xl shadow-2xl">
                                 <input 
@@ -328,7 +424,7 @@ export const SocialHub: React.FC<SocialHubProps> = ({ isOpen, onClose, profile }
                             </div>
                         ) : (
                             <div className="absolute bottom-6 left-1/2 -translate-x-1/2 bg-slate-800/80 backdrop-blur px-6 py-3 rounded-full border border-slate-700 text-slate-400 text-xs font-bold uppercase tracking-widest flex items-center gap-2">
-                                <i className="fa-solid fa-lock"></i> Join group to participate
+                                <i className="fa-solid fa-lock"></i> {selectedGroup.is_pending ? 'Request Pending' : 'Join group to participate'}
                             </div>
                         )}
                     </div>
@@ -373,7 +469,7 @@ export const SocialHub: React.FC<SocialHubProps> = ({ isOpen, onClose, profile }
                                         const isMe = p.user_id === profile.id;
                                         return (
                                             <div key={p.user_id} className={`flex items-center gap-4 p-4 rounded-2xl border transition-all animate-message-pop ${isMe ? 'bg-orange-600/10 border-orange-500 shadow-lg scale-[1.02]' : 'bg-slate-800/40 border-slate-700/50 hover:bg-slate-800'}`}>
-                                                <div className={`w-8 h-8 flex items-center justify-center font-black rounded-xl shrink-0 text-sm ${idx === 0 ? 'bg-yellow-500 text-black shadow-lg shadow-yellow-500/20' : idx === 1 ? 'bg-slate-200 text-black' : idx === 2 ? 'bg-orange-700 text-white' : 'bg-slate-800 text-slate-500'}`}>
+                                                <div className={`w-8 h-8 flex items-center justify-center font-black rounded-xl shrink-0 text-sm ${idx === 0 ? 'bg-yellow-500 text-black shadow-lg' : idx === 1 ? 'bg-slate-200 text-black' : idx === 2 ? 'bg-orange-700 text-white' : 'bg-slate-800 text-slate-500'}`}>
                                                     {idx + 1}
                                                 </div>
                                                 <div className="relative">
