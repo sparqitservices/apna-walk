@@ -15,7 +15,6 @@ export const fetchGroups = async (userId?: string): Promise<WalkingGroup[]> => {
         
         let userMemberships: any[] = [];
         if (userId) {
-            // Fetch only necessary columns to avoid schema cache issues if others are missing
             const { data: membershipData, error: mError } = await supabase
                 .from('group_members')
                 .select('group_id, status')
@@ -85,8 +84,6 @@ export const deleteGroup = async (groupId: string) => {
 };
 
 export const requestJoinGroup = async (groupId: string, userId: string) => {
-    // We try to insert with explicit columns. 
-    // If the DB hasn't been updated yet, this will fail with the 'status' column error.
     const { error } = await supabase
         .from('group_members')
         .insert({ 
@@ -97,7 +94,6 @@ export const requestJoinGroup = async (groupId: string, userId: string) => {
         });
         
     if (error) {
-        // Handle duplicate requests (already exists)
         if (error.code === '23505' || error.message.toLowerCase().includes('unique')) {
             const { error: updateError } = await supabase
                 .from('group_members')
@@ -107,14 +103,34 @@ export const requestJoinGroup = async (groupId: string, userId: string) => {
             if (updateError) throw updateError;
             return;
         }
-
-        // If it's the specific "column not found" error, provide a helpful message
-        if (error.message.includes('status')) {
-            throw new Error("Database schema out of date. Please run the SQL migration to add the 'status' column to 'group_members'.");
-        }
-
-        console.error("Join Group Error:", error);
         throw error;
+    }
+};
+
+export const fetchTotalPendingCount = async (userId: string): Promise<number> => {
+    try {
+        // 1. Get IDs of groups owned by this user
+        const { data: myGroups, error: groupsError } = await supabase
+            .from('walking_groups')
+            .select('id')
+            .eq('created_by', userId);
+            
+        if (groupsError || !myGroups || myGroups.length === 0) return 0;
+        
+        const groupIds = myGroups.map(g => g.id);
+        
+        // 2. Count pending members in those groups
+        const { count, error: countError } = await supabase
+            .from('group_members')
+            .select('id', { count: 'exact', head: true })
+            .eq('status', 'pending')
+            .in('group_id', groupIds);
+            
+        if (countError) throw countError;
+        return count || 0;
+    } catch (e) {
+        console.error("Error fetching total pending count:", e);
+        return 0;
     }
 };
 
@@ -136,7 +152,11 @@ export const approveMember = async (memberRecordId: string) => {
         .from('group_members')
         .update({ status: 'active' })
         .eq('id', memberRecordId);
-    if (error) throw error;
+    
+    if (error) {
+        console.error("Supabase Error in approveMember:", error);
+        throw error;
+    }
 };
 
 export const rejectMember = async (memberRecordId: string) => {
@@ -216,10 +236,8 @@ export const createCustomChallenge = async (challenge: Partial<Challenge>, creat
     if (error) throw error;
 
     if (data) {
-        // Auto-join creator
         await joinChallenge(data.id, creatorId);
         
-        // Invite friends
         if (invitedIds.length > 0) {
             const invitations = invitedIds.map(id => ({
                 challenge_id: data.id,

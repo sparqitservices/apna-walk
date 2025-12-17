@@ -36,6 +36,7 @@ import { useMetronome } from './hooks/useMetronome';
 import { UserSettings, WalkSession, UserProfile, DailyHistory, Badge, RoutePoint, WeatherData, WeeklyPlan, HydrationLog } from './types';
 import { saveHistory, getHistory, saveSettings, getSettings, getBadges, addBadge, hasSeenTutorial, markTutorialSeen, getProfile, saveProfile, saveActivePlan, getActivePlan, getHydration, saveHydration, syncDailyStatsToCloud, syncSessionToCloud, syncLocationToCloud } from './services/storageService';
 import { generateBadges, getHydrationTip } from './services/geminiService';
+import { fetchTotalPendingCount } from './services/socialService';
 import { getWeather } from './services/weatherService';
 import { scheduleReminders, requestNotificationPermission } from './services/notificationService';
 import { supabase } from './services/supabaseClient'; 
@@ -129,6 +130,7 @@ const App: React.FC = () => {
   const [showSettings, setShowSettings] = useState(false);
   const [showEvents, setShowEvents] = useState(false);
   const [showSocialHub, setShowSocialHub] = useState(false); 
+  const [totalPendingSocial, setTotalPendingSocial] = useState(0);
   const [legalDoc, setLegalDoc] = useState<DocType>(null);
   const [currentSession, setCurrentSession] = useState<WalkSession | null>(null);
   const [selectedStat, setSelectedStat] = useState<'calories' | 'distance' | 'time' | null>(null);
@@ -217,6 +219,18 @@ const App: React.FC = () => {
     return () => subscription.unsubscribe();
   }, []);
   
+  // Notification counter for social hub
+  useEffect(() => {
+    if (profile.isLoggedIn && !profile.isGuest && profile.id) {
+        const updatePending = () => {
+            fetchTotalPendingCount(profile.id!).then(setTotalPendingSocial);
+        };
+        updatePending();
+        const interval = setInterval(updatePending, 30000); // Check every 30s
+        return () => clearInterval(interval);
+    }
+  }, [profile.isLoggedIn, profile.isGuest, profile.id, showSocialHub]);
+
   useEffect(() => {
       if (!profile.isLoggedIn || profile.isGuest || !profile.id) return;
       if (syncTimeoutRef.current) clearTimeout(syncTimeoutRef.current);
@@ -508,6 +522,11 @@ const App: React.FC = () => {
                             <div className="text-white font-black text-sm uppercase tracking-tighter relative z-10">Social Hub</div>
                             <div className="text-slate-500 text-[10px] font-bold relative z-10">Groups & Rankings</div>
                             <div className="absolute -right-2 -bottom-2 text-white/5 text-5xl rotate-12 group-hover:text-orange-500/10 transition-colors"><i className="fa-solid fa-medal"></i></div>
+                            {totalPendingSocial > 0 && (
+                                <div className="absolute top-2 right-2 bg-red-500 text-white text-[10px] font-black w-6 h-6 rounded-full flex items-center justify-center border-2 border-slate-900 shadow-lg animate-bounce z-20">
+                                    {totalPendingSocial}
+                                </div>
+                            )}
                         </button>
                     </div>
                 )}

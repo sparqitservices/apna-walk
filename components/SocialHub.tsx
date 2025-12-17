@@ -148,16 +148,10 @@ export const SocialHub: React.FC<SocialHubProps> = ({ isOpen, onClose, profile }
       try {
           await requestJoinGroup(gid, profile.id!);
           alert('Request sent! Please wait for the owner to approve you.');
-          
-          // Instantly update the local groups state for responsiveness
           setGroups(prev => prev.map(g => g.id === gid ? { ...g, is_pending: true } : g));
-          
-          // If the group is already selected, update it too
           if (selectedGroup?.id === gid) {
               setSelectedGroup(prev => prev ? { ...prev, is_pending: true } : null);
           }
-          
-          // Re-fetch to confirm from server
           loadData();
       } catch(e: any) { 
           const msg = e?.message || "Check your connection.";
@@ -191,11 +185,25 @@ export const SocialHub: React.FC<SocialHubProps> = ({ isOpen, onClose, profile }
   const handleApprove = async (m: GroupMember) => {
       try {
           await approveMember(m.id);
+          
+          // 1. Remove from local pending list
           setPendingRequests(prev => prev.filter(r => r.id !== m.id));
-          alert(`${m.profile?.full_name} is now a member!`);
-          // Refresh data to update member count
-          loadData();
-      } catch (e) { alert("Approval failed."); }
+          
+          // 2. Update selected group state to show the user as "active" in our heads
+          alert(`${m.profile?.full_name} is now a member of ${selectedGroup?.name}!`);
+          
+          // 3. Refresh sidebar groups and pending counts
+          await loadData();
+          
+          // 4. Refresh posts/members in current view
+          if (selectedGroup) {
+              const posts = await fetchGroupPosts(selectedGroup.id);
+              setGroupFeed(posts);
+          }
+      } catch (e) { 
+          console.error("Approval failed detail:", e);
+          alert("Approval failed. Please try again."); 
+      }
   };
 
   const handleReject = async (m: GroupMember) => {
