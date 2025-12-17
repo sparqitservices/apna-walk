@@ -22,9 +22,46 @@ export interface UserProfile {
   email: string;
   isLoggedIn: boolean;
   isGuest?: boolean;
-  avatar?: string; // Base64 image string
-  id?: string; // Supabase Auth ID
+  avatar?: string; 
+  id?: string; 
   role?: 'user' | 'admin';
+  // Buddy Preferences
+  bio?: string;
+  age?: number;
+  gender?: string;
+  preferred_time?: 'morning' | 'afternoon' | 'evening';
+  pace?: 'slow' | 'moderate' | 'fast';
+  distance_preference?: '1-3km' | '3-5km' | '5km+';
+  interests?: string[];
+  is_looking_for_buddy?: boolean;
+  is_verified?: boolean;
+}
+
+export interface BuddyRequest {
+  id: string;
+  sender_id: string;
+  receiver_id: string;
+  status: 'pending' | 'accepted' | 'declined';
+  message?: string;
+  created_at: string;
+  sender_profile?: {
+    full_name: string;
+    avatar_url: string;
+  };
+}
+
+export interface BuddyMessage {
+  id: string;
+  sender_id: string;
+  receiver_id: string;
+  content: string;
+  is_read: boolean;
+  created_at: string;
+}
+
+export interface NearbyBuddy extends UserProfile {
+  distance: number;
+  match_score?: number;
 }
 
 export interface UserSettings {
@@ -32,7 +69,7 @@ export interface UserSettings {
   heightCm: number;
   strideLengthCm: number;
   stepGoal: number;
-  sensitivity: number; // 1 to 5, default 3
+  sensitivity: number; 
   enableLocation: boolean;
   notifications: {
       water: boolean;
@@ -43,7 +80,7 @@ export interface UserSettings {
 }
 
 export interface DailyHistory {
-  date: string; // YYYY-MM-DD
+  date: string; 
   steps: number;
   sessions?: WalkSession[];
 }
@@ -64,8 +101,8 @@ export interface Badge {
   id: string;
   title: string;
   description: string;
-  icon: string; // FontAwesome class
-  color: string; // Tailwind color class
+  icon: string; 
+  color: string; 
   isAiGenerated?: boolean;
   dateEarned: string;
 }
@@ -80,7 +117,7 @@ export interface WeatherData {
 }
 
 export interface DailyWorkoutPlan {
-  day: string; // "Day 1", "Day 2"
+  day: string; 
   title: string;
   description: string;
   durationMinutes: number;
@@ -103,10 +140,10 @@ export interface FitnessEvent {
   location: string;
   type: 'Marathon' | 'Yoga' | 'Walk' | 'Cycling' | 'Zumba';
   attendees: number;
-  distanceKm: number; // distance from user
+  distanceKm: number; 
   description: string;
   image?: string;
-  link: string; // URL to external event page
+  link: string; 
   isJoined?: boolean;
 }
 
@@ -118,8 +155,8 @@ export interface AdminUserView {
   avatar_url?: string;
   last_location?: string;
   last_active?: string;
-  total_steps?: number; // Calculated field
-  today_steps?: number; // Calculated field
+  total_steps?: number; 
+  today_steps?: number; 
 }
 
 // --- Social & Community Types ---
@@ -132,7 +169,7 @@ export interface WalkingGroup {
   privacy: 'public' | 'private';
   member_limit: number;
   created_by: string;
-  member_count?: number; // Joined view
+  member_count?: number; 
   is_member?: boolean;
   is_pending?: boolean;
 }

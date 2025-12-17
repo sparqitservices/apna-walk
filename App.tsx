@@ -24,6 +24,7 @@ import { HydrationCard } from './components/HydrationCard';
 import { HydrationModal } from './components/HydrationModal';
 import { EventsModal } from './components/EventsModal';
 import { SocialHub } from './components/SocialHub'; 
+import { BuddyFinder } from './components/BuddyFinder';
 import { LegalModal, DocType } from './components/LegalModal';
 import { StatsDetailModal } from './components/StatsDetailModal'; 
 import { ApnaWalkLogo } from './components/ApnaWalkLogo'; 
@@ -130,6 +131,7 @@ const App: React.FC = () => {
   const [showSettings, setShowSettings] = useState(false);
   const [showEvents, setShowEvents] = useState(false);
   const [showSocialHub, setShowSocialHub] = useState(false); 
+  const [showBuddyFinder, setShowBuddyFinder] = useState(false);
   const [totalPendingSocial, setTotalPendingSocial] = useState(0);
   const [legalDoc, setLegalDoc] = useState<DocType>(null);
   const [currentSession, setCurrentSession] = useState<WalkSession | null>(null);
@@ -507,26 +509,29 @@ const App: React.FC = () => {
         {!isTrackingSession && !profile.isGuest && (
             <div className="w-full max-w-md mx-auto mb-8 animate-fade-in">
                 {activePlan ? <ActivePlanCard plan={activePlan} onRemove={handleRemovePlan} /> : (
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-3 gap-4">
                         <button onClick={() => setShowPlanner(true)} className="bg-gradient-to-r from-apna-navy to-slate-900 border border-slate-700 p-4 rounded-3xl flex flex-col justify-center items-start shadow-xl hover:border-brand-500/50 transition-all group h-32">
-                            <div className="w-10 h-10 rounded-2xl bg-brand-900/30 flex items-center justify-center text-brand-400 group-hover:scale-110 group-hover:bg-brand-500 group-hover:text-white transition-all mb-3 shadow-inner">
+                            <div className="w-8 h-8 rounded-xl bg-brand-900/30 flex items-center justify-center text-brand-400 group-hover:scale-110 group-hover:bg-brand-500 group-hover:text-white transition-all mb-3 shadow-inner">
                                 <i className="fa-solid fa-calendar-days"></i>
                             </div>
-                            <div className="text-white font-black text-sm uppercase tracking-tighter">AI Planner</div>
-                            <div className="text-slate-500 text-[10px] font-bold">Get a custom week</div>
+                            <div className="text-white font-black text-[11px] uppercase tracking-tighter">AI Planner</div>
                         </button>
                         <button onClick={() => setShowSocialHub(true)} className="bg-gradient-to-r from-apna-navy to-slate-900 border border-slate-700 p-4 rounded-3xl flex flex-col justify-center items-start shadow-xl hover:border-orange-500/50 transition-all group h-32 relative overflow-hidden">
-                            <div className="w-10 h-10 rounded-2xl bg-orange-900/30 flex items-center justify-center text-orange-400 group-hover:scale-110 group-hover:bg-orange-500 group-hover:text-white transition-all mb-3 shadow-inner relative z-10">
+                            <div className="w-8 h-8 rounded-xl bg-orange-900/30 flex items-center justify-center text-orange-400 group-hover:scale-110 group-hover:bg-orange-500 group-hover:text-white transition-all mb-3 shadow-inner relative z-10">
                                 <i className="fa-solid fa-users"></i>
                             </div>
-                            <div className="text-white font-black text-sm uppercase tracking-tighter relative z-10">Social Hub</div>
-                            <div className="text-slate-500 text-[10px] font-bold relative z-10">Groups & Rankings</div>
-                            <div className="absolute -right-2 -bottom-2 text-white/5 text-5xl rotate-12 group-hover:text-orange-500/10 transition-colors"><i className="fa-solid fa-medal"></i></div>
+                            <div className="text-white font-black text-[11px] uppercase tracking-tighter relative z-10">Social Hub</div>
                             {totalPendingSocial > 0 && (
-                                <div className="absolute top-2 right-2 bg-red-500 text-white text-[10px] font-black w-6 h-6 rounded-full flex items-center justify-center border-2 border-slate-900 shadow-lg animate-bounce z-20">
+                                <div className="absolute top-2 right-2 bg-red-500 text-white text-[10px] font-black w-5 h-5 rounded-full flex items-center justify-center border-2 border-slate-900 shadow-lg animate-bounce z-20">
                                     {totalPendingSocial}
                                 </div>
                             )}
+                        </button>
+                        <button onClick={() => setShowBuddyFinder(true)} className="bg-gradient-to-r from-apna-navy to-slate-900 border border-slate-700 p-4 rounded-3xl flex flex-col justify-center items-start shadow-xl hover:border-blue-500/50 transition-all group h-32 relative overflow-hidden">
+                            <div className="w-8 h-8 rounded-xl bg-blue-900/30 flex items-center justify-center text-blue-400 group-hover:scale-110 group-hover:bg-blue-500 group-hover:text-white transition-all mb-3 shadow-inner relative z-10">
+                                <i className="fa-solid fa-people-arrows"></i>
+                            </div>
+                            <div className="text-white font-black text-[11px] uppercase tracking-tighter relative z-10">Buddy Finder</div>
                         </button>
                     </div>
                 )}
@@ -592,6 +597,7 @@ const App: React.FC = () => {
       <ShareModal isOpen={showShareModal} onClose={() => setShowShareModal(false)} text={`I just walked ${dailySteps} steps with ApnaWalk!`} url={window.location.href} />
       <TutorialModal isOpen={showTutorial} onClose={closeTutorial} />
       <SocialHub isOpen={showSocialHub} onClose={() => setShowSocialHub(false)} profile={profile} /> 
+      <BuddyFinder isOpen={showBuddyFinder} onClose={() => setShowBuddyFinder(false)} profile={profile} />
       <RhythmDetailModal isOpen={showRhythmDetail} onClose={() => setShowRhythmDetail(false)} bpm={metronome.bpm} setBpm={metronome.setBpm} isPlaying={metronome.isPlaying} togglePlay={metronome.togglePlay} />
       <StatsDetailModal isOpen={!!selectedStat} onClose={() => setSelectedStat(null)} type={selectedStat} data={{ calories: displayCalories, distance: displayDistance, duration: duration, steps: currentDisplaySteps }} route={route} />
     </div>
