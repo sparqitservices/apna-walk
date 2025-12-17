@@ -167,7 +167,7 @@ export const WorkoutPlannerModal: React.FC<WorkoutPlannerModalProps> = ({ isOpen
 
             {step === 'result' && plan && (
                 <div className="space-y-4 animate-message-pop">
-                    <div className="bg-gradient-to-r from-brand-900/40 to-slate-800 p-4 rounded-xl border border-brand-500/20 mb-4 flex justify-between items-center">
+                    <div className="bg-gradient-to-r from-brand-900/40 to-slate-800 p-4 rounded-xl border border-brand-500/20 mb-2 flex justify-between items-center">
                         <div>
                             <span className="text-[10px] text-brand-400 uppercase tracking-widest font-bold">Your Plan</span>
                             <h3 className="text-white font-bold text-lg">{plan.goal}</h3>
@@ -175,6 +175,30 @@ export const WorkoutPlannerModal: React.FC<WorkoutPlannerModalProps> = ({ isOpen
                         <button onClick={() => setStep('goal')} className="text-xs text-slate-400 hover:text-white">
                             Restart
                         </button>
+                    </div>
+                    
+                    {/* Visual Progress Bar (0/7 Days) */}
+                    <div className="mb-4 px-1">
+                        <div className="flex justify-between items-end mb-2">
+                            <span className="text-xs text-slate-400 font-bold uppercase tracking-wider">Plan Duration</span>
+                            <span className="text-xs text-white font-mono font-bold">0 / 7 Days</span>
+                        </div>
+                        <div className="h-4 w-full bg-slate-800 rounded-full overflow-hidden relative border border-slate-700 shadow-inner">
+                            {/* Grid lines for days */}
+                            <div className="absolute inset-0 flex z-10">
+                                {[...Array(7)].map((_, i) => (
+                                    <div key={i} className="flex-1 border-r border-slate-900/30 last:border-0"></div>
+                                ))}
+                            </div>
+                            {/* Start Indicator - Tiny sliver to show start color */}
+                            <div className="h-full bg-gradient-to-r from-apna-orange to-brand-500 w-[2%] relative">
+                                <div className="absolute right-0 top-0 bottom-0 w-1 bg-white/50 shadow-[0_0_10px_white]"></div>
+                            </div>
+                        </div>
+                        <p className="text-[10px] text-brand-400 mt-2 text-center font-medium opacity-90">
+                            <i className="fa-solid fa-flag-checkered mr-1"></i>
+                            Ready to start your 7-day journey?
+                        </p>
                     </div>
 
                     <div className="space-y-3">
@@ -203,7 +227,7 @@ export const WorkoutPlannerModal: React.FC<WorkoutPlannerModalProps> = ({ isOpen
                     <div className="pt-4 sticky bottom-0 bg-dark-card pb-2">
                          <button 
                             onClick={handleSave}
-                            className="w-full bg-brand-600 hover:bg-brand-500 text-white font-bold py-3 rounded-xl transition-all shadow-lg active:scale-95 flex items-center justify-center gap-2"
+                            className="w-full bg-apna-orange hover:bg-orange-600 text-white font-bold py-3 rounded-xl transition-all shadow-lg active:scale-95 flex items-center justify-center gap-2"
                          >
                             <i className="fa-solid fa-check"></i> Accept Plan
                          </button>
