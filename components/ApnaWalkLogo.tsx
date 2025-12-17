@@ -5,12 +5,14 @@ export interface ApnaWalkLogoProps {
   size?: number;
   className?: string;
   showText?: boolean;
+  useGradient?: boolean;
 }
 
 export const ApnaWalkLogo: React.FC<ApnaWalkLogoProps> = ({
   size = 48,
   className = "",
   showText = true,
+  useGradient = true,
 }) => {
   
   // Calculate font sizes proportional to the passed size prop
@@ -28,7 +30,7 @@ export const ApnaWalkLogo: React.FC<ApnaWalkLogoProps> = ({
       <div className="flex flex-col leading-none justify-center items-start">
           <span className="font-black tracking-tight text-white leading-none flex items-baseline gap-1 drop-shadow-md" style={{ fontSize: `${textSize}px` }}>
             Apna 
-            <span className="bg-gradient-to-r from-apna-orange to-apna-amber bg-clip-text text-transparent">
+            <span className={useGradient ? "bg-gradient-to-r from-apna-orange to-apna-amber bg-clip-text text-transparent" : "text-apna-orange"}>
                 Walk
             </span>
           </span>

@@ -117,7 +117,7 @@ export const VisualShareModal: React.FC<VisualShareModalProps> = ({ isOpen, onCl
 
               {/* Header */}
               <div className="flex justify-center mb-8 relative z-10 scale-90 origin-top">
-                  <ApnaWalkLogo size={40} />
+                  <ApnaWalkLogo size={40} useGradient={false} />
               </div>
 
               {/* Content */}
