@@ -189,40 +189,42 @@
 
 /* Premium Shimmer Effect for 'Walk' text */
 .walk-text-shimmer {
-  /* Updated to Primary Orange (#FF9800) range */
+  /* Premium Gold/Orange Gradient */
   background: linear-gradient(
     110deg,
-    #F57C00 0%,     /* Deep Orange */
-    #FF9800 20%,    /* Primary Orange */
-    #FFB74D 40%,    /* Light Orange */
-    #FFFFFF 50%,    /* Bright White Highlight */
-    #FFB74D 60%,    
-    #FF9800 80%,    
-    #F57C00 100%    
+    #e65100 0%,      /* Deepest Orange */
+    #f57c00 30%,     /* Dark Orange */
+    #ffffff 50%,     /* Sharp White Glint */
+    #f57c00 70%,     /* Dark Orange */
+    #e65100 100%     /* Deepest Orange */
   );
+  
   background-size: 200% auto;
   
   /* Text Clip Magic */
   -webkit-background-clip: text;
   background-clip: text;
   
-  /* Transparent fill to show gradient, but fallback color for safety */
+  /* Transparent fill to show gradient */
   -webkit-text-fill-color: transparent;
   color: #FF9800; 
 
   /* Animation */
-  animation: shimmer-flow 3.5s linear infinite;
+  animation: shimmer-flow 4s linear infinite;
   
-  /* Ensure transform doesn't clip */
+  /* Layout */
   display: inline-block; 
-  padding-bottom: 2px; /* Prevent descender clipping */
+  padding-bottom: 2px;
+  
+  /* Subtle glow for extra premium feel */
+  filter: drop-shadow(0 2px 8px rgba(245, 124, 0, 0.4));
 }
 
 @keyframes shimmer-flow {
   0% {
-    background-position: -200% center;
+    background-position: 200% center;
   }
   100% {
-    background-position: 200% center;
+    background-position: -200% center;
   }
 }
