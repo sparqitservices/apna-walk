@@ -24,6 +24,7 @@ import { ApnaWalkLogo } from './components/ApnaWalkLogo';
 import { PrivacyPolicyPage } from './components/PrivacyPolicyPage';
 import { TermsConditionsPage } from './components/TermsConditionsPage';
 import { AdminDashboard } from './components/AdminDashboard'; 
+import { VisualShareModal } from './components/VisualShareModal';
 import { usePedometer } from './hooks/usePedometer';
 import { UserSettings, WalkSession, UserProfile, DailyHistory, Badge, RoutePoint, WeatherData, WeeklyPlan, HydrationLog } from './types';
 import { saveHistory, getHistory, saveSettings, getSettings, getBadges, addBadge, hasSeenTutorial, markTutorialSeen, getProfile, saveProfile, saveActivePlan, getActivePlan, getHydration, saveHydration, syncDailyStatsToCloud, syncSessionToCloud, syncLocationToCloud } from './services/storageService';
@@ -131,7 +132,14 @@ const App: React.FC = () => {
   const [showEvents, setShowEvents] = useState(false);
   const [legalDoc, setLegalDoc] = useState<DocType>(null);
   const [currentSession, setCurrentSession] = useState<WalkSession | null>(null);
-  const [selectedStat, setSelectedStat] = useState<'calories' | 'distance' | 'time' | null>(null); 
+  const [selectedStat, setSelectedStat] = useState<'calories' | 'distance' | 'time' | null>(null);
+  
+  // Visual Share Modal State
+  const [visualShare, setVisualShare] = useState<{ isOpen: boolean, type: 'quote' | 'stats', data: any }>({
+      isOpen: false,
+      type: 'quote',
+      data: null
+  });
   
   // Pedometer Hook
   const { 
@@ -600,6 +608,15 @@ const App: React.FC = () => {
       setActivePlan(null);
   };
 
+  // --- Visual Share Handlers ---
+  const handleQuoteShare = (quote: {text: string, author: string}) => {
+      setVisualShare({ isOpen: true, type: 'quote', data: quote });
+  };
+
+  const handleStatsShare = (session: WalkSession) => {
+      setVisualShare({ isOpen: true, type: 'stats', data: session });
+  };
+
   if (authLoading) {
       return (
           <div className="min-h-screen bg-dark-bg flex items-center justify-center">
@@ -635,7 +652,7 @@ const App: React.FC = () => {
       )}
 
       {/* Top Bar - Updated to Dark Teal for Professional Look */}
-      <div className="flex justify-between items-center p-6 bg-apna-teal text-white border-b border-apna-teal/50 shadow-md">
+      <div className="flex justify-between items-center p-6 bg-apna-teal text-white border-b border-apna-teal/50 shadow-md sticky top-0 z-40">
         <div className="flex items-center gap-3" onClick={() => setShowSettings(true)}>
            <div className={`w-10 h-10 rounded-full border-2 border-white/20 flex items-center justify-center font-bold cursor-pointer hover:border-brand-500 transition-all overflow-hidden ${profile.isGuest ? 'bg-slate-600 text-slate-300' : 'bg-brand-600 text-white shadow-lg shadow-brand-500/20'}`}>
                 {profile.avatar ? <img src={profile.avatar} alt="Profile" className="w-full h-full object-cover" /> : (profile.isGuest ? <i className="fa-solid fa-user"></i> : profile.name.charAt(0).toUpperCase())}
@@ -673,119 +690,138 @@ const App: React.FC = () => {
         </div>
       </div>
 
-      <main className="px-4 flex flex-col items-center pt-6">
+      <main className="px-4 pt-6 max-w-4xl mx-auto w-full">
         
         {motionError && (
-            <div className="w-full max-w-md bg-red-900/20 border border-red-500/50 text-red-400 p-3 rounded-lg text-sm mb-4 text-center animate-pulse">
+            <div className="w-full bg-red-900/20 border border-red-500/50 text-red-400 p-3 rounded-lg text-sm mb-4 text-center animate-pulse">
                 <i className="fa-solid fa-triangle-exclamation mr-2"></i>
                 {motionError} <span className="opacity-75 block text-xs mt-1">Tap start to request permission.</span>
             </div>
         )}
         
         {!motionPermissionGranted && !profile.isGuest && (
-             <div className="w-full max-w-md bg-brand-500/10 border border-brand-500/30 text-brand-600 p-3 rounded-lg text-sm mb-4 text-center cursor-pointer" onClick={() => activateDailyTracking()}>
+             <div className="w-full bg-brand-500/10 border border-brand-500/30 text-brand-600 p-3 rounded-lg text-sm mb-4 text-center cursor-pointer" onClick={() => activateDailyTracking()}>
                 <i className="fa-solid fa-person-walking mr-2"></i>
                 Tap here to enable automatic step counting
              </div>
         )}
 
         {isTrackingSession && (
-            <div className={`w-full max-w-md px-3 py-1 rounded-full text-xs flex items-center justify-center mb-4 gap-2 border ${gpsError ? 'bg-orange-500/10 border-orange-500/20 text-orange-400' : 'bg-brand-500/10 border-brand-500/20 text-brand-600'}`}>
+            <div className={`w-full max-w-md mx-auto px-3 py-1 rounded-full text-xs flex items-center justify-center mb-4 gap-2 border ${gpsError ? 'bg-orange-500/10 border-orange-500/20 text-orange-400' : 'bg-brand-500/10 border-brand-500/20 text-brand-600'}`}>
                 {gpsError ? <span>Indoor Workout Mode</span> : <span>GPS Active ({route.length} pts)</span>}
             </div>
         )}
 
-        <RadialProgress 
-          current={isTrackingSession ? sessionSteps : dailySteps} 
-          total={settings.stepGoal} 
-          label={isTrackingSession ? "Workout Steps" : "Today's Steps"}
-          subLabel={isTrackingSession ? "Workout Active" : "Auto-Recording"}
-          isActive={isTrackingSession}
-          onClick={handleToggleTracking}
-        />
-
-        <StatsGrid 
-          calories={displayCalories} 
-          distance={displayDistance} 
-          duration={duration} 
-          onStatClick={setSelectedStat} 
-        />
-
-        <div className="flex gap-4 mb-6 w-full max-w-md">
-          {/* Main CTA - Updated to Primary Orange (#FF9800) */}
-          <button 
-            onClick={handleToggleTracking}
-            className={`flex-1 py-4 rounded-2xl font-bold text-lg shadow-lg transform transition-all active:scale-95 flex items-center justify-center gap-2 ${
-              isTrackingSession 
-                ? 'bg-red-500 text-white border border-red-600 hover:bg-red-600' 
-                : 'bg-apna-orange text-white shadow-apna-orange/20 hover:bg-orange-600 animate-breathing hover:animate-none'
-            }`}
-          >
-            {isTrackingSession ? <><i className="fa-solid fa-stop"></i> End Session</> : <><i className="fa-solid fa-play"></i> Start Workout</>}
-          </button>
-        </div>
-        
-        {!isTrackingSession && !profile.isGuest && (
-            activePlan ? <ActivePlanCard plan={activePlan} onRemove={handleRemovePlan} /> : (
-            <div className="grid grid-cols-2 gap-4 w-full max-w-md mb-6">
-                <button onClick={() => setShowPlanner(true)} className="bg-gradient-to-r from-apna-navy to-slate-900 border border-slate-700 p-3 rounded-2xl flex flex-col justify-center items-start shadow-lg hover:border-brand-500/30 transition-all group h-28">
-                    <div className="w-8 h-8 rounded-full bg-brand-900/30 flex items-center justify-center text-brand-400 group-hover:scale-110 transition-transform mb-2">
-                        <i className="fa-solid fa-calendar-days"></i>
-                    </div>
-                    <div className="text-white font-bold text-sm">Plan Your Week</div>
-                    <div className="text-slate-400 text-xs">AI-curated schedule</div>
-                </button>
-                
-                <button onClick={() => setShowEvents(true)} className="bg-gradient-to-r from-apna-navy to-slate-900 border border-slate-700 p-3 rounded-2xl flex flex-col justify-center items-start shadow-lg hover:border-blue-500/30 transition-all group h-28 relative overflow-hidden">
-                    <div className="absolute inset-0 bg-blue-500/5 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                    <div className="w-8 h-8 rounded-full bg-blue-900/30 flex items-center justify-center text-blue-400 group-hover:scale-110 transition-transform mb-2 relative z-10">
-                        <i className="fa-solid fa-users"></i>
-                    </div>
-                    <div className="text-white font-bold text-sm relative z-10">Community Events</div>
-                    <div className="text-slate-400 text-xs relative z-10">Join local marathons</div>
-                </button>
-            </div>
-        ))}
-
-        <RhythmGuide />
-
-        {settings.enableLocation && (coords || weatherLoading) && (
-            <WeatherCard 
-                weather={weather} 
-                loading={weatherLoading} 
-                onRefresh={() => coords && fetchLocalWeather(coords.lat, coords.lng)}
-                onClick={() => setShowWeatherDetail(true)}
+        {/* --- MAIN HERO SECTION --- */}
+        <div className="flex flex-col items-center justify-center mb-8">
+            <RadialProgress 
+              current={isTrackingSession ? sessionSteps : dailySteps} 
+              total={settings.stepGoal} 
+              label={isTrackingSession ? "Workout Steps" : "Today's Steps"}
+              subLabel={isTrackingSession ? "Workout Active" : "Auto-Recording"}
+              isActive={isTrackingSession}
+              onClick={handleToggleTracking}
             />
-        )}
-        
-        <VirtualTrekCard totalLifetimeSteps={totalLifetimeSteps} />
 
-        <DailyQuote />
-        
-        {dailySteps > 0 && (
-             <button onClick={handleShare} className="mb-8 flex items-center gap-2 text-sm font-medium text-brand-600 bg-brand-50 px-4 py-2 rounded-full hover:bg-brand-100 transition-colors border border-brand-200">
-                <i className="fa-solid fa-share-nodes"></i> Share Today's Progress
-             </button>
-        )}
+            <StatsGrid 
+              calories={displayCalories} 
+              distance={displayDistance} 
+              duration={duration} 
+              onStatClick={setSelectedStat} 
+            />
 
-        <Achievements totalSteps={totalLifetimeSteps} earnedBadges={earnedBadges} />
-
-        <HydrationCard 
-            data={hydration} 
-            onClick={() => setShowHydrationModal(true)} 
-            onQuickAdd={handleQuickHydration}
-            recommendation={hydrationTip}
-        />
-
-        <div className="w-full max-w-md mb-8">
-            <div className="flex justify-between items-center mb-4 px-2">
-                <h3 className="font-bold text-lg text-dark-text">Activity History</h3>
-                <div className="bg-dark-card border border-dark-border rounded-full p-1 flex">
-                    <button onClick={() => setHistoryRange('week')} className={`text-xs px-3 py-1 rounded-full font-medium transition-all ${historyRange === 'week' ? 'bg-brand-600 text-white' : 'text-dark-muted hover:text-dark-text'}`}>Week</button>
-                    <button onClick={() => setHistoryRange('month')} className={`text-xs px-3 py-1 rounded-full font-medium transition-all ${historyRange === 'month' ? 'bg-brand-600 text-white' : 'text-dark-muted hover:text-dark-text'}`}>Month</button>
-                </div>
+            {/* Main Action Button */}
+            <div className="w-full max-w-md">
+                <button 
+                    onClick={handleToggleTracking}
+                    className={`w-full py-4 rounded-2xl font-bold text-lg shadow-lg transform transition-all active:scale-95 flex items-center justify-center gap-2 ${
+                    isTrackingSession 
+                        ? 'bg-red-500 text-white border border-red-600 hover:bg-red-600' 
+                        : 'bg-apna-orange text-white shadow-apna-orange/20 hover:bg-orange-600 animate-breathing hover:animate-none'
+                    }`}
+                >
+                    {isTrackingSession ? <><i className="fa-solid fa-stop"></i> End Session</> : <><i className="fa-solid fa-play"></i> Start Workout</>}
+                </button>
             </div>
+        </div>
+
+        {/* --- SECONDARY ACTIONS ROW --- */}
+        {!isTrackingSession && !profile.isGuest && (
+            <div className="w-full max-w-md mx-auto mb-8">
+                {activePlan ? <ActivePlanCard plan={activePlan} onRemove={handleRemovePlan} /> : (
+                    <div className="grid grid-cols-2 gap-4">
+                        <button onClick={() => setShowPlanner(true)} className="bg-gradient-to-r from-apna-navy to-slate-900 border border-slate-700 p-3 rounded-2xl flex flex-col justify-center items-start shadow-lg hover:border-brand-500/30 transition-all group h-28">
+                            <div className="w-8 h-8 rounded-full bg-brand-900/30 flex items-center justify-center text-brand-400 group-hover:scale-110 transition-transform mb-2">
+                                <i className="fa-solid fa-calendar-days"></i>
+                            </div>
+                            <div className="text-white font-bold text-sm">Plan Your Week</div>
+                            <div className="text-slate-400 text-xs">AI-curated schedule</div>
+                        </button>
+                        
+                        <button onClick={() => setShowEvents(true)} className="bg-gradient-to-r from-apna-navy to-slate-900 border border-slate-700 p-3 rounded-2xl flex flex-col justify-center items-start shadow-lg hover:border-blue-500/30 transition-all group h-28 relative overflow-hidden">
+                            <div className="absolute inset-0 bg-blue-500/5 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                            <div className="w-8 h-8 rounded-full bg-blue-900/30 flex items-center justify-center text-blue-400 group-hover:scale-110 transition-transform mb-2 relative z-10">
+                                <i className="fa-solid fa-users"></i>
+                            </div>
+                            <div className="text-white font-bold text-sm relative z-10">Community Events</div>
+                            <div className="text-slate-400 text-xs relative z-10">Join local marathons</div>
+                        </button>
+                    </div>
+                )}
+            </div>
+        )}
+
+        {/* --- INFORMATION GRID LAYOUT --- */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full max-w-4xl mx-auto">
+            
+            {/* Column 1 */}
+            <div className="flex flex-col gap-6">
+                <RhythmGuide />
+                
+                {settings.enableLocation && (coords || weatherLoading) && (
+                    <WeatherCard 
+                        weather={weather} 
+                        loading={weatherLoading} 
+                        onRefresh={() => coords && fetchLocalWeather(coords.lat, coords.lng)}
+                        onClick={() => setShowWeatherDetail(true)}
+                    />
+                )}
+            </div>
+
+            {/* Column 2 */}
+            <div className="flex flex-col gap-6">
+                <HydrationCard 
+                    data={hydration} 
+                    onClick={() => setShowHydrationModal(true)} 
+                    onQuickAdd={handleQuickHydration}
+                    recommendation={hydrationTip}
+                />
+                
+                <VirtualTrekCard totalLifetimeSteps={totalLifetimeSteps} />
+            </div>
+        </div>
+
+        {/* --- FULL WIDTH SECTIONS --- */}
+        <div className="w-full max-w-4xl mx-auto mt-8 space-y-8">
+            <DailyQuote onShare={handleQuoteShare} />
+            
+            {dailySteps > 0 && (
+                 <button onClick={handleShare} className="w-full md:w-auto mx-auto flex items-center justify-center gap-2 text-sm font-medium text-brand-600 bg-brand-50 px-6 py-3 rounded-full hover:bg-brand-100 transition-colors border border-brand-200">
+                    <i className="fa-solid fa-share-nodes"></i> Share Today's Progress
+                 </button>
+            )}
+
+            <Achievements totalSteps={totalLifetimeSteps} earnedBadges={earnedBadges} />
+
+            {/* Activity History Chart */}
             <div className="bg-dark-card p-6 rounded-3xl border border-dark-border shadow-xl">
+                <div className="flex justify-between items-center mb-4">
+                    <h3 className="font-bold text-lg text-dark-text">Activity History</h3>
+                    <div className="bg-dark-card border border-dark-border rounded-full p-1 flex">
+                        <button onClick={() => setHistoryRange('week')} className={`text-xs px-3 py-1 rounded-full font-medium transition-all ${historyRange === 'week' ? 'bg-brand-600 text-white' : 'text-dark-muted hover:text-dark-text'}`}>Week</button>
+                        <button onClick={() => setHistoryRange('month')} className={`text-xs px-3 py-1 rounded-full font-medium transition-all ${historyRange === 'month' ? 'bg-brand-600 text-white' : 'text-dark-muted hover:text-dark-text'}`}>Month</button>
+                    </div>
+                </div>
                 <div className="h-48 w-full mb-6">
                     <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={analytics.chartData}>
@@ -799,7 +835,7 @@ const App: React.FC = () => {
                     </BarChart>
                     </ResponsiveContainer>
                 </div>
-                <div className="grid grid-cols-2 gap-3 mb-6">
+                <div className="grid grid-cols-2 gap-3">
                     <div className="bg-slate-100 dark:bg-slate-800/50 p-3 rounded-xl border border-dark-border flex flex-col items-center text-center">
                         <span className="text-[10px] text-dark-muted font-bold uppercase">Best Day</span>
                         <span className="text-xl font-bold text-dark-text">{analytics.bestDay.steps.toLocaleString()}</span>
@@ -812,6 +848,7 @@ const App: React.FC = () => {
             </div>
         </div>
         
+        {/* Floating Action Buttons */}
         {!showCoach && !profile.isGuest && (
              <button onClick={() => setShowCoach(true)} className="fixed bottom-6 right-6 w-14 h-14 bg-gradient-to-tr from-brand-500 to-brand-600 rounded-full shadow-xl flex items-center justify-center text-white z-40 hover:scale-105 transition-transform"><i className="fa-solid fa-robot text-2xl"></i></button>
         )}
@@ -832,7 +869,22 @@ const App: React.FC = () => {
       </main>
 
       {/* Modals */}
-      <AICoachModal session={currentSession} isOpen={showCoach} onClose={() => setShowCoach(false)} isGuest={!!profile.isGuest} onLoginRequest={() => { setShowCoach(false); handleLogout(); }} />
+      <AICoachModal 
+        session={currentSession} 
+        isOpen={showCoach} 
+        onClose={() => setShowCoach(false)} 
+        isGuest={!!profile.isGuest} 
+        onLoginRequest={() => { setShowCoach(false); handleLogout(); }} 
+        onShareStats={handleStatsShare}
+      />
+      
+      <VisualShareModal 
+        isOpen={visualShare.isOpen} 
+        onClose={() => setVisualShare(prev => ({ ...prev, isOpen: false }))} 
+        type={visualShare.type} 
+        data={visualShare.data} 
+      />
+
       <BreathExerciseModal isOpen={showBreath} onClose={() => setShowBreath(false)} />
       <WorkoutPlannerModal isOpen={showPlanner} onClose={() => setShowPlanner(false)} onSavePlan={handleSavePlan} />
       <EventsModal isOpen={showEvents} onClose={() => setShowEvents(false)} locationName={location} />

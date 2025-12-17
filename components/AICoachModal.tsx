@@ -9,6 +9,7 @@ interface AICoachModalProps {
   onClose: () => void;
   isGuest: boolean;
   onLoginRequest: () => void;
+  onShareStats: (session: WalkSession) => void;
 }
 
 interface ChatMessage {
@@ -34,7 +35,7 @@ declare global {
   }
 }
 
-export const AICoachModal: React.FC<AICoachModalProps> = ({ session, isOpen, onClose, isGuest, onLoginRequest }) => {
+export const AICoachModal: React.FC<AICoachModalProps> = ({ session, isOpen, onClose, isGuest, onLoginRequest, onShareStats }) => {
   const [activeTab, setActiveTab] = useState<'insight' | 'chat'>('insight');
   const [insight, setInsight] = useState<AIInsight | null>(null);
   const [loading, setLoading] = useState(false);
@@ -313,6 +314,16 @@ export const AICoachModal: React.FC<AICoachModalProps> = ({ session, isOpen, onC
                 <div className="flex-1 overflow-hidden relative bg-dark-bg">
                     {activeTab === 'insight' ? (
                         <div className="h-full overflow-y-auto p-6 space-y-6 scroll-smooth">
+                            {/* Share Stats Button */}
+                            {session && (
+                                <button 
+                                    onClick={() => onShareStats(session)}
+                                    className="w-full bg-gradient-to-r from-purple-600 to-blue-600 text-white py-3 rounded-xl font-bold shadow-lg active:scale-95 transition-transform flex items-center justify-center gap-2 mb-2"
+                                >
+                                    <i className="fa-solid fa-share-nodes"></i> Share Session Card
+                                </button>
+                            )}
+
                             {/* Map Visualization */}
                             {session?.route && session.route.length > 1 && (
                                 <div className="mb-4">

@@ -17,7 +17,11 @@ const QUOTES = [
   { text: "Walking is the best possible exercise. Habituate yourself to walk very far.", author: "Thomas Jefferson" }
 ];
 
-export const DailyQuote: React.FC = () => {
+interface DailyQuoteProps {
+    onShare?: (quote: { text: string, author: string }) => void;
+}
+
+export const DailyQuote: React.FC<DailyQuoteProps> = ({ onShare }) => {
   const quote = useMemo(() => {
     // Select a quote based on the day of the year (rotates daily)
     const now = new Date();
@@ -31,7 +35,11 @@ export const DailyQuote: React.FC = () => {
   }, []);
 
   return (
-    <div className="w-full max-w-md bg-slate-800/40 border border-slate-700/50 p-5 rounded-2xl mb-6 relative overflow-hidden group hover:bg-slate-800/60 transition-colors">
+    <div 
+        onClick={() => onShare && onShare(quote)}
+        className="w-full bg-slate-800/40 border border-slate-700/50 p-5 rounded-2xl mb-6 relative overflow-hidden group hover:bg-slate-800/60 transition-all cursor-pointer active:scale-[0.99] shadow-md hover:border-brand-500/30"
+        title="Tap to share this quote"
+    >
        {/* Decorative Quote Mark */}
        <div className="absolute top-2 right-4 text-slate-700/30 text-6xl font-serif font-black transform translate-x-2 -translate-y-2 select-none pointer-events-none">
          "
@@ -40,12 +48,17 @@ export const DailyQuote: React.FC = () => {
        <div className="relative z-10 flex gap-4">
           <div className="w-1 bg-gradient-to-b from-brand-400 to-brand-600 rounded-full h-auto shrink-0 shadow-[0_0_10px_rgba(34,197,94,0.3)]"></div>
           <div>
-              <p className="text-slate-200 italic text-sm mb-3 leading-relaxed font-medium">
+              <p className="text-slate-200 italic text-sm mb-3 leading-relaxed font-medium group-hover:text-white transition-colors">
                   "{quote.text}"
               </p>
-              <p className="text-brand-400 text-[10px] font-bold uppercase tracking-widest opacity-80">
-                  — {quote.author}
-              </p>
+              <div className="flex justify-between items-end">
+                  <p className="text-brand-400 text-[10px] font-bold uppercase tracking-widest opacity-80">
+                      — {quote.author}
+                  </p>
+                  <span className="text-[10px] text-slate-500 bg-slate-800 px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity">
+                      <i className="fa-solid fa-share-nodes mr-1"></i> Share
+                  </span>
+              </div>
           </div>
        </div>
     </div>
