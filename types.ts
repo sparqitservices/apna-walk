@@ -37,6 +37,46 @@ export interface UserProfile {
   is_verified?: boolean;
 }
 
+// --- Park Finder Types ---
+
+export interface Park {
+  id: string;
+  name: string;
+  address: string;
+  city?: string;
+  coordinates: {
+    lat: number;
+    lng: number;
+  };
+  google_place_id?: string;
+  facilities: {
+    trail: boolean;
+    bench: boolean;
+    washroom: boolean;
+    water: boolean;
+    lighting: boolean;
+    parking?: boolean;
+  };
+  rating_avg: number;
+  review_count?: number;
+  photo_url?: string;
+  distance?: number; // In meters, from user
+  visitor_count?: number; // Active in last hour
+}
+
+export interface ParkReview {
+  id: string;
+  park_id: string;
+  user_id: string;
+  rating: number;
+  review_text: string;
+  created_at: string;
+  profile?: {
+    full_name: string;
+    avatar_url: string;
+  };
+}
+
 export interface BuddyRequest {
   id: string;
   sender_id: string;

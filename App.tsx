@@ -25,6 +25,7 @@ import { HydrationModal } from './components/HydrationModal';
 import { EventsModal } from './components/EventsModal';
 import { SocialHub } from './components/SocialHub'; 
 import { BuddyFinder } from './components/BuddyFinder';
+import { ParkFinder } from './components/ParkFinder';
 import { LegalModal, DocType } from './components/LegalModal';
 import { StatsDetailModal } from './components/StatsDetailModal'; 
 import { ApnaWalkLogo } from './components/ApnaWalkLogo'; 
@@ -132,6 +133,7 @@ const App: React.FC = () => {
   const [showEvents, setShowEvents] = useState(false);
   const [showSocialHub, setShowSocialHub] = useState(false); 
   const [showBuddyFinder, setShowBuddyFinder] = useState(false);
+  const [showParkFinder, setShowParkFinder] = useState(false);
   const [totalPendingSocial, setTotalPendingSocial] = useState(0);
   const [legalDoc, setLegalDoc] = useState<DocType>(null);
   const [currentSession, setCurrentSession] = useState<WalkSession | null>(null);
@@ -444,12 +446,23 @@ const App: React.FC = () => {
   const handleGuest = () => { const newProfile = { name: 'Guest', email: '', isLoggedIn: true, isGuest: true }; setProfile(newProfile); saveProfile(newProfile); checkTutorial(); };
   const handleLogout = async () => { if(!profile.isGuest) await signOut(); setProfile({ name: '', email: '', isLoggedIn: false, isGuest: false }); saveProfile({ name: '', email: '', isLoggedIn: false, isGuest: false }); setShowSettings(false); };
   const handleSaveData = (newSettings: UserSettings, newProfile: UserProfile) => { setSettings(newSettings); saveSettings(newSettings); setProfile(newProfile); saveProfile(newProfile); };
+  
+  // Fix: handleSavePlan to update local state and storage
+  const handleSavePlan = (plan: WeeklyPlan) => {
+    setActivePlan(plan);
+    saveActivePlan(plan);
+  };
+
+  // Fix: handleRemovePlan to clear active plan from state and storage
+  const handleRemovePlan = () => {
+    setActivePlan(null);
+    saveActivePlan(null);
+  };
+
   const handleHydrationUpdate = (newLog: HydrationLog) => { setHydration(newLog); saveHydration(newLog); lastWaterCheckRef.current = Date.now(); };
   const handleQuickHydration = () => { const newLog = { ...hydration, currentMl: hydration.currentMl + 250 }; setHydration(newLog); saveHydration(newLog); lastWaterCheckRef.current = Date.now(); };
   const handleInstall = () => { if (installPrompt) { installPrompt.prompt(); installPrompt.userChoice.then((choice: any) => { if (choice.outcome === 'accepted') setInstallPrompt(null); }); } };
   const handleShare = async () => { const text = `I just walked ${dailySteps} steps with ApnaWalk!`; if (navigator.share) { try { await navigator.share({ title: 'ApnaWalk', text, url: window.location.href }); } catch (err) {} } else setShowShareModal(true); };
-  const handleSavePlan = (plan: WeeklyPlan) => { saveActivePlan(plan); setActivePlan(plan); };
-  const handleRemovePlan = () => { saveActivePlan(null); setActivePlan(null); };
   const handleQuoteShare = (quote: {text: string, author: string}) => setVisualShare({ isOpen: true, type: 'quote', data: quote });
   const handleStatsShare = (session: WalkSession) => setVisualShare({ isOpen: true, type: 'stats', data: session });
 
@@ -509,7 +522,7 @@ const App: React.FC = () => {
         {!isTrackingSession && !profile.isGuest && (
             <div className="w-full max-w-md mx-auto mb-8 animate-fade-in">
                 {activePlan ? <ActivePlanCard plan={activePlan} onRemove={handleRemovePlan} /> : (
-                    <div className="grid grid-cols-3 gap-4">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                         <button onClick={() => setShowPlanner(true)} className="bg-gradient-to-r from-apna-navy to-slate-900 border border-slate-700 p-4 rounded-3xl flex flex-col justify-center items-start shadow-xl hover:border-brand-500/50 transition-all group h-32">
                             <div className="w-8 h-8 rounded-xl bg-brand-900/30 flex items-center justify-center text-brand-400 group-hover:scale-110 group-hover:bg-brand-500 group-hover:text-white transition-all mb-3 shadow-inner">
                                 <i className="fa-solid fa-calendar-days"></i>
@@ -531,7 +544,13 @@ const App: React.FC = () => {
                             <div className="w-8 h-8 rounded-xl bg-blue-900/30 flex items-center justify-center text-blue-400 group-hover:scale-110 group-hover:bg-blue-500 group-hover:text-white transition-all mb-3 shadow-inner relative z-10">
                                 <i className="fa-solid fa-people-arrows"></i>
                             </div>
-                            <div className="text-white font-black text-[11px] uppercase tracking-tighter relative z-10">Buddy Finder</div>
+                            <div className="text-white font-black text-[11px] uppercase tracking-tighter relative z-10">Buddy</div>
+                        </button>
+                        <button onClick={() => setShowParkFinder(true)} className="bg-gradient-to-r from-apna-navy to-slate-900 border border-slate-700 p-4 rounded-3xl flex flex-col justify-center items-start shadow-xl hover:border-emerald-500/50 transition-all group h-32 relative overflow-hidden">
+                            <div className="w-8 h-8 rounded-xl bg-emerald-900/30 flex items-center justify-center text-emerald-400 group-hover:scale-110 group-hover:bg-emerald-500 group-hover:text-white transition-all mb-3 shadow-inner relative z-10">
+                                <i className="fa-solid fa-tree"></i>
+                            </div>
+                            <div className="text-white font-black text-[11px] uppercase tracking-tighter relative z-10">Parks</div>
                         </button>
                     </div>
                 )}
@@ -598,6 +617,7 @@ const App: React.FC = () => {
       <TutorialModal isOpen={showTutorial} onClose={closeTutorial} />
       <SocialHub isOpen={showSocialHub} onClose={() => setShowSocialHub(false)} profile={profile} /> 
       <BuddyFinder isOpen={showBuddyFinder} onClose={() => setShowBuddyFinder(false)} profile={profile} />
+      <ParkFinder isOpen={showParkFinder} onClose={() => setShowParkFinder(false)} profile={profile} />
       <RhythmDetailModal isOpen={showRhythmDetail} onClose={() => setShowRhythmDetail(false)} bpm={metronome.bpm} setBpm={metronome.setBpm} isPlaying={metronome.isPlaying} togglePlay={metronome.togglePlay} />
       <StatsDetailModal isOpen={!!selectedStat} onClose={() => setSelectedStat(null)} type={selectedStat} data={{ calories: displayCalories, distance: displayDistance, duration: duration, steps: currentDisplaySteps }} route={route} />
     </div>

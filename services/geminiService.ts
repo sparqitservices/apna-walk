@@ -3,7 +3,8 @@ import { GoogleGenAI, Type } from "@google/genai";
 import { WalkSession, AIInsight, DailyHistory, Badge, WeeklyPlan, WeatherData, FitnessEvent } from "../types";
 
 // Always use process.env.API_KEY for initialization
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || "" });
+// Guideline: Must use const ai = new GoogleGenAI({apiKey: process.env.API_KEY});
+const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 // Upgrade to the latest recommended model
 const MODEL_ID = "gemini-3-flash-preview";
 
