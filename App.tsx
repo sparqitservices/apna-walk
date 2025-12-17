@@ -26,6 +26,7 @@ import { EventsModal } from './components/EventsModal';
 import { SocialHub } from './components/SocialHub'; 
 import { BuddyFinder } from './components/BuddyFinder';
 import { ParkFinder } from './components/ParkFinder';
+import { LiveTracker } from './components/LiveTracker';
 import { LegalModal, DocType } from './components/LegalModal';
 import { StatsDetailModal } from './components/StatsDetailModal'; 
 import { ApnaWalkLogo } from './components/ApnaWalkLogo'; 
@@ -134,6 +135,7 @@ const App: React.FC = () => {
   const [showSocialHub, setShowSocialHub] = useState(false); 
   const [showBuddyFinder, setShowBuddyFinder] = useState(false);
   const [showParkFinder, setShowParkFinder] = useState(false);
+  const [showLiveTracker, setShowLiveTracker] = useState(false);
   const [totalPendingSocial, setTotalPendingSocial] = useState(0);
   const [legalDoc, setLegalDoc] = useState<DocType>(null);
   const [currentSession, setCurrentSession] = useState<WalkSession | null>(null);
@@ -313,7 +315,7 @@ const App: React.FC = () => {
                 dailySteps
             );
             if (triggered.includes('water')) lastWaterCheckRef.current = Date.now();
-            if (triggered.includes('walk')) lastWalkCheckRef.current = Date.now();
+            if (triggered.includes('walk')) lastWaterCheckRef.current = Date.now();
             if (triggered.includes('breath')) lastBreathCheckRef.current = Date.now();
         };
         notificationIntervalRef.current = setInterval(checkReminders, 15 * 60 * 1000); 
@@ -403,8 +405,19 @@ const App: React.FC = () => {
     startSession();
   };
 
-  const handleFinishSession = async () => {
+  const handleFinishSession = async (gpsSession?: WalkSession) => {
     if (typeof navigator.vibrate === 'function') navigator.vibrate(100);
+    
+    // If we have a GPS session from LiveTracker, use that
+    if (gpsSession) {
+        setCurrentSession(gpsSession);
+        const newHistory = saveHistory(0, gpsSession);
+        setHistory(newHistory);
+        setShowCoach(true);
+        setShowLiveTracker(false);
+        return;
+    }
+
     const finalSteps = stopSession();
     if (finalSteps > 10 || duration > 30) {
         const spm = duration > 0 ? (finalSteps / (duration / 60)) : 0;
@@ -447,13 +460,13 @@ const App: React.FC = () => {
   const handleLogout = async () => { if(!profile.isGuest) await signOut(); setProfile({ name: '', email: '', isLoggedIn: false, isGuest: false }); saveProfile({ name: '', email: '', isLoggedIn: false, isGuest: false }); setShowSettings(false); };
   const handleSaveData = (newSettings: UserSettings, newProfile: UserProfile) => { setSettings(newSettings); saveSettings(newSettings); setProfile(newProfile); saveProfile(newProfile); };
   
-  // Fix: handleSavePlan to update local state and storage
+  // handleSavePlan to update local state and storage
   const handleSavePlan = (plan: WeeklyPlan) => {
     setActivePlan(plan);
     saveActivePlan(plan);
   };
 
-  // Fix: handleRemovePlan to clear active plan from state and storage
+  // handleRemovePlan to clear active plan from state and storage
   const handleRemovePlan = () => {
     setActivePlan(null);
     saveActivePlan(null);
@@ -514,7 +527,21 @@ const App: React.FC = () => {
             <RadialProgress current={isTrackingSession ? sessionSteps : dailySteps} total={settings.stepGoal} label={isTrackingSession ? "Workout Steps" : "Today's Steps"} subLabel={isTrackingSession ? "Workout Active" : "Auto-Recording"} isActive={isTrackingSession} onClick={handleToggleTracking} />
             <StatsGrid calories={displayCalories} distance={displayDistance} duration={duration} onStatClick={setSelectedStat} />
             <div className="w-full max-w-md space-y-4">
-                <button onClick={handleToggleTracking} className={`w-full py-4 rounded-2xl font-bold text-lg shadow-lg transform transition-all active:scale-95 flex items-center justify-center gap-2 ${isTrackingSession ? 'bg-red-500 text-white border border-red-600 hover:bg-red-600' : 'bg-apna-orange text-white shadow-apna-orange/20 hover:bg-orange-600 animate-breathing hover:animate-none'}`}>{isTrackingSession ? <><i className="fa-solid fa-stop"></i> End Session</> : <><i className="fa-solid fa-play"></i> Start Workout</>}</button>
+                <div className="grid grid-cols-4 gap-3">
+                    <button 
+                        onClick={handleToggleTracking} 
+                        className={`col-span-3 py-4 rounded-2xl font-bold text-lg shadow-lg transform transition-all active:scale-95 flex items-center justify-center gap-2 ${isTrackingSession ? 'bg-red-500 text-white border border-red-600 hover:bg-red-600' : 'bg-apna-orange text-white shadow-apna-orange/20 hover:bg-orange-600 animate-breathing hover:animate-none'}`}
+                    >
+                        {isTrackingSession ? <><i className="fa-solid fa-stop"></i> End Session</> : <><i className="fa-solid fa-play"></i> Start Workout</>}
+                    </button>
+                    <button 
+                        onClick={() => setShowLiveTracker(true)}
+                        className="bg-brand-600 hover:bg-brand-500 text-white rounded-2xl shadow-lg flex items-center justify-center text-xl transition-all active:scale-95"
+                        title="GPS Map Tracking"
+                    >
+                        <i className="fa-solid fa-map-location-dot"></i>
+                    </button>
+                </div>
                 <RhythmGuide bpm={metronome.bpm} setBpm={metronome.setBpm} isPlaying={metronome.isPlaying} togglePlay={metronome.togglePlay} onClick={() => setShowRhythmDetail(true)} />
             </div>
         </div>
@@ -618,6 +645,7 @@ const App: React.FC = () => {
       <SocialHub isOpen={showSocialHub} onClose={() => setShowSocialHub(false)} profile={profile} /> 
       <BuddyFinder isOpen={showBuddyFinder} onClose={() => setShowBuddyFinder(false)} profile={profile} />
       <ParkFinder isOpen={showParkFinder} onClose={() => setShowParkFinder(false)} profile={profile} />
+      <LiveTracker isOpen={showLiveTracker} onClose={() => setShowLiveTracker(false)} profile={profile} settings={settings} onFinish={handleFinishSession} />
       <RhythmDetailModal isOpen={showRhythmDetail} onClose={() => setShowRhythmDetail(false)} bpm={metronome.bpm} setBpm={metronome.setBpm} isPlaying={metronome.isPlaying} togglePlay={metronome.togglePlay} />
       <StatsDetailModal isOpen={!!selectedStat} onClose={() => setSelectedStat(null)} type={selectedStat} data={{ calories: displayCalories, distance: displayDistance, duration: duration, steps: currentDisplaySteps }} route={route} />
     </div>

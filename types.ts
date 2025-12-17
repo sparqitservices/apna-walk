@@ -3,6 +3,7 @@ export interface RoutePoint {
   lat: number;
   lng: number;
   timestamp: number;
+  speed?: number;
 }
 
 export interface WalkSession {
@@ -15,6 +16,25 @@ export interface WalkSession {
   durationSeconds: number;
   route?: RoutePoint[];
   type?: 'Normal Walk' | 'Brisk Walk' | 'Power Walk' | 'Long Walk';
+  avgSpeed?: number;
+  maxSpeed?: number;
+}
+
+// --- GPS Tracking Persistence ---
+export interface SavedWalk {
+    id: string;
+    user_id: string;
+    route_name: string;
+    distance_meters: number;
+    duration_seconds: number;
+    start_time: string;
+    end_time: string;
+    avg_speed: number;
+    max_speed: number;
+    calories_burned: number;
+    steps_count: number;
+    is_favorite: boolean;
+    path?: any; // GeoJSON
 }
 
 export interface UserProfile {
