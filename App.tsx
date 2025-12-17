@@ -11,9 +11,10 @@ import { TutorialModal } from './components/TutorialModal';
 import { WeatherCard } from './components/WeatherCard';
 import { WeatherDetailedModal } from './components/WeatherDetailedModal';
 import { BreathExerciseModal } from './components/BreathExerciseModal';
+import { BreathExerciseCard } from './components/BreathExerciseCard'; // NEW
 import { VirtualTrekCard } from './components/VirtualTrekCard';
 import { RhythmGuide } from './components/RhythmGuide';
-import { RhythmDetailModal } from './components/RhythmDetailModal'; // NEW
+import { RhythmDetailModal } from './components/RhythmDetailModal';
 import { WorkoutPlannerModal } from './components/WorkoutPlannerModal';
 import { ActivePlanCard } from './components/ActivePlanCard';
 import { HydrationCard } from './components/HydrationCard';
@@ -27,7 +28,7 @@ import { TermsConditionsPage } from './components/TermsConditionsPage';
 import { AdminDashboard } from './components/AdminDashboard'; 
 import { VisualShareModal } from './components/VisualShareModal';
 import { usePedometer } from './hooks/usePedometer';
-import { useMetronome } from './hooks/useMetronome'; // NEW
+import { useMetronome } from './hooks/useMetronome';
 import { UserSettings, WalkSession, UserProfile, DailyHistory, Badge, RoutePoint, WeatherData, WeeklyPlan, HydrationLog } from './types';
 import { saveHistory, getHistory, saveSettings, getSettings, getBadges, addBadge, hasSeenTutorial, markTutorialSeen, getProfile, saveProfile, saveActivePlan, getActivePlan, getHydration, saveHydration, syncDailyStatsToCloud, syncSessionToCloud, syncLocationToCloud } from './services/storageService';
 import { generateBadges, getHydrationTip } from './services/geminiService';
@@ -737,7 +738,7 @@ const App: React.FC = () => {
             />
 
             {/* Main Action Button */}
-            <div className="w-full max-w-md">
+            <div className="w-full max-w-md space-y-6">
                 <button 
                     onClick={handleToggleTracking}
                     className={`w-full py-4 rounded-2xl font-bold text-lg shadow-lg transform transition-all active:scale-95 flex items-center justify-center gap-2 ${
@@ -748,6 +749,14 @@ const App: React.FC = () => {
                 >
                     {isTrackingSession ? <><i className="fa-solid fa-stop"></i> End Session</> : <><i className="fa-solid fa-play"></i> Start Workout</>}
                 </button>
+
+                <RhythmGuide 
+                    bpm={metronome.bpm}
+                    setBpm={metronome.setBpm}
+                    isPlaying={metronome.isPlaying}
+                    togglePlay={metronome.togglePlay}
+                    onClick={() => setShowRhythmDetail(true)}
+                />
             </div>
         </div>
 
@@ -781,19 +790,15 @@ const App: React.FC = () => {
         {/* Simplified grid to ensure equal heights for all cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full max-w-4xl mx-auto items-stretch">
             
-            <RhythmGuide 
-                bpm={metronome.bpm}
-                setBpm={metronome.setBpm}
-                isPlaying={metronome.isPlaying}
-                togglePlay={metronome.togglePlay}
-                onClick={() => setShowRhythmDetail(true)}
-            />
-            
             <HydrationCard 
                 data={hydration} 
                 onClick={() => setShowHydrationModal(true)} 
                 onQuickAdd={handleQuickHydration}
                 recommendation={hydrationTip}
+            />
+
+            <BreathExerciseCard 
+                onClick={() => setShowBreath(true)}
             />
             
             {settings.enableLocation && (coords || weatherLoading) && (
