@@ -13,6 +13,7 @@ import { WeatherDetailedModal } from './components/WeatherDetailedModal';
 import { BreathExerciseModal } from './components/BreathExerciseModal';
 import { VirtualTrekCard } from './components/VirtualTrekCard';
 import { RhythmGuide } from './components/RhythmGuide';
+import { RhythmDetailModal } from './components/RhythmDetailModal'; // NEW
 import { WorkoutPlannerModal } from './components/WorkoutPlannerModal';
 import { ActivePlanCard } from './components/ActivePlanCard';
 import { HydrationCard } from './components/HydrationCard';
@@ -26,6 +27,7 @@ import { TermsConditionsPage } from './components/TermsConditionsPage';
 import { AdminDashboard } from './components/AdminDashboard'; 
 import { VisualShareModal } from './components/VisualShareModal';
 import { usePedometer } from './hooks/usePedometer';
+import { useMetronome } from './hooks/useMetronome'; // NEW
 import { UserSettings, WalkSession, UserProfile, DailyHistory, Badge, RoutePoint, WeatherData, WeeklyPlan, HydrationLog } from './types';
 import { saveHistory, getHistory, saveSettings, getSettings, getBadges, addBadge, hasSeenTutorial, markTutorialSeen, getProfile, saveProfile, saveActivePlan, getActivePlan, getHydration, saveHydration, syncDailyStatsToCloud, syncSessionToCloud, syncLocationToCloud } from './services/storageService';
 import { generateBadges, getHydrationTip } from './services/geminiService';
@@ -133,6 +135,7 @@ const App: React.FC = () => {
   const [legalDoc, setLegalDoc] = useState<DocType>(null);
   const [currentSession, setCurrentSession] = useState<WalkSession | null>(null);
   const [selectedStat, setSelectedStat] = useState<'calories' | 'distance' | 'time' | null>(null);
+  const [showRhythmDetail, setShowRhythmDetail] = useState(false);
   
   // Visual Share Modal State
   const [visualShare, setVisualShare] = useState<{ isOpen: boolean, type: 'quote' | 'stats', data: any }>({
@@ -153,6 +156,9 @@ const App: React.FC = () => {
       error: motionError 
   } = usePedometer(settings.sensitivity);
   
+  // Rhythm Hook
+  const metronome = useMetronome();
+
   const [duration, setDuration] = useState(0);
   const timerRef = useRef<number | null>(null);
   const watchIdRef = useRef<number | null>(null);
@@ -775,7 +781,13 @@ const App: React.FC = () => {
         {/* Simplified grid to ensure equal heights for all cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full max-w-4xl mx-auto items-stretch">
             
-            <RhythmGuide />
+            <RhythmGuide 
+                bpm={metronome.bpm}
+                setBpm={metronome.setBpm}
+                isPlaying={metronome.isPlaying}
+                togglePlay={metronome.togglePlay}
+                onClick={() => setShowRhythmDetail(true)}
+            />
             
             <HydrationCard 
                 data={hydration} 
@@ -888,6 +900,14 @@ const App: React.FC = () => {
       <SettingsModal isOpen={showSettings} onClose={() => setShowSettings(false)} settings={settings} profile={profile} onSave={handleSaveData} onLogout={handleLogout} onLoginRequest={() => { setShowSettings(false); handleLogout(); }} />
       <ShareModal isOpen={showShareModal} onClose={() => setShowShareModal(false)} text={`I just walked ${dailySteps} steps with ApnaWalk!`} url={window.location.href} />
       <TutorialModal isOpen={showTutorial} onClose={closeTutorial} />
+      <RhythmDetailModal 
+          isOpen={showRhythmDetail} 
+          onClose={() => setShowRhythmDetail(false)} 
+          bpm={metronome.bpm}
+          setBpm={metronome.setBpm}
+          isPlaying={metronome.isPlaying}
+          togglePlay={metronome.togglePlay}
+      />
       
       {/* Detail Stat Modal */}
       <StatsDetailModal 

@@ -1,92 +1,42 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React from 'react';
 
-export const RhythmGuide: React.FC = () => {
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [bpm, setBpm] = useState(115);
-  const [volume, setVolume] = useState(0.5);
+interface RhythmGuideProps {
+    bpm: number;
+    isPlaying: boolean;
+    togglePlay: () => void;
+    setBpm: (bpm: number) => void;
+    onClick: () => void;
+}
+
+export const RhythmGuide: React.FC<RhythmGuideProps> = ({ bpm, isPlaying, togglePlay, setBpm, onClick }) => {
   
-  const audioCtxRef = useRef<AudioContext | null>(null);
-  const nextNoteTimeRef = useRef<number>(0);
-  const timerIDRef = useRef<number | null>(null);
-  const lookahead = 25.0; // How frequently to call scheduling function (in milliseconds)
-  const scheduleAheadTime = 0.1; // How far ahead to schedule audio (sec)
-
-  // Initialize AudioContext
-  const initAudio = () => {
-    if (!audioCtxRef.current) {
-      audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
-    }
-    if (audioCtxRef.current.state === 'suspended') {
-      audioCtxRef.current.resume();
-    }
-  };
-
-  const playClick = (time: number) => {
-    if (!audioCtxRef.current) return;
-    const osc = audioCtxRef.current.createOscillator();
-    const gain = audioCtxRef.current.createGain();
-
-    osc.connect(gain);
-    gain.connect(audioCtxRef.current.destination);
-
-    // High pitch short "tick"
-    osc.frequency.value = 1200;
-    osc.type = 'sine';
-
-    gain.gain.setValueAtTime(volume, time);
-    gain.gain.exponentialRampToValueAtTime(0.001, time + 0.05);
-
-    osc.start(time);
-    osc.stop(time + 0.05);
-  };
-
-  const scheduler = () => {
-    // while there are notes that will play this time interval
-    while (nextNoteTimeRef.current < (audioCtxRef.current?.currentTime || 0) + scheduleAheadTime) {
-        playClick(nextNoteTimeRef.current);
-        const secondsPerBeat = 60.0 / bpm;
-        nextNoteTimeRef.current += secondsPerBeat;
-    }
-    timerIDRef.current = window.setTimeout(scheduler, lookahead);
-  };
-
-  const togglePlay = () => {
-    if (isPlaying) {
-      if (timerIDRef.current) window.clearTimeout(timerIDRef.current);
-      setIsPlaying(false);
-    } else {
-      initAudio();
-      nextNoteTimeRef.current = audioCtxRef.current?.currentTime || 0;
-      scheduler();
-      setIsPlaying(true);
-    }
-  };
-
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      if (timerIDRef.current) window.clearTimeout(timerIDRef.current);
-    };
-  }, []);
-
   // Visual pulse duration calculation for CSS
   const pulseSpeed = 60 / bpm;
 
   const getIntensityColor = () => {
-      if (bpm < 105) return 'text-blue-400 border-blue-500/30 shadow-blue-500/20';
-      if (bpm < 125) return 'text-brand-400 border-brand-500/30 shadow-brand-500/20';
-      return 'text-orange-400 border-orange-500/30 shadow-orange-500/20';
+      if (bpm < 110) return 'text-blue-400 border-blue-500/30 shadow-blue-500/20'; // Stroll (100)
+      if (bpm < 130) return 'text-brand-400 border-brand-500/30 shadow-brand-500/20'; // Brisk (120)
+      return 'text-orange-400 border-orange-500/30 shadow-orange-500/20'; // Power (140)
+  };
+
+  const getLabel = () => {
+      if (bpm < 110) return 'Stroll';
+      if (bpm < 130) return 'Brisk';
+      return 'Power';
   };
 
   return (
-    <div className="w-full max-w-md h-full min-h-[260px] bg-dark-card border border-slate-800 p-5 rounded-3xl shadow-lg relative overflow-hidden transition-all flex flex-col justify-between">
+    <div 
+        onClick={onClick}
+        className="w-full max-w-md h-full min-h-[260px] bg-dark-card border border-slate-800 p-5 rounded-3xl shadow-lg relative overflow-hidden transition-all flex flex-col justify-between group cursor-pointer hover:border-slate-600"
+    >
       
       {/* Background Pulse Effect */}
       {isPlaying && (
            <div 
              className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full bg-current opacity-5 rounded-full animate-ping pointer-events-none"
              style={{ 
-                 color: bpm < 105 ? '#60a5fa' : bpm < 125 ? '#4ade80' : '#fb923c',
+                 color: bpm < 110 ? '#60a5fa' : bpm < 130 ? '#4ade80' : '#fb923c',
                  animationDuration: `${pulseSpeed}s` 
              }}
            ></div>
@@ -105,29 +55,29 @@ export const RhythmGuide: React.FC = () => {
       </div>
 
       <div className="flex items-center gap-4 relative z-10">
-        {/* Play Button */}
+        {/* Play Button - Stop propagation to prevent opening modal when just toggling play */}
         <button 
-            onClick={togglePlay}
+            onClick={(e) => { e.stopPropagation(); togglePlay(); }}
             className={`w-14 h-14 rounded-full flex items-center justify-center text-xl shadow-xl transition-all active:scale-95 border-2 ${isPlaying ? 'bg-slate-800 border-red-500 text-red-500' : 'bg-brand-600 border-brand-500 text-white hover:bg-brand-500'}`}
         >
             <i className={`fa-solid ${isPlaying ? 'fa-stop' : 'fa-play pl-1'}`}></i>
         </button>
 
-        {/* Sliders Area */}
-        <div className="flex-1 space-y-3">
+        {/* Sliders Area - Clicking here stops propagation to allow interacting with controls without opening modal */}
+        <div className="flex-1 space-y-3" onClick={(e) => e.stopPropagation()}>
             {/* Presets */}
             <div className="flex justify-between gap-1">
                 <button onClick={() => setBpm(100)} className={`flex-1 py-1 rounded text-[10px] font-medium transition-colors border ${bpm === 100 ? 'bg-blue-500/20 text-blue-400 border-blue-500/50' : 'bg-slate-800 text-slate-500 border-slate-700'}`}>Stroll</button>
-                <button onClick={() => setBpm(115)} className={`flex-1 py-1 rounded text-[10px] font-medium transition-colors border ${bpm === 115 ? 'bg-brand-500/20 text-brand-400 border-brand-500/50' : 'bg-slate-800 text-slate-500 border-slate-700'}`}>Brisk</button>
-                <button onClick={() => setBpm(130)} className={`flex-1 py-1 rounded text-[10px] font-medium transition-colors border ${bpm === 130 ? 'bg-orange-500/20 text-orange-400 border-orange-500/50' : 'bg-slate-800 text-slate-500 border-slate-700'}`}>Power</button>
+                <button onClick={() => setBpm(120)} className={`flex-1 py-1 rounded text-[10px] font-medium transition-colors border ${bpm === 120 ? 'bg-brand-500/20 text-brand-400 border-brand-500/50' : 'bg-slate-800 text-slate-500 border-slate-700'}`}>Brisk</button>
+                <button onClick={() => setBpm(140)} className={`flex-1 py-1 rounded text-[10px] font-medium transition-colors border ${bpm === 140 ? 'bg-orange-500/20 text-orange-400 border-orange-500/50' : 'bg-slate-800 text-slate-500 border-slate-700'}`}>Power</button>
             </div>
 
             {/* Slider */}
             <div className="relative h-6 flex items-center">
                 <input 
                     type="range" 
-                    min="90" 
-                    max="140" 
+                    min="80" 
+                    max="160" 
                     value={bpm}
                     onChange={(e) => setBpm(Number(e.target.value))}
                     className="w-full accent-brand-500 h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer"
@@ -136,18 +86,17 @@ export const RhythmGuide: React.FC = () => {
         </div>
       </div>
       
-      {/* Visual Metronome Dots */}
-      <div className="flex justify-center gap-2 mt-4 opacity-50">
-          {[1,2,3,4].map(i => (
-              <div 
-                key={i} 
-                className={`w-2 h-2 rounded-full transition-all duration-75 ${isPlaying ? 'bg-brand-400' : 'bg-slate-700'}`}
-                style={{ 
-                    animation: isPlaying ? `bounce ${pulseSpeed}s infinite` : 'none',
-                    animationDelay: `${i * (pulseSpeed/4)}s` 
-                }}
-              ></div>
-          ))}
+      {/* Visual Footer */}
+      <div className="flex justify-between items-end mt-4 pt-4 border-t border-slate-700/50 relative z-10">
+          <div>
+              <p className="text-[10px] text-slate-500 uppercase font-bold">Current Mode</p>
+              <p className={`text-sm font-bold ${bpm < 110 ? 'text-blue-400' : bpm < 130 ? 'text-brand-400' : 'text-orange-400'}`}>
+                  {getLabel()}
+              </p>
+          </div>
+          <span className="text-[10px] text-brand-400 font-bold flex items-center gap-1 group-hover:underline">
+              More Details <i className="fa-solid fa-arrow-right"></i>
+          </span>
       </div>
     </div>
   );
