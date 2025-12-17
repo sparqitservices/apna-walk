@@ -84,7 +84,7 @@ export const SocialHub: React.FC<SocialHubProps> = ({ isOpen, onClose, profile }
           setNewGroupLoc('');
           loadData();
       } catch (e) {
-          alert('Failed to create group');
+          alert('Failed to create group. Check your connection.');
       }
   };
 
@@ -112,7 +112,7 @@ export const SocialHub: React.FC<SocialHubProps> = ({ isOpen, onClose, profile }
           loadData();
           alert("Challenge created and friends invited! Chalo shuru karein!");
       } catch (e) {
-          alert("Failed to create challenge.");
+          alert("Failed to create challenge. Check your connection.");
       }
   };
 
@@ -148,9 +148,22 @@ export const SocialHub: React.FC<SocialHubProps> = ({ isOpen, onClose, profile }
       try {
           await requestJoinGroup(gid, profile.id!);
           alert('Request sent! Please wait for the owner to approve you.');
-          loadData();
+          
+          // Instantly update the local groups state for responsiveness
           setGroups(prev => prev.map(g => g.id === gid ? { ...g, is_pending: true } : g));
-      } catch(e) { alert('Could not send join request.'); }
+          
+          // If the group is already selected, update it too
+          if (selectedGroup?.id === gid) {
+              setSelectedGroup(prev => prev ? { ...prev, is_pending: true } : null);
+          }
+          
+          // Re-fetch to confirm from server
+          loadData();
+      } catch(e: any) { 
+          const msg = e?.message || "Check your connection.";
+          alert(`Could not send join request. ${msg}`); 
+          console.error("Join group error:", e);
+      }
   };
 
   const openGroup = async (group: WalkingGroup) => {
@@ -176,6 +189,8 @@ export const SocialHub: React.FC<SocialHubProps> = ({ isOpen, onClose, profile }
           await approveMember(m.id);
           setPendingRequests(prev => prev.filter(r => r.id !== m.id));
           alert(`${m.profile?.full_name} is now a member!`);
+          // Refresh data to update member count
+          loadData();
       } catch (e) { alert("Approval failed."); }
   };
 
@@ -404,11 +419,11 @@ export const SocialHub: React.FC<SocialHubProps> = ({ isOpen, onClose, profile }
                             <div className="flex items-center gap-3">
                                 {selectedGroup.created_by === profile.id && (
                                     <>
-                                        <button onClick={() => { setShowRequests(!showRequests); setShowSettings(false); }} className="w-11 h-11 rounded-xl bg-slate-700 text-white flex items-center justify-center relative">
+                                        <button onClick={() => { setShowRequests(!showRequests); setShowSettings(false); }} className="w-11 h-11 rounded-xl bg-slate-700 text-white flex items-center justify-center relative transition-transform active:scale-95">
                                             <i className="fa-solid fa-user-plus"></i>
-                                            {pendingRequests.length > 0 && <div className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center text-[10px] font-bold">{pendingRequests.length}</div>}
+                                            {pendingRequests.length > 0 && <div className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center text-[10px] font-bold border-2 border-slate-800">{pendingRequests.length}</div>}
                                         </button>
-                                        <button onClick={() => { setShowSettings(!showSettings); setShowRequests(false); }} className="w-11 h-11 rounded-xl bg-slate-700 text-white flex items-center justify-center">
+                                        <button onClick={() => { setShowSettings(!showSettings); setShowRequests(false); }} className="w-11 h-11 rounded-xl bg-slate-700 text-white flex items-center justify-center transition-transform active:scale-95">
                                             <i className="fa-solid fa-gear"></i>
                                         </button>
                                     </>
@@ -419,8 +434,8 @@ export const SocialHub: React.FC<SocialHubProps> = ({ isOpen, onClose, profile }
                                     </button>
                                 )}
                                 {selectedGroup.is_pending && (
-                                    <div className="bg-yellow-500/10 border border-yellow-500/30 text-yellow-500 px-6 py-3 rounded-2xl font-black text-sm">
-                                        Request Pending
+                                    <div className="bg-yellow-500/10 border border-yellow-500/30 text-yellow-500 px-6 py-3 rounded-2xl font-black text-sm flex items-center gap-2">
+                                        <i className="fa-solid fa-clock-rotate-left"></i> Request Pending
                                     </div>
                                 )}
                             </div>
@@ -432,9 +447,9 @@ export const SocialHub: React.FC<SocialHubProps> = ({ isOpen, onClose, profile }
                                 <h4 className="text-white font-bold text-sm uppercase tracking-widest">Group Settings</h4>
                                 <div className="flex gap-4">
                                     <input value={editGroupName} onChange={e => setEditGroupName(e.target.value)} className="flex-1 bg-slate-900 border border-slate-700 rounded-xl p-3 text-white text-sm outline-none focus:border-brand-500" placeholder="New Name" />
-                                    <button onClick={handleUpdateGroup} className="bg-brand-600 text-white px-6 py-3 rounded-xl text-sm font-bold">Update Name</button>
+                                    <button onClick={handleUpdateGroup} className="bg-brand-600 text-white px-6 py-3 rounded-xl text-sm font-bold active:scale-95">Update Name</button>
                                 </div>
-                                <button onClick={handleDeleteGroup} className="w-full border border-red-500/50 text-red-500 py-3 rounded-xl text-sm font-bold hover:bg-red-500 hover:text-white transition-all">Delete Group Permanently</button>
+                                <button onClick={handleDeleteGroup} className="w-full border border-red-500/50 text-red-500 py-3 rounded-xl text-sm font-bold hover:bg-red-500 hover:text-white transition-all active:scale-95">Delete Group Permanently</button>
                             </div>
                         )}
 
@@ -442,18 +457,21 @@ export const SocialHub: React.FC<SocialHubProps> = ({ isOpen, onClose, profile }
                             <div className="bg-slate-800 p-6 border-b border-slate-700 animate-fade-in">
                                 <h4 className="text-white font-bold text-sm uppercase tracking-widest mb-4">Pending Requests</h4>
                                 {pendingRequests.length === 0 ? (
-                                    <p className="text-slate-500 text-xs italic">No pending requests.</p>
+                                    <div className="text-center py-4 opacity-50">
+                                        <i className="fa-solid fa-ghost mb-2 block"></i>
+                                        <p className="text-[10px] font-bold uppercase">No pending requests.</p>
+                                    </div>
                                 ) : (
                                     <div className="space-y-3">
                                         {pendingRequests.map(m => (
-                                            <div key={m.id} className="bg-slate-900 p-3 rounded-xl flex items-center justify-between">
+                                            <div key={m.id} className="bg-slate-900 p-3 rounded-xl flex items-center justify-between animate-message-pop">
                                                 <div className="flex items-center gap-3">
-                                                    <img src={m.profile?.avatar_url || 'https://www.gravatar.com/avatar?d=mp'} className="w-10 h-10 rounded-full" />
+                                                    <img src={m.profile?.avatar_url || 'https://www.gravatar.com/avatar?d=mp'} className="w-10 h-10 rounded-full border border-slate-700" />
                                                     <span className="text-white font-bold text-sm">{m.profile?.full_name}</span>
                                                 </div>
                                                 <div className="flex gap-2">
-                                                    <button onClick={() => handleApprove(m)} className="bg-brand-600 text-white px-4 py-1.5 rounded-lg text-xs font-bold">Approve</button>
-                                                    <button onClick={() => handleReject(m)} className="bg-slate-700 text-slate-300 px-4 py-1.5 rounded-lg text-xs font-bold">Reject</button>
+                                                    <button onClick={() => handleApprove(m)} className="bg-brand-600 text-white px-4 py-1.5 rounded-lg text-xs font-bold active:scale-95">Approve</button>
+                                                    <button onClick={() => handleReject(m)} className="bg-slate-700 text-slate-300 px-4 py-1.5 rounded-lg text-xs font-bold active:scale-95">Reject</button>
                                                 </div>
                                             </div>
                                         ))}
@@ -553,7 +571,7 @@ export const SocialHub: React.FC<SocialHubProps> = ({ isOpen, onClose, profile }
                                         const isMe = p.user_id === profile.id;
                                         return (
                                             <div key={p.user_id} className={`flex items-center gap-4 p-4 rounded-2xl border transition-all animate-message-pop ${isMe ? 'bg-orange-600/10 border-orange-500 shadow-lg scale-[1.02]' : 'bg-slate-800/40 border-slate-700/50 hover:bg-slate-800'}`}>
-                                                <div className={`w-8 h-8 flex items-center justify-center font-black rounded-xl shrink-0 text-sm ${idx === 0 ? 'bg-yellow-500 text-black shadow-lg' : idx === 1 ? 'bg-slate-200 text-black' : idx === 2 ? 'bg-orange-700 text-white' : 'bg-slate-800 text-slate-500'}`}>
+                                                <div className={`w-8 h-8 flex items-center justify-center font-black rounded-xl shrink-0 text-sm ${idx === 0 ? 'bg-yellow-500 text-black shadow-lg shadow-yellow-500/20' : idx === 1 ? 'bg-slate-200 text-black' : idx === 2 ? 'bg-orange-700 text-white' : 'bg-slate-800 text-slate-500'}`}>
                                                     {idx + 1}
                                                 </div>
                                                 <div className="relative">

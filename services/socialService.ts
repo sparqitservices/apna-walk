@@ -76,15 +76,21 @@ export const deleteGroup = async (groupId: string) => {
 };
 
 export const requestJoinGroup = async (groupId: string, userId: string) => {
+    // Use upsert to handle cases where a record might already exist (e.g., previously rejected or left)
+    // This targets the unique constraint on (group_id, user_id)
     const { error } = await supabase
         .from('group_members')
-        .insert([{ 
+        .upsert({ 
             group_id: groupId, 
             user_id: userId, 
             role: 'member',
             status: 'pending' 
-        }]);
-    if (error) throw error;
+        }, { onConflict: 'group_id, user_id' });
+        
+    if (error) {
+        console.error("Supabase Error joining group:", error);
+        throw error;
+    }
 };
 
 export const fetchPendingRequests = async (groupId: string): Promise<GroupMember[]> => {
