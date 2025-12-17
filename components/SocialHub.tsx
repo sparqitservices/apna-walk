@@ -5,7 +5,8 @@ import {
   fetchGroups, createGroup, updateGroup, deleteGroup, 
   requestJoinGroup, fetchPendingRequests, approveMember, rejectMember,
   fetchChallenges, joinChallenge, fetchLeaderboard, 
-  createSystemMonthlyChallenge, fetchGroupPosts, createPost 
+  createSystemMonthlyChallenge, fetchGroupPosts, createPost,
+  createCustomChallenge, inviteToChallenge
 } from '../services/socialService';
 
 interface SocialHubProps {
@@ -35,6 +36,14 @@ export const SocialHub: React.FC<SocialHubProps> = ({ isOpen, onClose, profile }
   const [editGroupName, setEditGroupName] = useState('');
   const [showSettings, setShowSettings] = useState(false);
   const [showRequests, setShowRequests] = useState(false);
+
+  // Custom Challenge UI
+  const [showCreateChallenge, setShowCreateChallenge] = useState(false);
+  const [newChallengeName, setNewChallengeName] = useState('');
+  const [newChallengeDesc, setNewChallengeDesc] = useState('');
+  const [newChallengeTarget, setNewChallengeTarget] = useState(50000);
+  const [inviteId, setInviteId] = useState('');
+  const [invitedList, setInvitedList] = useState<string[]>([]);
 
   useEffect(() => {
     if (isOpen && !profile.isGuest) {
@@ -77,6 +86,41 @@ export const SocialHub: React.FC<SocialHubProps> = ({ isOpen, onClose, profile }
       } catch (e) {
           alert('Failed to create group');
       }
+  };
+
+  const handleCreateChallenge = async () => {
+      if (!newChallengeName) return;
+      
+      const today = new Date();
+      const nextMonth = new Date(today.getFullYear(), today.getMonth() + 1, today.getDate());
+      
+      try {
+          await createCustomChallenge({
+              name: newChallengeName,
+              description: newChallengeDesc || "A custom monthly challenge!",
+              target_steps: newChallengeTarget,
+              type: 'custom',
+              start_date: today.toISOString().split('T')[0],
+              end_date: nextMonth.toISOString().split('T')[0]
+          }, profile.id!, invitedList);
+          
+          setShowCreateChallenge(false);
+          setNewChallengeName('');
+          setNewChallengeDesc('');
+          setNewChallengeTarget(50000);
+          setInvitedList([]);
+          loadData();
+          alert("Challenge created and friends invited! Chalo shuru karein!");
+      } catch (e) {
+          alert("Failed to create challenge.");
+      }
+  };
+
+  const handleAddInvite = () => {
+      if (!inviteId.trim()) return;
+      if (invitedList.includes(inviteId.trim())) return;
+      setInvitedList([...invitedList, inviteId.trim()]);
+      setInviteId('');
   };
 
   const handleUpdateGroup = async () => {
@@ -212,13 +256,13 @@ export const SocialHub: React.FC<SocialHubProps> = ({ isOpen, onClose, profile }
                 <h2 className="text-white font-black text-xl tracking-tighter"><span className="text-brand-500">Apna</span>Hub</h2>
                 <div className="flex bg-slate-800 rounded-full p-1 border border-slate-700 shadow-inner">
                     <button 
-                        onClick={() => { setActiveTab('groups'); setSelectedGroup(null); }} 
+                        onClick={() => { setActiveTab('groups'); setSelectedGroup(null); setSelectedChallenge(null); }} 
                         className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all ${activeTab === 'groups' ? 'bg-brand-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}
                     >
                         Groups
                     </button>
                     <button 
-                        onClick={() => { setActiveTab('challenges'); setSelectedChallenge(null); }} 
+                        onClick={() => { setActiveTab('challenges'); setSelectedGroup(null); setSelectedChallenge(null); }} 
                         className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all ${activeTab === 'challenges' ? 'bg-orange-500 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}
                     >
                         Challenges
@@ -226,6 +270,11 @@ export const SocialHub: React.FC<SocialHubProps> = ({ isOpen, onClose, profile }
                 </div>
             </div>
             <div className="flex items-center gap-3 ml-auto">
+                {profile.id && (
+                    <div className="hidden sm:block text-[10px] text-slate-500 font-mono bg-slate-800/50 px-2 py-1 rounded border border-slate-700">
+                        My ID: {profile.id.substring(0, 8)}...
+                    </div>
+                )}
                 <button onClick={loadData} className="w-9 h-9 rounded-full bg-slate-800 text-slate-400 hover:text-white flex items-center justify-center transition-colors border border-slate-700">
                     <i className={`fa-solid fa-rotate ${loading ? 'fa-spin' : ''}`}></i>
                 </button>
@@ -261,13 +310,6 @@ export const SocialHub: React.FC<SocialHubProps> = ({ isOpen, onClose, profile }
                             </div>
                         )}
 
-                        {groups.length === 0 && !loading && (
-                            <div className="text-center py-10">
-                                <i className="fa-solid fa-people-group text-slate-700 text-3xl mb-3"></i>
-                                <p className="text-slate-500 text-xs">No groups found. Start one!</p>
-                            </div>
-                        )}
-
                         {groups.map(g => (
                             <div 
                                 key={g.id} 
@@ -288,6 +330,46 @@ export const SocialHub: React.FC<SocialHubProps> = ({ isOpen, onClose, profile }
                     </div>
                 ) : (
                     <div className="flex-1 overflow-y-auto p-4 space-y-4 no-scrollbar">
+                        <button 
+                            onClick={() => setShowCreateChallenge(!showCreateChallenge)} 
+                            className={`w-full py-4 border-2 border-dashed rounded-2xl text-sm font-black transition-all flex items-center justify-center gap-2 ${showCreateChallenge ? 'bg-orange-500/10 border-orange-500 text-orange-400' : 'bg-slate-800/40 border-slate-700 text-slate-500 hover:border-orange-500 hover:text-orange-500'}`}
+                        >
+                            <i className={`fa-solid ${showCreateChallenge ? 'fa-minus' : 'fa-plus'}`}></i> {showCreateChallenge ? 'Cancel Challenge' : 'Custom Challenge'}
+                        </button>
+
+                        {showCreateChallenge && (
+                            <div className="bg-slate-800 p-4 rounded-2xl animate-fade-in border border-orange-500/30 shadow-xl space-y-3">
+                                <h5 className="text-white text-xs font-bold uppercase tracking-wider mb-2">Challenge Details</h5>
+                                <input className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-white focus:border-orange-500 outline-none" placeholder="Challenge Name" value={newChallengeName} onChange={e => setNewChallengeName(e.target.value)} />
+                                <textarea className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-xs text-white focus:border-orange-500 outline-none h-16 resize-none" placeholder="Description (e.g. Last one is a rotten egg!)" value={newChallengeDesc} onChange={e => setNewChallengeDesc(e.target.value)} />
+                                <div className="space-y-1">
+                                    <label className="text-[10px] text-slate-400 font-bold uppercase">Target Steps</label>
+                                    <input type="number" className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-white focus:border-orange-500 outline-none" value={newChallengeTarget} onChange={e => setNewChallengeTarget(parseInt(e.target.value))} />
+                                </div>
+                                
+                                <div className="space-y-2 pt-2 border-t border-slate-700">
+                                    <label className="text-[10px] text-slate-400 font-bold uppercase block">Invite Friends</label>
+                                    <div className="flex gap-2">
+                                        <input className="flex-1 bg-slate-900 border border-slate-700 rounded-xl p-2 text-[10px] text-white outline-none focus:border-orange-500" placeholder="Paste Profile ID" value={inviteId} onChange={e => setInviteId(e.target.value)} />
+                                        <button onClick={handleAddInvite} className="px-3 bg-slate-700 text-white rounded-xl text-xs font-bold">+</button>
+                                    </div>
+                                    {invitedList.length > 0 && (
+                                        <div className="flex flex-wrap gap-1 mt-2">
+                                            {invitedList.map(id => (
+                                                <span key={id} className="bg-slate-700 text-[8px] px-1.5 py-0.5 rounded text-slate-300 flex items-center gap-1">
+                                                    {id.substring(0, 5)}... <i className="fa-solid fa-xmark cursor-pointer" onClick={() => setInvitedList(invitedList.filter(x => x !== id))}></i>
+                                                </span>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+
+                                <button onClick={handleCreateChallenge} disabled={!newChallengeName} className="w-full bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white py-3 rounded-xl text-sm font-black transition-all shadow-lg mt-2">
+                                    Create Monthly Challenge
+                                </button>
+                            </div>
+                        )}
+
                         {challenges.map(c => (
                             <div 
                                 key={c.id} 
@@ -440,15 +522,17 @@ export const SocialHub: React.FC<SocialHubProps> = ({ isOpen, onClose, profile }
                                         <span className="flex items-center gap-1.5"><i className="fa-solid fa-users text-orange-400"></i> {selectedChallenge.participant_count} Participants</span>
                                     </div>
                                 </div>
-                                {!selectedChallenge.is_joined ? (
-                                    <button onClick={() => handleJoinChallenge(selectedChallenge.id)} className="w-full sm:w-auto bg-orange-500 hover:bg-orange-600 text-white px-8 py-4 rounded-2xl font-black text-sm shadow-xl shadow-orange-900/20 active:scale-95 transition-all">
-                                        Join Challenge
-                                    </button>
-                                ) : (
-                                    <div className="w-full sm:w-auto bg-green-500/10 border border-green-500/30 text-green-400 px-6 py-4 rounded-2xl font-black text-sm flex items-center justify-center gap-2">
-                                        <i className="fa-solid fa-circle-check"></i> Participating
-                                    </div>
-                                )}
+                                <div className="flex gap-2">
+                                    {!selectedChallenge.is_joined ? (
+                                        <button onClick={() => handleJoinChallenge(selectedChallenge.id)} className="w-full sm:w-auto bg-orange-500 hover:bg-orange-600 text-white px-8 py-4 rounded-2xl font-black text-sm shadow-xl shadow-orange-900/20 active:scale-95 transition-all">
+                                            Join Challenge
+                                        </button>
+                                    ) : (
+                                        <div className="w-full sm:w-auto bg-green-500/10 border border-green-500/30 text-green-400 px-6 py-4 rounded-2xl font-black text-sm flex items-center justify-center gap-2">
+                                            <i className="fa-solid fa-circle-check"></i> Participating
+                                        </div>
+                                    )}
+                                </div>
                             </div>
                         </div>
 
@@ -495,6 +579,18 @@ export const SocialHub: React.FC<SocialHubProps> = ({ isOpen, onClose, profile }
                                 </div>
                             )}
                         </div>
+
+                        {selectedChallenge.is_joined && (
+                            <div className="absolute bottom-6 left-6 right-6 flex gap-3 p-3 bg-slate-800/90 backdrop-blur-xl border border-slate-700 rounded-2xl shadow-2xl">
+                                <input 
+                                    value={inviteId}
+                                    onChange={e => setInviteId(e.target.value)}
+                                    placeholder="Enter Friend's Profile ID to Invite..." 
+                                    className="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-orange-500"
+                                />
+                                <button onClick={() => { inviteToChallenge(selectedChallenge.id, inviteId); setInviteId(''); alert("Invite sent!"); }} className="bg-orange-500 text-white px-6 rounded-xl font-bold text-xs uppercase transition-all active:scale-95">Invite</button>
+                            </div>
+                        )}
                     </div>
                 ) : (
                     <div className="flex-1 flex flex-col items-center justify-center text-slate-700 p-8 text-center animate-fade-in">
@@ -505,7 +601,7 @@ export const SocialHub: React.FC<SocialHubProps> = ({ isOpen, onClose, profile }
                         <p className="text-slate-500 text-sm max-w-xs mt-3 leading-relaxed">
                             {activeTab === 'groups' 
                                 ? "Join a local walking group to share your progress and motivate each other. Desi style!" 
-                                : "Compete with thousands of walkers across the country. Earn your place on the leaderboard."}
+                                : "Compete with thousands of walkers across the country. Create your own challenges and invite friends!"}
                         </p>
                     </div>
                 )}

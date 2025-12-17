@@ -175,10 +175,43 @@ export const fetchChallenges = async (userId?: string): Promise<Challenge[]> => 
     }));
 };
 
+export const createCustomChallenge = async (challenge: Partial<Challenge>, creatorId: string, invitedIds: string[] = []) => {
+    const { data, error } = await supabase
+        .from('challenges')
+        .insert([challenge])
+        .select()
+        .single();
+    
+    if (error) throw error;
+
+    if (data) {
+        // Auto-join creator
+        await joinChallenge(data.id, creatorId);
+        
+        // Invite friends
+        if (invitedIds.length > 0) {
+            const invitations = invitedIds.map(id => ({
+                challenge_id: data.id,
+                user_id: id.trim()
+            }));
+            await supabase.from('challenge_participants').insert(invitations);
+        }
+    }
+    
+    return data;
+};
+
 export const joinChallenge = async (challengeId: string, userId: string) => {
     const { error } = await supabase
         .from('challenge_participants')
         .insert([{ challenge_id: challengeId, user_id: userId }]);
+    if (error) throw error;
+};
+
+export const inviteToChallenge = async (challengeId: string, profileId: string) => {
+    const { error } = await supabase
+        .from('challenge_participants')
+        .insert([{ challenge_id: challengeId, user_id: profileId.trim() }]);
     if (error) throw error;
 };
 
