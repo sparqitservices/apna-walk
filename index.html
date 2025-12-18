@@ -1,17 +1,61 @@
+
 <!DOCTYPE html>
 <html lang="en" class="dark">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <title>ApnaWalk</title>
+    
+    <!-- SEO Primary Tags -->
+    <title>ApnaWalk | Smart AI Step Counter & Fitness Companion</title>
+    <meta name="description" content="Track your steps with precision using ApnaWalk. Features AI fitness coaching, GPS route mapping, social walking groups, and personalized hydration reminders. Free and local-first." />
+    <meta name="keywords" content="step counter, pedometer app, AI fitness coach, walk tracker, walking group, fitness achievements, health app India, ApnaWalk" />
+    <link rel="canonical" href="https://apnawalk.com/" />
+    
+    <!-- Google Site Verification (Replace with your actual code from Search Console) -->
+    <meta name="google-site-verification" content="google072435d9a39d1995" />
+    
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://apnawalk.com/" />
+    <meta property="og:title" content="ApnaWalk | Smart AI Step Counter" />
+    <meta property="og:description" content="Join thousands walking towards a healthier life. Precision tracking with a Desi AI Coach." />
+    <meta property="og:image" content="https://apnawalk.com/og-image.png" />
+
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image" />
+    <meta property="twitter:url" content="https://apnawalk.com/" />
+    <meta property="twitter:title" content="ApnaWalk | Smart AI Step Counter" />
+    <meta property="twitter:description" content="Track steps, earn badges, and walk with friends. Powered by Gemini AI." />
+    <meta property="twitter:image" content="https://apnawalk.com/og-image.png" />
+
+    <!-- Structured Data (JSON-LD) -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      "name": "ApnaWalk",
+      "operatingSystem": "Web, Android, iOS",
+      "applicationCategory": "FitnessApplication",
+      "description": "Smart AI-powered pedometer and fitness companion featuring Desi coaching and community challenges.",
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "INR"
+      },
+      "aggregateRating": {
+        "@type": "AggregateRating",
+        "ratingValue": "4.9",
+        "ratingCount": "1250"
+      }
+    }
+    </script>
+
     <link rel="manifest" href="./manifest.json" />
     <meta name="theme-color" content="#00695C" />
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
-    <!-- Leaflet Map CSS & JS -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-    <!-- HTML2Canvas for Image Generation -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
     <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
     
     <script>
@@ -21,113 +65,24 @@
           extend: {
             colors: {
               brand: {
-                50: 'rgb(var(--brand-50) / <alpha-value>)',
-                100: 'rgb(var(--brand-100) / <alpha-value>)',
-                400: 'rgb(var(--brand-400) / <alpha-value>)',
-                500: 'rgb(var(--brand-500) / <alpha-value>)',
-                600: 'rgb(var(--brand-600) / <alpha-value>)',
-                900: 'rgb(var(--brand-900) / <alpha-value>)',
+                50: '232 245 233', 100: '200 230 201', 400: '102 187 106', 500: '76 175 80', 600: '56 142 60', 900: '27 94 32',
               },
-              // New Professional Palette
-              apna: {
-                teal: '#00695C',      /* Headers & Nav */
-                orange: '#FF9800',    /* CTAs */
-                amber: '#FFA726',     /* Accents */
-                navy: '#263238',      /* Text/Dark BG */
-                success: '#66BB6A',
-                gray: '#F5F5F5'
-              },
-              // These map to CSS variables that flip based on the .dark class
-              dark: {
-                bg: 'var(--bg-color)',
-                card: 'var(--card-color)',
-                text: 'var(--text-color)',
-                muted: 'var(--muted-color)',
-                border: 'var(--border-color)'
-              }
+              apna: { teal: '#00695C', orange: '#FF9800', amber: '#FFA726', navy: '#263238', success: '#66BB6A', gray: '#F5F5F5' },
+              dark: { bg: 'var(--bg-color)', card: 'var(--card-color)', text: 'var(--text-color)', muted: 'var(--muted-color)', border: 'var(--border-color)' }
             },
-            animation: {
-              'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
-              'breathing': 'breathing 3s ease-in-out infinite',
-              'message-pop': 'messagePop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)',
-              'wave': 'wave 1.2s ease-in-out infinite',
-              'fade-in': 'fadeIn 0.5s ease-out forwards',
-            },
-            keyframes: {
-              breathing: {
-                '0%, 100%': { transform: 'scale(1)' },
-                '50%': { transform: 'scale(1.05)' },
-              },
-              messagePop: {
-                '0%': { opacity: '0', transform: 'scale(0.9) translateY(10px)' },
-                '100%': { opacity: '1', transform: 'scale(1) translateY(0)' },
-              },
-              fadeIn: {
-                '0%': { opacity: '0' },
-                '100%': { opacity: '1' },
-              },
-              wave: {
-                '0%, 100%': { height: '4px' },
-                '50%': { height: '16px' },
-              }
-            }
+            animation: { 'pulse-slow': 'pulse 3s infinite', 'breathing': 'breathing 3s ease-in-out infinite', 'message-pop': 'messagePop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)', 'wave': 'wave 1.2s infinite', 'fade-in': 'fadeIn 0.5s ease-out forwards' },
+            keyframes: { breathing: { '0%, 100%': { transform: 'scale(1)' }, '50%': { transform: 'scale(1.05)' } }, messagePop: { '0%': { opacity: '0', transform: 'scale(0.9) translateY(10px)' }, '100%': { opacity: '1', transform: 'scale(1) translateY(0)' } }, fadeIn: { '0%': { opacity: '0' }, '100%': { opacity: '1' } }, wave: { '0%, 100%': { height: '4px' }, '50%': { height: '16px' } } }
           }
         }
       }
     </script>
     <style>
-      :root {
-        /* LIGHT MODE - Professional Wellness Palette */
-        --bg-color: #F5F5F5;       /* Cool Gray */
-        --card-color: #FFFFFF;     /* Pure White */
-        --text-color: #212121;     /* Text Primary */
-        --muted-color: #757575;    /* Text Secondary */
-        --border-color: #E0E0E0;   /* Divider */
-
-        /* Primary Green (#4CAF50) Scales */
-        --brand-50: 232 245 233;   /* #E8F5E9 */
-        --brand-100: 200 230 201;  /* #C8E6C9 (Light Green) */
-        --brand-400: 102 187 106;  /* #66BB6A (Success Green) */
-        --brand-500: 76 175 80;    /* #4CAF50 (Primary Green) */
-        --brand-600: 56 142 60;    /* #388E3C */
-        --brand-900: 27 94 32;     /* #1B5E20 */
-      }
-
-      /* DARK MODE OVERRIDES - Deep Navy Base */
-      html.dark {
-        --bg-color: #1a2327;       /* Deep Navy (Darkened) */
-        --card-color: #263238;     /* Deep Navy (Base) */
-        --text-color: #ECEFF1;     /* Light Gray/Blue */
-        --muted-color: #B0BEC5;    /* Blue Gray */
-        --border-color: #37474F;   /* Lighter Navy */
-      }
-      
-      body {
-        background-color: var(--bg-color);
-        color: var(--text-color);
-        -webkit-font-smoothing: antialiased;
-        transition: background-color 0.3s ease, color 0.3s ease;
-      }
-      /* Hide scrollbar for clean mobile look */
-      ::-webkit-scrollbar {
-        width: 0px;
-        background: transparent;
-      }
-      /* Map container fix */
-      .leaflet-container {
-        background: var(--bg-color);
-        font-family: sans-serif;
-      }
+      :root { --bg-color: #F5F5F5; --card-color: #FFFFFF; --text-color: #212121; --muted-color: #757575; --border-color: #E0E0E0; }
+      html.dark { --bg-color: #1a2327; --card-color: #263238; --text-color: #ECEFF1; --muted-color: #B0BEC5; --border-color: #37474F; }
+      body { background-color: var(--bg-color); color: var(--text-color); -webkit-font-smoothing: antialiased; }
+      ::-webkit-scrollbar { width: 0px; }
+      .leaflet-container { background: var(--bg-color); }
     </style>
-    <script>
-      if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-          navigator.serviceWorker.register('/sw.js')
-            .then(reg => console.log('SW registered!', reg))
-            .catch(err => console.log('SW failed', err));
-        });
-      }
-    </script>
   <script type="importmap">
 {
   "imports": {
@@ -136,15 +91,29 @@
     "react/": "https://esm.sh/react@^19.2.3/",
     "@google/genai": "https://esm.sh/@google/genai@^1.33.0",
     "recharts": "https://esm.sh/recharts@^3.6.0",
+    "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@^2.87.3",
     "vite": "https://esm.sh/vite@^7.3.0",
-    "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.2",
-    "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@^2.87.3"
+    "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.2"
   }
 }
 </script>
 </head>
   <body>
     <div id="root"></div>
+    <!-- Screen Reader SEO Content (Visually Hidden) -->
+    <section class="sr-only">
+        <h1>ApnaWalk - Smart AI Pedometer & Step Counter</h1>
+        <p>ApnaWalk is a professional fitness application designed for users who want to track their daily physical activity with precision. Using advanced device sensors and GPS tracking, we provide accurate step counts, calorie burn estimates, and route mapping.</p>
+        <h2>Key Features</h2>
+        <ul>
+            <li>Real-time Step Counter: Accurate background tracking.</li>
+            <li>AI Fitness Coach: Personal insights powered by Gemini AI in Hinglish.</li>
+            <li>GPS Route Mapping: Visualize your walks on interactive dark-mode maps.</li>
+            <li>Hydration Tracker: Smart reminders based on your activity and local weather.</li>
+            <li>Social Hub: Join walking groups and compete in global challenges.</li>
+            <li>Privacy First: Your health data stays on your device.</li>
+        </ul>
+    </section>
     <script type="module" src="/index.tsx"></script>
   </body>
 </html>

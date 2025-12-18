@@ -41,27 +41,18 @@ import { saveHistory, getHistory, saveSettings, getSettings, getBadges, addBadge
 import { generateBadges, getHydrationTip } from './services/geminiService';
 import { fetchTotalPendingCount } from './services/socialService';
 import { getWeather } from './services/weatherService';
+import { updateMetadata } from './services/seoService';
 import { scheduleReminders, requestNotificationPermission } from './services/notificationService';
 import { supabase } from './services/supabaseClient'; 
 import { signOut, syncProfile } from './services/authService';
 import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 
 const THEMES = {
-  green: {
-    50: '232 245 233', 100: '200 230 201', 400: '102 187 106', 500: '76 175 80', 600: '56 142 60', 900: '27 94 32'
-  },
-  blue: {
-    50: '239 246 255', 100: '219 234 254', 400: '96 165 250', 500: '59 130 246', 600: '37 99 235', 900: '30 58 138'
-  },
-  orange: {
-    50: '255 251 235', 100: '254 243 199', 400: '251 191 36', 500: '245 158 11', 600: '217 119 6', 900: '120 53 15'
-  },
-  purple: {
-    50: '250 245 255', 100: '243 232 255', 400: '192 132 252', 500: '168 85 247', 600: '147 51 234', 900: '88 28 135'
-  },
-  pink: {
-    50: '255 241 242', 100: '255 228 230', 400: '251 113 133', 500: '244 63 94', 600: '225 29 72', 900: '136 19 55'
-  }
+  green: { 50: '232 245 233', 100: '200 230 201', 400: '102 187 106', 500: '76 175 80', 600: '56 142 60', 900: '27 94 32' },
+  blue: { 50: '239 246 255', 100: '219 234 254', 400: '96 165 250', 500: '59 130 246', 600: '37 99 235', 900: '30 58 138' },
+  orange: { 50: '255 251 235', 100: '254 243 199', 400: '251 191 36', 500: '245 158 11', 600: '217 119 6', 900: '120 53 15' },
+  purple: { 50: '250 245 255', 100: '243 232 255', 400: '192 132 252', 500: '168 85 247', 600: '147 51 234', 900: '88 28 135' },
+  pink: { 50: '255 241 242', 100: '255 228 230', 400: '251 113 133', 500: '244 63 94', 600: '225 29 72', 900: '136 19 55' }
 };
 
 const calcDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
@@ -170,6 +161,16 @@ const App: React.FC = () => {
   const lastBreathCheckRef = useRef<number>(Date.now());
   const syncTimeoutRef = useRef<any>(null);
 
+  // SEO Update Logic
+  useEffect(() => {
+    if (dailySteps > 0) {
+      updateMetadata(
+        `${dailySteps.toLocaleString()} Steps Today`,
+        `I have already walked ${dailySteps.toLocaleString()} steps with ApnaWalk! Tracking fitness is easier with an AI Coach.`
+      );
+    }
+  }, [dailySteps]);
+
   useEffect(() => {
     const root = document.documentElement;
     if (isDarkMode) {
@@ -225,14 +226,13 @@ const App: React.FC = () => {
     return () => subscription.unsubscribe();
   }, []);
   
-  // Notification counter for social hub
   useEffect(() => {
     if (profile.isLoggedIn && !profile.isGuest && profile.id) {
         const updatePending = () => {
             fetchTotalPendingCount(profile.id!).then(setTotalPendingSocial);
         };
         updatePending();
-        const interval = setInterval(updatePending, 30000); // Check every 30s
+        const interval = setInterval(updatePending, 30000);
         return () => clearInterval(interval);
     }
   }, [profile.isLoggedIn, profile.isGuest, profile.id, showSocialHub]);
@@ -315,7 +315,7 @@ const App: React.FC = () => {
                 dailySteps
             );
             if (triggered.includes('water')) lastWaterCheckRef.current = Date.now();
-            if (triggered.includes('walk')) lastWaterCheckRef.current = Date.now();
+            if (triggered.includes('walk')) lastWalkCheckRef.current = Date.now();
             if (triggered.includes('breath')) lastBreathCheckRef.current = Date.now();
         };
         notificationIntervalRef.current = setInterval(checkReminders, 15 * 60 * 1000); 
@@ -407,8 +407,6 @@ const App: React.FC = () => {
 
   const handleFinishSession = async (gpsSession?: WalkSession) => {
     if (typeof navigator.vibrate === 'function') navigator.vibrate(100);
-    
-    // If we have a GPS session from LiveTracker, use that
     if (gpsSession) {
         setCurrentSession(gpsSession);
         const newHistory = saveHistory(0, gpsSession);
@@ -459,19 +457,8 @@ const App: React.FC = () => {
   const handleGuest = () => { const newProfile = { name: 'Guest', email: '', isLoggedIn: true, isGuest: true }; setProfile(newProfile); saveProfile(newProfile); checkTutorial(); };
   const handleLogout = async () => { if(!profile.isGuest) await signOut(); setProfile({ name: '', email: '', isLoggedIn: false, isGuest: false }); saveProfile({ name: '', email: '', isLoggedIn: false, isGuest: false }); setShowSettings(false); };
   const handleSaveData = (newSettings: UserSettings, newProfile: UserProfile) => { setSettings(newSettings); saveSettings(newSettings); setProfile(newProfile); saveProfile(newProfile); };
-  
-  // handleSavePlan to update local state and storage
-  const handleSavePlan = (plan: WeeklyPlan) => {
-    setActivePlan(plan);
-    saveActivePlan(plan);
-  };
-
-  // handleRemovePlan to clear active plan from state and storage
-  const handleRemovePlan = () => {
-    setActivePlan(null);
-    saveActivePlan(null);
-  };
-
+  const handleSavePlan = (plan: WeeklyPlan) => { setActivePlan(plan); saveActivePlan(plan); };
+  const handleRemovePlan = () => { setActivePlan(null); saveActivePlan(null); };
   const handleHydrationUpdate = (newLog: HydrationLog) => { setHydration(newLog); saveHydration(newLog); lastWaterCheckRef.current = Date.now(); };
   const handleQuickHydration = () => { const newLog = { ...hydration, currentMl: hydration.currentMl + 250 }; setHydration(newLog); saveHydration(newLog); lastWaterCheckRef.current = Date.now(); };
   const handleInstall = () => { if (installPrompt) { installPrompt.prompt(); installPrompt.userChoice.then((choice: any) => { if (choice.outcome === 'accepted') setInstallPrompt(null); }); } };
@@ -528,19 +515,10 @@ const App: React.FC = () => {
             <StatsGrid calories={displayCalories} distance={displayDistance} duration={duration} onStatClick={setSelectedStat} />
             <div className="w-full max-w-md space-y-4">
                 <div className="grid grid-cols-4 gap-3">
-                    <button 
-                        onClick={handleToggleTracking} 
-                        className={`col-span-3 py-4 rounded-2xl font-bold text-lg shadow-lg transform transition-all active:scale-95 flex items-center justify-center gap-2 ${isTrackingSession ? 'bg-red-500 text-white border border-red-600 hover:bg-red-600' : 'bg-apna-orange text-white shadow-apna-orange/20 hover:bg-orange-600 animate-breathing hover:animate-none'}`}
-                    >
+                    <button onClick={handleToggleTracking} className={`col-span-3 py-4 rounded-2xl font-bold text-lg shadow-lg transform transition-all active:scale-95 flex items-center justify-center gap-2 ${isTrackingSession ? 'bg-red-500 text-white border border-red-600 hover:bg-red-600' : 'bg-apna-orange text-white shadow-apna-orange/20 hover:bg-orange-600 animate-breathing hover:animate-none'}`}>
                         {isTrackingSession ? <><i className="fa-solid fa-stop"></i> End Session</> : <><i className="fa-solid fa-play"></i> Start Workout</>}
                     </button>
-                    <button 
-                        onClick={() => setShowLiveTracker(true)}
-                        className="bg-brand-600 hover:bg-brand-500 text-white rounded-2xl shadow-lg flex items-center justify-center text-xl transition-all active:scale-95"
-                        title="GPS Map Tracking"
-                    >
-                        <i className="fa-solid fa-map-location-dot"></i>
-                    </button>
+                    <button onClick={() => setShowLiveTracker(true)} className="bg-brand-600 hover:bg-brand-500 text-white rounded-2xl shadow-lg flex items-center justify-center text-xl transition-all active:scale-95" title="GPS Map Tracking"><i className="fa-solid fa-map-location-dot"></i></button>
                 </div>
                 <RhythmGuide bpm={metronome.bpm} setBpm={metronome.setBpm} isPlaying={metronome.isPlaying} togglePlay={metronome.togglePlay} onClick={() => setShowRhythmDetail(true)} />
             </div>
@@ -551,32 +529,20 @@ const App: React.FC = () => {
                 {activePlan ? <ActivePlanCard plan={activePlan} onRemove={handleRemovePlan} /> : (
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                         <button onClick={() => setShowPlanner(true)} className="bg-gradient-to-r from-apna-navy to-slate-900 border border-slate-700 p-4 rounded-3xl flex flex-col justify-center items-start shadow-xl hover:border-brand-500/50 transition-all group h-32">
-                            <div className="w-8 h-8 rounded-xl bg-brand-900/30 flex items-center justify-center text-brand-400 group-hover:scale-110 group-hover:bg-brand-500 group-hover:text-white transition-all mb-3 shadow-inner">
-                                <i className="fa-solid fa-calendar-days"></i>
-                            </div>
+                            <div className="w-8 h-8 rounded-xl bg-brand-900/30 flex items-center justify-center text-brand-400 group-hover:scale-110 group-hover:bg-brand-500 group-hover:text-white transition-all mb-3 shadow-inner"><i className="fa-solid fa-calendar-days"></i></div>
                             <div className="text-white font-black text-[11px] uppercase tracking-tighter">AI Planner</div>
                         </button>
                         <button onClick={() => setShowSocialHub(true)} className="bg-gradient-to-r from-apna-navy to-slate-900 border border-slate-700 p-4 rounded-3xl flex flex-col justify-center items-start shadow-xl hover:border-orange-500/50 transition-all group h-32 relative overflow-hidden">
-                            <div className="w-8 h-8 rounded-xl bg-orange-900/30 flex items-center justify-center text-orange-400 group-hover:scale-110 group-hover:bg-orange-500 group-hover:text-white transition-all mb-3 shadow-inner relative z-10">
-                                <i className="fa-solid fa-users"></i>
-                            </div>
+                            <div className="w-8 h-8 rounded-xl bg-orange-900/30 flex items-center justify-center text-orange-400 group-hover:scale-110 group-hover:bg-orange-500 group-hover:text-white transition-all mb-3 shadow-inner relative z-10"><i className="fa-solid fa-users"></i></div>
                             <div className="text-white font-black text-[11px] uppercase tracking-tighter relative z-10">Social Hub</div>
-                            {totalPendingSocial > 0 && (
-                                <div className="absolute top-2 right-2 bg-red-500 text-white text-[10px] font-black w-5 h-5 rounded-full flex items-center justify-center border-2 border-slate-900 shadow-lg animate-bounce z-20">
-                                    {totalPendingSocial}
-                                </div>
-                            )}
+                            {totalPendingSocial > 0 && <div className="absolute top-2 right-2 bg-red-500 text-white text-[10px] font-black w-5 h-5 rounded-full flex items-center justify-center border-2 border-slate-900 shadow-lg animate-bounce z-20">{totalPendingSocial}</div>}
                         </button>
                         <button onClick={() => setShowBuddyFinder(true)} className="bg-gradient-to-r from-apna-navy to-slate-900 border border-slate-700 p-4 rounded-3xl flex flex-col justify-center items-start shadow-xl hover:border-blue-500/50 transition-all group h-32 relative overflow-hidden">
-                            <div className="w-8 h-8 rounded-xl bg-blue-900/30 flex items-center justify-center text-blue-400 group-hover:scale-110 group-hover:bg-blue-500 group-hover:text-white transition-all mb-3 shadow-inner relative z-10">
-                                <i className="fa-solid fa-people-arrows"></i>
-                            </div>
+                            <div className="w-8 h-8 rounded-xl bg-blue-900/30 flex items-center justify-center text-blue-400 group-hover:scale-110 group-hover:bg-blue-500 group-hover:text-white transition-all mb-3 shadow-inner relative z-10"><i className="fa-solid fa-people-arrows"></i></div>
                             <div className="text-white font-black text-[11px] uppercase tracking-tighter relative z-10">Buddy</div>
                         </button>
                         <button onClick={() => setShowParkFinder(true)} className="bg-gradient-to-r from-apna-navy to-slate-900 border border-slate-700 p-4 rounded-3xl flex flex-col justify-center items-start shadow-xl hover:border-emerald-500/50 transition-all group h-32 relative overflow-hidden">
-                            <div className="w-8 h-8 rounded-xl bg-emerald-900/30 flex items-center justify-center text-emerald-400 group-hover:scale-110 group-hover:bg-emerald-500 group-hover:text-white transition-all mb-3 shadow-inner relative z-10">
-                                <i className="fa-solid fa-tree"></i>
-                            </div>
+                            <div className="w-8 h-8 rounded-xl bg-emerald-900/30 flex items-center justify-center text-emerald-400 group-hover:scale-110 group-hover:bg-emerald-500 group-hover:text-white transition-all mb-3 shadow-inner relative z-10"><i className="fa-solid fa-tree"></i></div>
                             <div className="text-white font-black text-[11px] uppercase tracking-tighter relative z-10">Parks</div>
                         </button>
                     </div>
@@ -596,7 +562,6 @@ const App: React.FC = () => {
             <DailyQuote onShare={handleQuoteShare} />
             {dailySteps > 0 && <button onClick={handleShare} className="w-full md:w-auto mx-auto flex items-center justify-center gap-2 text-sm font-bold text-brand-500 bg-brand-500/10 px-8 py-4 rounded-full hover:bg-brand-500/20 transition-all border border-brand-500/20 shadow-lg"><i className="fa-solid fa-share-nodes"></i> Share Progress</button>}
             <Achievements totalSteps={totalLifetimeSteps} earnedBadges={earnedBadges} />
-
             <div className="bg-dark-card p-6 rounded-3xl border border-dark-border shadow-xl">
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
                     <h3 className="font-black text-xl text-white tracking-tighter italic">Activity History</h3>
@@ -613,16 +578,6 @@ const App: React.FC = () => {
                     </div>
                 </div>
                 <div className="h-48 w-full mb-6"><ResponsiveContainer width="100%" height="100%"><BarChart data={analytics.chartData}><XAxis dataKey="date" tickFormatter={(val) => val.substring(5)} axisLine={false} tickLine={false} tick={{ fill: '#475569', fontSize: 10, fontWeight: 'bold' }} dy={10} /><Tooltip cursor={{ fill: 'rgba(255,255,255,0.05)' }} contentStyle={{ backgroundColor: 'var(--card-color)', border: '1px solid var(--border-color)', borderRadius: '16px', color: 'var(--text-color)', fontWeight: 'bold' }} /><Bar dataKey="steps" radius={[6, 6, 6, 6]}>{analytics.chartData.map((entry, index) => (<Cell key={`cell-${index}`} fill={entry.steps >= settings.stepGoal ? '#4CAF50' : '#374151'} />))}</Bar></BarChart></ResponsiveContainer></div>
-                <div className="grid grid-cols-2 gap-4 mb-6">
-                    <div className="bg-slate-800/50 p-4 rounded-2xl border border-slate-700 flex flex-col items-center text-center shadow-inner"><span className="text-[10px] text-slate-500 font-black uppercase tracking-widest mb-1">Best Day</span><span className="text-2xl font-black text-white">{analytics.bestDay.steps.toLocaleString()}</span></div>
-                    <div className="bg-slate-800/50 p-4 rounded-2xl border border-slate-700 flex flex-col items-center text-center shadow-inner"><span className="text-[10px] text-slate-500 font-black uppercase tracking-widest mb-1">Longest km</span><span className="text-2xl font-black text-white">{(analytics.longestSession.distance / 1000).toFixed(2)}</span></div>
-                </div>
-                <div className="space-y-3">
-                    <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-[3px] mb-4">Recent Squad Updates</h4>
-                    {analytics.displaySessions.length > 0 ? analytics.displaySessions.map((item, idx) => (
-                            <div key={item.session.id || idx} onClick={() => setSelectedStat('distance')} className="flex items-center justify-between p-4 rounded-2xl bg-slate-800/30 border border-slate-700/30 hover:bg-slate-800/60 hover:border-slate-600 transition-all cursor-pointer animate-message-pop"><div className="flex items-center gap-4"><div className={`w-10 h-10 rounded-xl flex items-center justify-center text-sm border shadow-inner ${getTypeColor(item.session.type)}`}><i className={`fa-solid ${item.session.type === 'Power Walk' ? 'fa-bolt' : item.session.type === 'Long Walk' ? 'fa-mountain-sun' : 'fa-person-walking'}`}></i></div><div><div className="text-xs font-black text-white">{item.date} <span className="opacity-40 font-medium ml-1">• {new Date(item.session.startTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span></div><div className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">{item.session.type || 'Normal Walk'} • {Math.floor(item.session.durationSeconds / 60)}m</div></div></div><div className="text-right"><div className="text-lg font-black text-brand-400 leading-none">{item.session.steps}</div><div className="text-[8px] text-slate-500 font-black uppercase tracking-widest mt-1">Steps</div></div></div>
-                        )) : <div className="text-center py-10 text-slate-600 font-bold italic border-2 border-dashed border-slate-800 rounded-3xl">No sessions recorded yet. Start walking!</div>}
-                </div>
             </div>
         </div>
         
