@@ -1,20 +1,21 @@
+
 {
   "short_name": "ApnaWalk",
   "name": "ApnaWalk Fitness",
   "icons": [
     {
-      "src": "https://cdn-icons-png.flaticon.com/512/2548/2548523.png",
+      "src": "/android-chrome-192x192.png",
       "type": "image/png",
       "sizes": "192x192"
     },
     {
-      "src": "https://cdn-icons-png.flaticon.com/512/2548/2548523.png",
+      "src": "/android-chrome-512x512.png",
       "type": "image/png",
       "sizes": "512x512"
     }
   ],
   "start_url": ".",
   "display": "standalone",
-  "theme_color": "#0f172a",
-  "background_color": "#0f172a"
+  "theme_color": "#00695C",
+  "background_color": "#1a2327"
 }
