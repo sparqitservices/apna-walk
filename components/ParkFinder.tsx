@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Park, UserProfile } from '../types';
 import { fetchNearbyParks, checkInToPark, getLocalityName } from '../services/parkService';
 import { calculateDistance } from '../services/trackingService';
@@ -12,6 +12,13 @@ interface ParkFinderProps {
 }
 
 type CategoryFilter = 'all' | 'park' | 'gym' | 'shop' | 'health';
+
+// Mock Community Routes for the Demo
+const MOCK_ROUTES = [
+    { id: 'r1', name: 'Morning Loop', distance: '1.2km', pace: '6:30 min/km', difficulty: 'Easy', user: 'Sunil_82' },
+    { id: 'r2', name: 'Power Straight', distance: '0.8km', pace: '5:10 min/km', difficulty: 'Medium', user: 'Priya_X' },
+    { id: 'r3', name: 'Park Perimeter', distance: '2.5km', pace: '7:00 min/km', difficulty: 'Endurance', user: 'Coach_Afzal' }
+];
 
 export const ParkFinder: React.FC<ParkFinderProps> = ({ isOpen, onClose, profile }) => {
     const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
@@ -80,6 +87,23 @@ export const ParkFinder: React.FC<ParkFinderProps> = ({ isOpen, onClose, profile
             setLoading(false);
         }, { enableHighAccuracy: true });
     };
+
+    // Calculate Nearby vibes from the current pool of parks relative to selected park
+    const nearbyVibes = useMemo(() => {
+        if (!selectedPark) return [];
+        return parks
+            .filter(p => p.id !== selectedPark.id)
+            .map(p => ({
+                ...p,
+                relDist: calculateDistance(
+                    { lat: selectedPark.coordinates.lat, lng: selectedPark.coordinates.lng, timestamp: 0 },
+                    { lat: p.coordinates.lat, lng: p.coordinates.lng, timestamp: 0 }
+                )
+            }))
+            .filter(p => p.relDist < 1000) // Within 1km of the selected park
+            .sort((a, b) => a.relDist - b.relDist)
+            .slice(0, 5);
+    }, [selectedPark, parks]);
 
     const initNavMap = () => {
         if (!navMapRef.current || !selectedPark || !userCoords) return;
@@ -179,6 +203,7 @@ export const ParkFinder: React.FC<ParkFinderProps> = ({ isOpen, onClose, profile
         <div className="fixed inset-0 bg-black/95 backdrop-blur-xl z-[90] flex items-center justify-center p-4">
             <div className="bg-dark-card w-full max-w-5xl h-[92vh] rounded-[3rem] border border-slate-800 shadow-2xl flex flex-col overflow-hidden animate-message-pop">
                 
+                {/* Header Section */}
                 <div className="p-6 border-b border-slate-800 bg-slate-900/50 shrink-0">
                     <div className="flex justify-between items-start mb-6">
                         <div>
@@ -207,12 +232,14 @@ export const ParkFinder: React.FC<ParkFinderProps> = ({ isOpen, onClose, profile
                     </div>
                 </div>
 
+                {/* Filter Bar */}
                 <div className="px-6 py-3 bg-slate-900/30 border-b border-slate-800 flex gap-2 overflow-x-auto no-scrollbar shrink-0">
                     {categories.map(cat => (
                         <button key={cat.id} onClick={() => setActiveCategory(cat.id)} className={`flex items-center gap-2 px-5 py-2.5 rounded-full text-[10px] font-black uppercase tracking-widest transition-all border shrink-0 ${activeCategory === cat.id ? 'bg-white text-slate-900 border-white shadow-xl scale-105' : 'bg-slate-800 text-slate-500 border-slate-700 hover:border-slate-500'}`}><i className={`fa-solid ${cat.icon}`}></i>{cat.label}</button>
                     ))}
                 </div>
 
+                {/* Main Content Area */}
                 <div className="flex-1 overflow-hidden relative">
                     {viewMode === 'list' ? (
                         <div className="h-full overflow-y-auto p-6 grid grid-cols-1 md:grid-cols-2 gap-6 no-scrollbar">
@@ -254,12 +281,13 @@ export const ParkFinder: React.FC<ParkFinderProps> = ({ isOpen, onClose, profile
                     )}
                 </div>
 
+                {/* Enhanced Selected Park Modal */}
                 {selectedPark && (
                     <div className="absolute inset-0 bg-black/90 backdrop-blur-sm z-[100] flex items-end justify-center sm:items-center p-4" onClick={() => { setSelectedPark(null); setLiveNavMode(false); }}>
-                        <div className="bg-dark-card w-full max-w-2xl rounded-[3rem] overflow-hidden border border-slate-700 shadow-2xl animate-message-pop relative flex flex-col md:flex-row" onClick={e => e.stopPropagation()}>
+                        <div className="bg-dark-card w-full max-w-4xl h-full sm:h-auto sm:max-h-[85vh] rounded-[3rem] overflow-hidden border border-slate-700 shadow-2xl animate-message-pop relative flex flex-col md:flex-row" onClick={e => e.stopPropagation()}>
                             
-                            {/* Visual/Map Area */}
-                            <div className="w-full md:w-1/2 h-64 md:h-auto relative bg-slate-900 overflow-hidden">
+                            {/* Visual/Map Area (Left/Top) */}
+                            <div className="w-full md:w-[400px] h-64 md:h-auto relative bg-slate-900 overflow-hidden shrink-0">
                                 {liveNavMode ? (
                                     <div ref={navMapRef} className="w-full h-full" />
                                 ) : (
@@ -270,37 +298,93 @@ export const ParkFinder: React.FC<ParkFinderProps> = ({ isOpen, onClose, profile
                                     <span className="bg-brand-600 text-white text-[10px] font-black px-3 py-1.5 rounded-xl uppercase tracking-widest shadow-lg border border-brand-400/50">Verified Spot</span>
                                     {liveNavMode && <span className="bg-blue-600 text-white text-[10px] font-black px-3 py-1.5 rounded-xl uppercase tracking-widest shadow-lg animate-pulse">Live Link Active</span>}
                                 </div>
+                                <button onClick={() => setSelectedPark(null)} className="absolute top-6 right-6 w-10 h-10 rounded-2xl bg-black/40 backdrop-blur text-white flex items-center justify-center transition-all md:hidden"><i className="fa-solid fa-xmark"></i></button>
                             </div>
                             
-                            <div className="p-8 md:w-1/2">
+                            {/* Detailed Info (Right/Bottom) */}
+                            <div className="flex-1 overflow-y-auto no-scrollbar p-8">
                                 <div className="flex justify-between items-start mb-6">
                                     <div>
                                         <h3 className="text-white font-black text-2xl italic tracking-tighter mb-1 leading-none">{selectedPark.name}</h3>
                                         <p className="text-slate-500 text-[10px] uppercase tracking-widest font-black">{selectedPark.category} in {locality}</p>
                                     </div>
-                                    <button onClick={() => { setSelectedPark(null); setLiveNavMode(false); }} className="w-10 h-10 rounded-2xl bg-slate-800 text-slate-400 hover:text-white flex items-center justify-center transition-all"><i className="fa-solid fa-xmark"></i></button>
+                                    <button onClick={() => { setSelectedPark(null); setLiveNavMode(false); }} className="hidden md:flex w-10 h-10 rounded-2xl bg-slate-800 text-slate-400 hover:text-white items-center justify-center transition-all"><i className="fa-solid fa-xmark"></i></button>
                                 </div>
 
-                                <div className="grid grid-cols-2 gap-4 mb-8">
-                                    <div className="bg-slate-800/40 p-4 rounded-3xl border border-slate-700/50 text-center flex flex-col items-center">
-                                        <i className="fa-solid fa-person-walking text-blue-500 text-lg mb-2"></i>
-                                        <div className="text-xl font-black text-white">{(selectedPark.distance! / 1000).toFixed(1)} <small className="text-[10px] opacity-40">KM</small></div>
-                                        <p className="text-[8px] text-slate-500 font-black uppercase tracking-widest">Live Distance</p>
-                                    </div>
-                                    <div className="bg-slate-800/40 p-4 rounded-3xl border border-slate-700/50 text-center flex flex-col items-center">
-                                        <i className="fa-solid fa-star text-yellow-500 text-lg mb-2"></i>
-                                        <div className="text-xl font-black text-white">{selectedPark.rating_avg.toFixed(1)}</div>
-                                        <p className="text-[8px] text-slate-500 font-black uppercase tracking-widest">User Rating</p>
+                                {/* AMENITIES SECTION */}
+                                <div className="mb-8">
+                                    <h4 className="text-[9px] font-black text-slate-500 uppercase tracking-[4px] mb-4">Amenities & Facilities</h4>
+                                    <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
+                                        {[
+                                            { key: 'trail', label: 'Jog Path', icon: 'fa-route', color: 'text-brand-400' },
+                                            { key: 'water', label: 'Hydration', icon: 'fa-faucet-drip', color: 'text-blue-400' },
+                                            { key: 'washroom', label: 'Toilets', icon: 'fa-restroom', color: 'text-orange-400' },
+                                            { key: 'lighting', label: 'Night Safe', icon: 'fa-lightbulb', color: 'text-yellow-400' },
+                                            { key: 'bench', label: 'Benches', icon: 'fa-chair', color: 'text-slate-400' },
+                                            { key: 'equipment', label: 'Gym Gear', icon: 'fa-dumbbell', color: 'text-purple-400' }
+                                        ].map(item => (
+                                            <div key={item.key} className={`flex flex-col items-center justify-center p-3 rounded-2xl border transition-all ${selectedPark.facilities?.[item.key] ? 'bg-slate-800/40 border-slate-700/50' : 'bg-slate-900/30 border-transparent opacity-20'}`}>
+                                                <i className={`fa-solid ${item.icon} text-lg mb-2 ${selectedPark.facilities?.[item.key] ? item.color : 'text-slate-600'}`}></i>
+                                                <span className="text-[8px] font-black text-white uppercase tracking-wider">{item.label}</span>
+                                            </div>
+                                        ))}
                                     </div>
                                 </div>
 
-                                <div className="flex flex-col gap-4">
+                                {/* COMMUNITY TRACKS (MOCK ROUTES) */}
+                                <div className="mb-8">
+                                    <div className="flex justify-between items-center mb-4">
+                                        <h4 className="text-[9px] font-black text-slate-500 uppercase tracking-[4px]">Community Tracks</h4>
+                                        <span className="text-[8px] bg-brand-500/10 text-brand-400 px-2 py-1 rounded font-black uppercase">3 shared</span>
+                                    </div>
+                                    <div className="space-y-3">
+                                        {MOCK_ROUTES.map(route => (
+                                            <div key={route.id} className="bg-slate-800/40 border border-slate-700/50 p-4 rounded-3xl flex items-center justify-between group hover:bg-slate-800 transition-all">
+                                                <div className="flex items-center gap-4">
+                                                    <div className="w-10 h-10 rounded-xl bg-slate-900 flex items-center justify-center text-brand-500 border border-slate-700"><i className="fa-solid fa-person-walking"></i></div>
+                                                    <div>
+                                                        <p className="text-sm font-black text-white italic">@{route.user}: {route.name}</p>
+                                                        <p className="text-[10px] text-slate-500 font-bold">{route.distance} • {route.pace} • <span className="text-brand-400">{route.difficulty}</span></p>
+                                                    </div>
+                                                </div>
+                                                <button className="w-9 h-9 rounded-full bg-brand-600 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all shadow-lg active:scale-90"><i className="fa-solid fa-play text-xs pl-0.5"></i></button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {/* NEARBY VIBES (Discover Businesses/Landmarks) */}
+                                {nearbyVibes.length > 0 && (
+                                    <div className="mb-8">
+                                        <h4 className="text-[9px] font-black text-slate-500 uppercase tracking-[4px] mb-4">Nearby Vibes</h4>
+                                        <div className="flex gap-4 overflow-x-auto no-scrollbar pb-2">
+                                            {nearbyVibes.map(vibe => (
+                                                <div key={vibe.id} onClick={() => setSelectedPark(vibe)} className="min-w-[180px] bg-slate-900/60 p-4 rounded-3xl border border-slate-800 flex flex-col gap-2 hover:border-slate-600 transition-all cursor-pointer">
+                                                    <div className="flex items-center justify-between">
+                                                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-white ${vibe.category === 'gym' ? 'bg-blue-600' : vibe.category === 'shop' ? 'bg-orange-500' : 'bg-brand-600'}`}>
+                                                            <i className={`fa-solid ${categories.find(c => c.id === vibe.category)?.icon} text-xs`}></i>
+                                                        </div>
+                                                        <span className="text-[8px] font-black text-slate-500 uppercase">{vibe.relDist.toFixed(0)}m away</span>
+                                                    </div>
+                                                    <p className="text-xs font-black text-white truncate italic tracking-tight">{vibe.name}</p>
+                                                    <div className="flex items-center gap-1">
+                                                        <i className="fa-solid fa-star text-[10px] text-yellow-500"></i>
+                                                        <span className="text-[10px] font-black text-slate-400">{vibe.rating_avg.toFixed(1)}</span>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Main Actions */}
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-10">
                                     <button 
                                         onClick={() => setLiveNavMode(!liveNavMode)}
                                         className={`w-full font-black py-5 rounded-[1.5rem] shadow-xl active:scale-95 transition-all text-xs uppercase tracking-[4px] flex items-center justify-center gap-3 ${liveNavMode ? 'bg-blue-600 text-white shadow-blue-900/40' : 'bg-slate-800 text-blue-400 border border-blue-500/30'}`}
                                     >
                                         <i className={`fa-solid ${liveNavMode ? 'fa-eye-slash' : 'fa-location-crosshairs'}`}></i>
-                                        {liveNavMode ? 'Hide Live View' : 'Live location link'}
+                                        {liveNavMode ? 'Hide Live Map' : 'Launch Navigator'}
                                     </button>
                                     
                                     <div className="flex gap-4">
