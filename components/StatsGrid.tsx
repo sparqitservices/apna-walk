@@ -9,47 +9,45 @@ interface StatsGridProps {
 
 export const StatsGrid: React.FC<StatsGridProps> = ({ calories, distance, duration, onStatClick }) => {
   const formatTime = (seconds: number) => {
-    const hrs = Math.floor(seconds / 3600);
-    const mins = Math.floor((seconds % 3600) / 60);
+    const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
-    if (hrs > 0) return `${hrs}h ${mins}m`;
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
   return (
-    <div className="grid grid-cols-3 gap-4 w-full max-w-md mx-auto mb-6">
+    <div className="flex justify-between items-center bg-slate-800/40 backdrop-blur border border-slate-700/50 rounded-[2.5rem] p-4 w-full shadow-lg">
       
       <button 
         onClick={() => onStatClick('calories')}
-        className="bg-dark-card p-4 rounded-2xl flex flex-col items-center border border-slate-800 hover:border-orange-500/50 hover:bg-slate-800 transition-all active:scale-95 group"
+        className="flex flex-col items-center flex-1 border-r border-slate-700/50 group"
       >
-        <div className="w-10 h-10 rounded-full bg-orange-500/10 flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
-           <i className="fa-solid fa-fire text-orange-500 text-xl"></i>
+        <div className="flex items-center gap-2 mb-1">
+           <i className="fa-solid fa-fire text-orange-500 text-xs"></i>
+           <span className="text-xl font-black text-white italic tabular-nums leading-none">{calories}</span>
         </div>
-        <span className="text-xl font-bold text-dark-text group-hover:text-white transition-colors">{calories}</span>
-        <span className="text-xs text-dark-muted font-bold uppercase tracking-wider">Kcal</span>
+        <span className="text-[8px] text-slate-500 font-black uppercase tracking-widest">Kcal</span>
       </button>
 
       <button 
         onClick={() => onStatClick('distance')}
-        className="bg-dark-card p-4 rounded-2xl flex flex-col items-center border border-slate-800 hover:border-blue-500/50 hover:bg-slate-800 transition-all active:scale-95 group"
+        className="flex flex-col items-center flex-1 border-r border-slate-700/50 group"
       >
-        <div className="w-10 h-10 rounded-full bg-blue-500/10 flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
-            <i className="fa-solid fa-route text-blue-500 text-xl"></i>
+        <div className="flex items-center gap-2 mb-1">
+            <i className="fa-solid fa-route text-blue-500 text-xs"></i>
+            <span className="text-xl font-black text-white italic tabular-nums leading-none">{(distance / 1000).toFixed(2)}</span>
         </div>
-        <span className="text-xl font-bold text-dark-text group-hover:text-white transition-colors">{(distance / 1000).toFixed(2)}</span>
-        <span className="text-xs text-dark-muted font-bold uppercase tracking-wider">Km</span>
+        <span className="text-[8px] text-slate-500 font-black uppercase tracking-widest">Km</span>
       </button>
 
       <button 
         onClick={() => onStatClick('time')}
-        className="bg-dark-card p-4 rounded-2xl flex flex-col items-center border border-slate-800 hover:border-purple-500/50 hover:bg-slate-800 transition-all active:scale-95 group"
+        className="flex flex-col items-center flex-1 group"
       >
-        <div className="w-10 h-10 rounded-full bg-purple-500/10 flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
-            <i className="fa-solid fa-stopwatch text-purple-500 text-xl"></i>
+        <div className="flex items-center gap-2 mb-1">
+            <i className="fa-solid fa-stopwatch text-purple-500 text-xs"></i>
+            <span className="text-xl font-black text-white italic tabular-nums leading-none">{formatTime(duration)}</span>
         </div>
-        <span className="text-xl font-bold text-dark-text group-hover:text-white transition-colors">{formatTime(duration)}</span>
-        <span className="text-xs text-dark-muted font-bold uppercase tracking-wider">Time</span>
+        <span className="text-[8px] text-slate-500 font-black uppercase tracking-widest">Time</span>
       </button>
       
     </div>
