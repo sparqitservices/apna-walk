@@ -16,42 +16,47 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onGuest, onSh
 
   // Initialize Google One Tap
   useEffect(() => {
-    // Only proceed if the Google GSI script has loaded
+    let isMounted = true;
+
     const initializeOneTap = () => {
       if (typeof google !== 'undefined' && google.accounts && google.accounts.id) {
         google.accounts.id.initialize({
-          // Replace with your actual client ID or use an environment variable
           client_id: "680287114674-8b6g3id67v9sq6o47is6n9m2v991j2sh.apps.googleusercontent.com", 
           callback: async (response: any) => {
+            if (!isMounted) return;
             setIsLoading(true);
             try {
               await signInWithGoogleOneTap(response.credential);
-              // App.tsx handles state sync via Supabase onAuthStateChange
+              // State sync is handled by onAuthStateChange in App.tsx
             } catch (err: any) {
               console.error("One Tap Login Failed", err);
-              setErrorMsg("Automatic login failed. Please use the button.");
-              setIsLoading(false);
+              if (isMounted) {
+                setErrorMsg("Automatic detection failed. Use the button.");
+                setIsLoading(false);
+              }
             }
           },
-          auto_select: false, // Don't log in automatically without prompt
+          auto_select: false, // MANDATORY: This prevents the app from logging in without a user tap
+          itp_support: true,
           cancel_on_tap_outside: true,
         });
 
+        // Trigger the prompt
         google.accounts.id.prompt((notification: any) => {
           if (notification.isNotDisplayed()) {
             console.log("One Tap skipped:", notification.getNotDisplayedReason());
           } else if (notification.isSkippedMoment()) {
             console.log("One Tap moment skipped:", notification.getSkippedReason());
-          } else if (notification.isDismissedMoment()) {
-            console.log("One Tap dismissed by user");
           }
         });
       }
     };
 
-    // Small delay to ensure script availability
-    const timer = setTimeout(initializeOneTap, 1000);
-    return () => clearTimeout(timer);
+    const timer = setTimeout(initializeOneTap, 1200);
+    return () => {
+      isMounted = false;
+      clearTimeout(timer);
+    };
   }, []);
 
   const handleGoogleLogin = async () => {

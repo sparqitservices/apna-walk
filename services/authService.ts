@@ -1,6 +1,8 @@
 import { supabase } from './supabaseClient';
 import { UserProfile } from '../types';
 
+declare const google: any;
+
 export const signInWithGoogle = async () => {
   const redirectTo = window.location.origin;
   
@@ -33,8 +35,17 @@ export const signInWithGoogleOneTap = async (idToken: string) => {
 };
 
 export const signOut = async () => {
+  // 1. Tell Google to stop auto-selecting the account for One Tap
+  if (typeof google !== 'undefined' && google.accounts && google.accounts.id) {
+    google.accounts.id.disableAutoSelect();
+  }
+  
+  // 2. Clear Supabase session
   const { error } = await supabase.auth.signOut();
   if (error) throw error;
+
+  // 3. Clear local profile cache
+  localStorage.removeItem('strideai_profile');
 };
 
 const generateRandomUsername = (email: string) => {
