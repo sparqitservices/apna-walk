@@ -28,7 +28,7 @@ export const VisualShareModal: React.FC<VisualShareModalProps> = ({ isOpen, onCl
     if (cardRef.current && typeof html2canvas !== 'undefined') {
       try {
         const canvas = await html2canvas(cardRef.current, {
-          scale: 3, // Even higher scale for crispness
+          scale: 3, 
           backgroundColor: '#020617', 
           useCORS: true,
           logging: false,
@@ -81,8 +81,8 @@ export const VisualShareModal: React.FC<VisualShareModalProps> = ({ isOpen, onCl
       <div className="w-full max-w-sm relative animate-message-pop">
         <div className="flex justify-between items-center mb-6 text-white px-2">
             <div>
-                <h3 className="font-black text-xl italic tracking-tighter uppercase">Export Progress</h3>
-                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-[3px]">Ready to share</p>
+                <h3 className="font-black text-xl italic tracking-tighter uppercase text-brand-400">Share Progress</h3>
+                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-[3px]">Export high-quality card</p>
             </div>
             <button onClick={onClose} className="w-10 h-10 bg-slate-800/50 rounded-2xl flex items-center justify-center hover:bg-slate-700 transition-colors border border-slate-700/50 shadow-lg">
                 <i className="fa-solid fa-xmark"></i>
@@ -90,14 +90,14 @@ export const VisualShareModal: React.FC<VisualShareModalProps> = ({ isOpen, onCl
         </div>
 
         {/* Card Preview Container */}
-        <div className="aspect-[3/4.2] w-full rounded-[2.5rem] overflow-hidden shadow-[0_0_80px_rgba(0,0,0,0.7)] border border-slate-800 bg-slate-900 group relative">
+        <div className="aspect-[3/4.2] w-full rounded-[2.5rem] overflow-hidden shadow-[0_0_80px_rgba(0,0,0,0.8)] border border-slate-800 bg-slate-900 group relative">
             {generating ? (
                 <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-500 bg-slate-950">
                     <div className="relative w-16 h-16 mb-6">
                         <div className="absolute inset-0 border-4 border-slate-800 rounded-2xl"></div>
                         <div className="absolute inset-0 border-4 border-brand-500 rounded-2xl border-t-transparent animate-spin"></div>
                     </div>
-                    <p className="text-[10px] font-black uppercase tracking-[5px] animate-pulse">Creating Masterpiece...</p>
+                    <p className="text-[10px] font-black uppercase tracking-[5px] animate-pulse">Polishing design...</p>
                 </div>
             ) : (
                 <img src={imgUrl!} alt="Share Preview" className="w-full h-full object-contain" />
@@ -125,41 +125,38 @@ export const VisualShareModal: React.FC<VisualShareModalProps> = ({ isOpen, onCl
         </div>
       </div>
 
-      {/* HIDDEN RENDER AREA - Premium High Fidelity Capture */}
+      {/* HIDDEN RENDER AREA - Optimized for html2canvas */}
       <div className="fixed left-[-9999px] top-0 pointer-events-none">
           <div 
             ref={cardRef} 
             className="w-[600px] h-[840px] bg-[#020617] text-white p-16 flex flex-col relative overflow-hidden"
           >
-              {/* Brand Tricolor Accent Bars */}
+              {/* Top Accent Bar */}
               <div className="absolute top-0 left-0 w-full h-4 bg-gradient-to-r from-[#FF9933] via-white to-[#138808]"></div>
-              <div className="absolute bottom-0 left-0 w-full h-2 bg-gradient-to-r from-[#FF9933] via-white to-[#138808] opacity-50"></div>
               
-              {/* Premium Background Ambiance */}
-              <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-brand-500/10 rounded-full blur-[140px] -translate-y-1/2 translate-x-1/4"></div>
-              <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-emerald-500/5 rounded-full blur-[120px] translate-y-1/2 -translate-x-1/4"></div>
-              <div className="absolute inset-0 opacity-[0.03]" style={{backgroundImage: 'radial-gradient(#ffffff 2px, transparent 2px)', backgroundSize: '40px 40px'}}></div>
+              {/* Atmospheric background glows */}
+              <div className="absolute -top-20 -right-20 w-[500px] h-[500px] bg-brand-500/10 rounded-full blur-[120px]"></div>
+              <div className="absolute bottom-0 -left-20 w-[400px] h-[400px] bg-emerald-500/5 rounded-full blur-[100px]"></div>
 
-              {/* CENTERED LOGO ONLY */}
+              {/* CENTERED LOGO - GRADIENT DISABLED TO PREVENT BOXING EFFECT */}
               <div className="flex flex-col items-center mb-16 relative z-10 pt-4">
-                  <ApnaWalkLogo size={90} useGradient={true} />
+                  <ApnaWalkLogo size={100} useGradient={false} className="scale-110" />
               </div>
 
               {/* MAIN CONTENT AREA */}
-              <div className="flex-1 flex flex-col justify-center relative z-10 px-4">
+              <div className="flex-1 flex flex-col justify-center relative z-10 px-4 mb-20">
                   {type === 'quote' && (
                       <div className="text-center relative">
-                        {/* Elegant Decorative Quotes */}
-                        <i className="fa-solid fa-quote-left text-9xl text-brand-500 mb-6 block opacity-10 absolute -top-12 -left-8"></i>
+                        <i className="fa-solid fa-quote-left text-[120px] text-brand-500 mb-6 block opacity-[0.07] absolute -top-16 -left-12"></i>
                         
-                        <div className="bg-white/[0.02] backdrop-blur-xl p-14 rounded-[5rem] border border-white/10 shadow-[0_40px_100px_rgba(0,0,0,0.4)] relative">
-                            <p className="text-[42px] font-black italic leading-[1.1] text-white mb-10 tracking-tight drop-shadow-2xl">
+                        <div className="bg-white/[0.03] backdrop-blur-xl p-16 rounded-[4rem] border border-white/10 shadow-[0_40px_100px_rgba(0,0,0,0.5)] relative">
+                            <p className="text-[44px] font-black italic leading-[1.1] text-white mb-12 tracking-tight">
                                 "{data.text}"
                             </p>
-                            <div className="flex items-center justify-center gap-6">
-                                <div className="w-16 h-px bg-gradient-to-r from-transparent to-slate-700"></div>
-                                <p className="text-[#FF9933] font-black uppercase tracking-[8px] text-lg">{data.author}</p>
-                                <div className="w-16 h-px bg-gradient-to-l from-transparent to-slate-700"></div>
+                            <div className="flex items-center justify-center gap-8">
+                                <div className="w-16 h-0.5 bg-slate-700"></div>
+                                <p className="text-[#FF9933] font-black uppercase tracking-[8px] text-xl">{data.author}</p>
+                                <div className="w-16 h-0.5 bg-slate-700"></div>
                             </div>
                         </div>
                       </div>
@@ -188,7 +185,7 @@ export const VisualShareModal: React.FC<VisualShareModalProps> = ({ isOpen, onCl
                                           <i className={`fa-solid ${stat.icon} text-3xl`}></i>
                                       </div>
                                       <div className="text-5xl font-black tabular-nums tracking-tighter italic text-white">{stat.val}</div>
-                                      <div className="text-xs text-slate-500 font-black uppercase tracking-widest mt-2">{stat.label}</div>
+                                      <div className="text-[10px] text-slate-500 font-black uppercase tracking-widest mt-2">{stat.label}</div>
                                   </div>
                               ))}
                           </div>
@@ -196,36 +193,37 @@ export const VisualShareModal: React.FC<VisualShareModalProps> = ({ isOpen, onCl
                   )}
               </div>
 
-              {/* REDESIGNED FOOTER: QR Left, URL Right */}
-              <div className="mt-20 pt-10 border-t border-white/5 relative z-10 flex items-end justify-between w-full">
+              {/* FOOTER: QR Left, URL Right */}
+              <div className="mt-auto pt-10 border-t border-white/10 relative z-10 flex items-end justify-between w-full">
                   
-                  {/* Bottom Left: QR Code */}
+                  {/* Bottom Left: Clean QR Code */}
                   <div className="flex flex-col items-start gap-4">
-                      <div className="p-3 bg-white rounded-[2rem] shadow-[0_0_50px_rgba(255,255,255,0.1)] border-2 border-brand-500/30">
+                      <div className="p-3 bg-white rounded-[2rem] shadow-[0_0_40px_rgba(255,255,255,0.15)]">
                           <img 
-                            src="https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=https://apnawalk.com&bgcolor=ffffff&color=020617" 
-                            alt="Scan" 
+                            src="https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=https://apnawalk.com&bgcolor=ffffff&color=020617" 
+                            alt="QR Code" 
                             className="w-24 h-24"
                           />
                       </div>
-                      <div>
-                        <p className="text-[11px] font-black text-white uppercase tracking-[4px]">Scan to Join</p>
-                        <p className="text-[9px] text-slate-500 font-bold uppercase tracking-[2px]">Download App</p>
+                      <div className="ml-1">
+                        <p className="text-[12px] font-black text-white uppercase tracking-[4px]">Scan to Join</p>
+                        <p className="text-[9px] text-slate-500 font-bold uppercase tracking-[2px]">Get the app now</p>
                       </div>
                   </div>
 
-                  {/* Bottom Right: URL and Branding */}
-                  <div className="text-right flex flex-col items-end gap-2">
-                      <div className="bg-brand-600/10 px-5 py-2 rounded-full border border-brand-500/20 mb-2">
+                  {/* Bottom Right: URL */}
+                  <div className="text-right flex flex-col items-end pb-2">
+                      <div className="flex items-center gap-3 px-5 py-2 bg-brand-600/10 border border-brand-500/20 rounded-full mb-4">
+                          <div className="w-1.5 h-1.5 bg-brand-500 rounded-full animate-pulse"></div>
                           <p className="text-brand-400 text-[10px] font-black uppercase tracking-[6px] mr-[-6px]">Join the Movement</p>
                       </div>
-                      <div>
-                        <span className="text-[10px] text-slate-500 font-black uppercase tracking-[4px] block mb-1">Visit us at:</span>
-                        <p className="text-3xl font-black text-white italic tracking-tighter leading-none">www.apnawalk.com</p>
-                      </div>
+                      <span className="text-[10px] text-slate-500 font-black uppercase tracking-[4px] block mb-1 opacity-70">Visit our home:</span>
+                      <p className="text-4xl font-black text-white italic tracking-tighter leading-none">www.apnawalk.com</p>
                   </div>
-
               </div>
+              
+              {/* Bottom Decorative Bar */}
+              <div className="absolute bottom-0 left-0 w-full h-2 bg-gradient-to-r from-[#FF9933] via-white to-[#138808] opacity-30"></div>
           </div>
       </div>
     </div>
