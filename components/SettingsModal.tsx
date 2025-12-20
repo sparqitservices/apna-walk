@@ -1,3 +1,4 @@
+
 import React, { useState, useRef } from 'react';
 import { UserSettings, UserProfile } from '../types';
 import { usePedometer } from '../hooks/usePedometer'; 
@@ -13,7 +14,6 @@ interface SettingsModalProps {
   onLoginRequest: () => void;
 }
 
-// Reusable Stylish Toggle Component
 const StylishToggle = ({ 
     checked, 
     onChange, 
@@ -57,7 +57,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [tempSettings, setTempSettings] = useState<UserSettings>(settings);
   const [tempProfile, setTempProfile] = useState<UserProfile>(profile);
   const [calibrationState, setCalibrationState] = useState<'idle' | 'walking' | 'done'>('idle');
-  const [calibratedValue, setCalibratedValue] = useState<number | null>(null);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { calibrateSensitivity } = usePedometer();
@@ -72,10 +71,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     }
     setTempSettings(newSettings);
   };
+
+  const handleProfileChange = (field: keyof UserProfile, value: any) => {
+      setTempProfile(prev => ({ ...prev, [field]: value }));
+  };
   
   const handleNotificationToggle = async (key: 'water' | 'walk' | 'breath', value: boolean) => {
       if (value) {
-          // User is turning ON, request permission
           const granted = await requestNotificationPermission();
           if (!granted) {
               alert("Please allow notifications in your browser settings to use this feature.");
@@ -91,31 +93,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       }));
   };
 
-  const handleAvatarClick = () => {
-      fileInputRef.current?.click();
-  };
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-      if (e.target.files && e.target.files[0]) {
-          const file = e.target.files[0];
-          if (file.size > 2 * 1024 * 1024) {
-              alert("Image size should be less than 2MB");
-              return;
-          }
-          const reader = new FileReader();
-          reader.onloadend = () => {
-              setTempProfile(prev => ({ ...prev, avatar: reader.result as string }));
-          };
-          reader.readAsDataURL(file);
-      }
-  };
-
-  const handleRemoveAvatar = (e: React.MouseEvent) => {
-      e.stopPropagation();
-      setTempProfile(prev => ({ ...prev, avatar: undefined }));
-      if (fileInputRef.current) fileInputRef.current.value = '';
-  };
-
   const handleSave = () => {
     onSave(tempSettings, tempProfile);
     onClose();
@@ -124,7 +101,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const handleCalibrate = () => {
       setCalibrationState('walking');
       calibrateSensitivity((recommended) => {
-          setCalibratedValue(recommended);
           setCalibrationState('done');
           handleChange('sensitivity', recommended);
       });
@@ -137,10 +113,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     { id: 'purple', name: 'Royal', color: '#a855f7' },
     { id: 'pink', name: 'Rose', color: '#f43f5e' }
   ];
-
-  const getInitials = (name: string) => {
-      return name ? name.charAt(0).toUpperCase() : 'U';
-  };
 
   return (
     <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
@@ -158,185 +130,87 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
         <div className="p-6 space-y-8 overflow-y-auto">
           
-          {/* User Info Card */}
-          <div className="bg-gradient-to-br from-slate-800 to-slate-900 p-5 rounded-2xl border border-slate-700 shadow-lg relative overflow-hidden">
-             <div className="absolute top-0 right-0 w-32 h-32 bg-brand-500/10 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2"></div>
-             
-             <div className="flex items-center gap-5 relative z-10">
-                <div className="relative group cursor-pointer shrink-0" onClick={handleAvatarClick}>
-                    <div className={`w-16 h-16 rounded-full flex items-center justify-center text-white font-bold text-2xl overflow-hidden border-4 border-slate-700 group-hover:border-brand-500 transition-colors shadow-xl ${tempProfile.isGuest ? 'bg-slate-600' : 'bg-brand-500'}`}>
-                        {tempProfile.avatar ? (
-                            <img src={tempProfile.avatar} alt="Avatar" className="w-full h-full object-cover" />
-                        ) : (
-                            getInitials(tempProfile.name)
-                        )}
-                        
-                        <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                            <i className="fa-solid fa-camera text-white text-sm"></i>
-                        </div>
+          {/* Profile Identity Card */}
+          <div className="bg-gradient-to-br from-slate-800 to-slate-900 p-6 rounded-2xl border border-slate-700 shadow-lg space-y-4">
+             <div className="flex items-center gap-5">
+                <div className="relative group cursor-pointer shrink-0" onClick={() => fileInputRef.current?.click()}>
+                    <div className={`w-20 h-20 rounded-2xl flex items-center justify-center text-white font-black text-3xl overflow-hidden border-4 border-slate-700 transition-all shadow-xl ${tempProfile.isGuest ? 'bg-slate-600' : 'bg-brand-500'}`}>
+                        {tempProfile.avatar ? <img src={tempProfile.avatar} className="w-full h-full object-cover" /> : tempProfile.username?.charAt(0).toUpperCase() || 'U'}
+                        <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"><i className="fa-solid fa-camera"></i></div>
                     </div>
-                    {tempProfile.avatar && (
-                        <button onClick={handleRemoveAvatar} className="absolute -top-1 -right-1 w-6 h-6 bg-red-500 rounded-full flex items-center justify-center border-2 border-slate-800 z-10 shadow-md">
-                            <i className="fa-solid fa-xmark text-[10px] text-white"></i>
-                        </button>
-                    )}
-                    <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileChange} />
+                    <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                            const reader = new FileReader();
+                            reader.onloadend = () => handleProfileChange('avatar', reader.result as string);
+                            reader.readAsDataURL(file);
+                        }
+                    }} />
                 </div>
-                
                 <div className="flex-1 min-w-0">
-                    <h3 className="text-white font-bold text-xl truncate">{tempProfile.name || 'Guest User'}</h3>
-                    <p className="text-slate-400 text-xs truncate mb-3">{tempProfile.email || 'Guest Mode'}</p>
-                    
-                    {profile.isGuest ? (
-                        <button onClick={onLoginRequest} className="text-xs bg-brand-600 hover:bg-brand-500 text-white px-3 py-1.5 rounded-full font-bold transition-colors shadow-lg shadow-brand-500/20">
-                            <i className="fa-brands fa-google mr-1"></i> Sign In to Sync
-                        </button>
-                    ) : (
-                        <button onClick={onLogout} className="text-xs bg-slate-700 hover:bg-red-500/20 hover:text-red-400 text-slate-300 px-3 py-1.5 rounded-full font-bold transition-colors border border-slate-600 hover:border-red-500/50">
-                            Sign Out
-                        </button>
-                    )}
+                    <label className="text-[10px] text-slate-500 font-black uppercase tracking-widest block mb-1">Walking Alias</label>
+                    <input 
+                        value={tempProfile.username || ''} 
+                        onChange={(e) => handleProfileChange('username', e.target.value.replace(/[^a-zA-Z0-9_]/g, '').slice(0, 12))}
+                        placeholder="Choose username"
+                        className="bg-slate-950 border border-slate-700 rounded-xl px-4 py-2 text-white font-bold w-full focus:border-brand-500 outline-none"
+                    />
+                    <p className="text-[9px] text-slate-500 mt-2 italic">Only your username is visible to other walkers.</p>
                 </div>
              </div>
+             
+             {/* Ghost Mode Privacy */}
+             <StylishToggle 
+                checked={!!tempProfile.is_ghost_mode}
+                onChange={(val) => handleProfileChange('is_ghost_mode', val)}
+                icon="fa-ghost"
+                label="Ghost Mode"
+                subLabel="Hide your profile from Discovery"
+                colorClass="peer-checked:bg-slate-500"
+             />
+
+             {profile.isGuest ? (
+                 <button onClick={onLoginRequest} className="w-full bg-brand-600 hover:bg-brand-500 text-white py-3 rounded-xl font-bold transition-all shadow-lg active:scale-95"><i className="fa-brands fa-google mr-2"></i>Sign In to Cloud</button>
+             ) : (
+                 <button onClick={onLogout} className="w-full border border-slate-700 text-slate-500 hover:text-red-400 hover:border-red-500/30 py-3 rounded-xl font-bold transition-all text-sm">Sign Out</button>
+             )}
           </div>
           
-           {/* Notifications Section */}
+           {/* Notifications */}
            <div>
-               <h3 className="text-brand-400 text-xs font-bold uppercase tracking-widest mb-4 flex items-center gap-2">
-                   <i className="fa-solid fa-bell"></i> Reminders & Alerts
-               </h3>
+               <h3 className="text-brand-400 text-xs font-bold uppercase tracking-widest mb-4 flex items-center gap-2"><i className="fa-solid fa-bell"></i> Reminders</h3>
                <div className="space-y-3">
-                   <StylishToggle 
-                        checked={!!tempSettings.notifications?.water}
-                        onChange={(val) => handleNotificationToggle('water', val)}
-                        icon="fa-glass-water"
-                        label="Hydration Reminders"
-                        subLabel="Get notified every 2 hours to drink water"
-                        colorClass="peer-checked:bg-blue-500"
-                   />
-                   <StylishToggle 
-                        checked={!!tempSettings.notifications?.walk}
-                        onChange={(val) => handleNotificationToggle('walk', val)}
-                        icon="fa-person-walking"
-                        label="Movement Alerts"
-                        subLabel="Nudge if inactive for 4 hours"
-                        colorClass="peer-checked:bg-brand-500"
-                   />
-                   <StylishToggle 
-                        checked={!!tempSettings.notifications?.breath}
-                        onChange={(val) => handleNotificationToggle('breath', val)}
-                        icon="fa-lungs"
-                        label="Breathing Exercises"
-                        subLabel="Mindfulness reminders every 3 hours"
-                        colorClass="peer-checked:bg-cyan-500"
-                   />
+                   <StylishToggle checked={!!tempSettings.notifications?.water} onChange={(val) => handleNotificationToggle('water', val)} icon="fa-glass-water" label="Hydration" subLabel="Every 2 hours" colorClass="peer-checked:bg-blue-500" />
+                   <StylishToggle checked={!!tempSettings.notifications?.walk} onChange={(val) => handleNotificationToggle('walk', val)} icon="fa-person-walking" label="Movement" subLabel="Every 4 hours" colorClass="peer-checked:bg-brand-500" />
                </div>
            </div>
 
-          {/* Location Section */}
+          {/* Theme */}
           <div>
-              <h3 className="text-brand-400 text-xs font-bold uppercase tracking-widest mb-4 flex items-center gap-2">
-                   <i className="fa-solid fa-location-dot"></i> GPS & Weather
-              </h3>
-              <div className="bg-slate-800/20 rounded-2xl p-1 border border-slate-700/50">
-                <StylishToggle 
-                    checked={tempSettings.enableLocation}
-                    onChange={(val) => handleChange('enableLocation', val)}
-                    icon="fa-map-location-dot"
-                    label="Enable Location Services"
-                    subLabel="Required for route mapping and local weather"
-                    colorClass="peer-checked:bg-purple-500"
-                />
-              </div>
-          </div>
-
-          {/* Theme Section */}
-          <div>
-            <h3 className="text-brand-400 text-xs font-bold uppercase tracking-widest mb-4 flex items-center gap-2">
-                <i className="fa-solid fa-palette"></i> App Theme
-            </h3>
+            <h3 className="text-brand-400 text-xs font-bold uppercase tracking-widest mb-4 flex items-center gap-2"><i className="fa-solid fa-palette"></i> App Vibe</h3>
             <div className="grid grid-cols-5 gap-3">
                 {themes.map((theme) => (
-                    <button 
-                        key={theme.id}
-                        onClick={() => handleChange('theme', theme.id)}
-                        className="group flex flex-col items-center gap-2"
-                    >
-                        <div 
-                            className={`w-12 h-12 rounded-2xl flex items-center justify-center border-2 transition-all shadow-lg ${tempSettings.theme === theme.id ? 'border-white scale-110 shadow-xl' : 'border-transparent opacity-60 group-hover:opacity-100'}`}
-                            style={{ backgroundColor: theme.color }}
-                        >
-                            {tempSettings.theme === theme.id && <i className="fa-solid fa-check text-white text-lg drop-shadow-md"></i>}
+                    <button key={theme.id} onClick={() => handleChange('theme', theme.id as any)} className="flex flex-col items-center gap-2 group">
+                        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center border-2 transition-all ${tempSettings.theme === theme.id ? 'border-white scale-110 shadow-xl' : 'border-transparent opacity-60'}`} style={{ backgroundColor: theme.color }}>
+                            {tempSettings.theme === theme.id && <i className="fa-solid fa-check text-white drop-shadow-md"></i>}
                         </div>
-                        <span className={`text-[10px] font-bold ${tempSettings.theme === theme.id ? 'text-white' : 'text-slate-500'}`}>{theme.name}</span>
                     </button>
                 ))}
             </div>
           </div>
 
-          {/* Calibration & Goals */}
+          {/* Goals */}
           <div className="space-y-6 pt-6 border-t border-slate-700/50">
-             
-             {/* Sensitivity */}
              <div>
-                <div className="flex justify-between items-end mb-2">
-                    <label className="text-sm font-bold text-slate-300">Sensor Sensitivity</label>
-                    <div className="flex items-center gap-2">
-                         {calibrationState === 'idle' && (
-                            <button onClick={handleCalibrate} className="text-[10px] bg-slate-700 hover:bg-brand-600 text-white px-2 py-1 rounded transition-colors">
-                                Auto-Calibrate
-                            </button>
-                         )}
-                         <span className="text-brand-500 font-mono font-bold bg-brand-500/10 px-2 py-0.5 rounded border border-brand-500/20">{tempSettings.sensitivity}</span>
-                    </div>
-                </div>
-                
-                {calibrationState === 'walking' && (
-                    <div className="bg-brand-500/10 border border-brand-500/30 p-3 rounded-xl mb-3 flex items-center justify-center gap-3 animate-pulse">
-                        <i className="fa-solid fa-person-walking text-brand-500 text-xl"></i>
-                        <span className="text-sm font-bold text-brand-400">Walk normally for 5 seconds...</span>
-                    </div>
-                )}
-                
-                <input 
-                    type="range" min="1" max="5" step="1"
-                    value={tempSettings.sensitivity}
-                    onChange={(e) => handleChange('sensitivity', parseInt(e.target.value))}
-                    className="w-full accent-brand-500 h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer"
-                />
-                <div className="flex justify-between text-[10px] text-slate-500 mt-1 font-medium px-1">
-                    <span>Low</span>
-                    <span>High</span>
-                </div>
-             </div>
-
-             {/* Daily Goal */}
-             <div>
-                <label className="flex justify-between text-sm font-bold text-slate-300 mb-2">
-                    <span>Daily Step Goal</span>
-                    <span className="text-brand-500 font-mono text-lg">{tempSettings.stepGoal.toLocaleString()}</span>
-                </label>
-                <div className="relative">
-                    <input 
-                        type="range" min="1000" max="50000" step="500"
-                        value={tempSettings.stepGoal}
-                        onChange={(e) => handleChange('stepGoal', parseInt(e.target.value))}
-                        className="w-full accent-brand-500 h-3 bg-slate-700 rounded-lg appearance-none cursor-pointer z-10 relative"
-                    />
-                </div>
+                <label className="flex justify-between text-sm font-bold text-slate-300 mb-2"><span>Daily Step Goal</span><span className="text-brand-500 font-mono text-lg">{tempSettings.stepGoal.toLocaleString()}</span></label>
+                <input type="range" min="1000" max="50000" step="500" value={tempSettings.stepGoal} onChange={(e) => handleChange('stepGoal', parseInt(e.target.value))} className="w-full accent-brand-500 h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer" />
              </div>
           </div>
         </div>
         
         <div className="p-5 border-t border-slate-700 bg-slate-900 sticky bottom-0 z-20">
-            <button 
-                onClick={handleSave}
-                className="w-full py-3.5 bg-gradient-to-r from-brand-600 to-brand-500 hover:from-brand-500 hover:to-brand-400 text-white font-bold rounded-xl transition-all shadow-lg active:scale-95 text-sm uppercase tracking-wider"
-            >
-                Save Preferences
-            </button>
+            <button onClick={handleSave} className="w-full py-4 bg-gradient-to-r from-brand-600 to-brand-500 hover:from-brand-500 hover:to-brand-400 text-white font-black rounded-2xl transition-all shadow-lg active:scale-95 text-xs uppercase tracking-[2px]">Update ApnaWalk</button>
         </div>
-
       </div>
     </div>
   );

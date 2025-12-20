@@ -1,13 +1,10 @@
+
 import { supabase } from './supabaseClient';
 import { UserProfile } from '../types';
 
 export const signInWithGoogle = async () => {
-  // Always redirect back to the current domain (e.g., apnawalk.com or localhost:5173)
-  // IMPORTANT: Ensure this URL is added to "Redirect URLs" in Supabase Auth Settings.
   const redirectTo = window.location.origin;
   
-  console.log("Initiating Google Login with redirect to:", redirectTo);
-
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
     options: {
@@ -28,10 +25,10 @@ export const signOut = async () => {
   if (error) throw error;
 };
 
-export const getCurrentSession = async () => {
-  const { data: { session }, error } = await supabase.auth.getSession();
-  if (error) return null;
-  return session;
+const generateRandomUsername = (email: string) => {
+    const base = email.split('@')[0].replace(/[^a-zA-Z0-9]/g, '').slice(0, 8);
+    const rand = Math.floor(Math.random() * 9000) + 1000;
+    return `${base}_${rand}`;
 };
 
 export const syncProfile = async (user: any): Promise<UserProfile> => {
@@ -44,20 +41,32 @@ export const syncProfile = async (user: any): Promise<UserProfile> => {
 
     if (existingProfile) {
         return {
+            id: existingProfile.id,
             name: existingProfile.full_name,
+            username: existingProfile.username, // New
             email: existingProfile.email,
             avatar: existingProfile.avatar_url,
+            bio: existingProfile.bio,
+            pace: existingProfile.pace,
+            preferred_time: existingProfile.preferred_time,
+            age: existingProfile.age,
+            is_looking_for_buddy: existingProfile.is_looking_for_buddy,
+            is_ghost_mode: existingProfile.is_ghost_mode,
             isLoggedIn: true,
             isGuest: false
         };
     }
 
-    // 2. If not, create it
+    // 2. If not, create it with a unique username
+    const username = generateRandomUsername(user.email);
     const newProfile = {
         id: user.id,
         email: user.email,
         full_name: user.user_metadata?.full_name || user.email?.split('@')[0],
-        avatar_url: user.user_metadata?.avatar_url || user.user_metadata?.picture
+        username: username,
+        avatar_url: user.user_metadata?.avatar_url || user.user_metadata?.picture,
+        is_looking_for_buddy: true,
+        is_ghost_mode: false
     };
 
     const { error } = await supabase
@@ -69,7 +78,9 @@ export const syncProfile = async (user: any): Promise<UserProfile> => {
     }
 
     return {
+        id: newProfile.id,
         name: newProfile.full_name,
+        username: newProfile.username,
         email: newProfile.email,
         avatar: newProfile.avatar_url,
         isLoggedIn: true,

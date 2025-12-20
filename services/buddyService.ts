@@ -28,7 +28,11 @@ export const findNearbyBuddies = async (lat: number, lng: number, radiusMeters: 
     });
     
     if (error) throw error;
-    return data || [];
+    
+    // Filter out ghost mode users (done in SQL usually but safe here too)
+    const candidates = (data || []).filter((p: any) => !p.is_ghost_mode);
+    
+    return candidates;
 };
 
 export const searchUsers = async (query: string, currentUserId: string): Promise<UserProfile[]> => {
@@ -38,15 +42,17 @@ export const searchUsers = async (query: string, currentUserId: string): Promise
         .from('profiles')
         .select('*')
         .neq('id', currentUserId)
-        .or(`full_name.ilike.%${query}%,email.ilike.%${query}%`)
+        .eq('is_ghost_mode', false) // Respect ghost mode
+        .or(`username.ilike.%${query}%`) // Search by username ONLY for privacy
         .limit(10);
     
     if (error) throw error;
     
     return (data || []).map(p => ({
         id: p.id,
-        name: p.full_name,
-        email: p.email,
+        name: "[Hidden]", // Masked
+        username: p.username,
+        email: "[Hidden]", // Masked
         avatar: p.avatar_url,
         isLoggedIn: true,
         is_verified: p.is_verified,
@@ -62,7 +68,7 @@ export const sendBuddyRequest = async (senderId: string, receiverId: string, mes
         .from('buddy_requests')
         .insert([{ sender_id: senderId, receiver_id: receiverId, message, status: 'pending' }]);
     if (error) {
-        if (error.code === '23505') throw new Error("Request already sent to this user!");
+        if (error.code === '23505') throw new Error("Request already sent!");
         throw error;
     }
 };
@@ -80,13 +86,12 @@ export const fetchPendingBuddyCount = async (userId: string): Promise<number> =>
 
 export const fetchMyBuddyRequests = async (userId: string): Promise<BuddyRequest[]> => {
     try {
-        // We use a more robust selector to handle potential naming mismatches in the schema
         const { data, error } = await supabase
             .from('buddy_requests')
             .select(`
                 *,
                 sender_profile:profiles!buddy_requests_sender_id_fkey (
-                    full_name,
+                    username,
                     avatar_url
                 )
             `)
@@ -94,35 +99,15 @@ export const fetchMyBuddyRequests = async (userId: string): Promise<BuddyRequest
             .eq('status', 'pending')
             .order('created_at', { ascending: false });
 
-        if (error) {
-            console.error("Supabase error fetching buddy requests:", error);
-            // Fallback: try without the alias if the above fails due to relationship name
-            const { data: fallbackData, error: fallbackError } = await supabase
-                .from('buddy_requests')
-                .select('*, profiles (full_name, avatar_url)')
-                .eq('receiver_id', userId)
-                .eq('status', 'pending');
-                
-            if (fallbackError) throw fallbackError;
-            
-            return (fallbackData || []).map((req: any) => ({
-                ...req,
-                sender_profile: req.profiles ? {
-                    full_name: req.profiles.full_name,
-                    avatar_url: req.profiles.avatar_url
-                } : undefined
-            }));
-        }
-        
+        if (error) throw error;
         return data || [];
     } catch (e) {
-        console.error("fetchMyBuddyRequests critical error:", e);
+        console.error("fetchMyBuddyRequests error:", e);
         return [];
     }
 };
 
 export const respondToRequest = async (requestId: string, status: 'accepted' | 'declined', senderId: string, receiverId: string) => {
-    // 1. Update the request status
     const { error: requestError } = await supabase
         .from('buddy_requests')
         .update({ status })
@@ -130,9 +115,7 @@ export const respondToRequest = async (requestId: string, status: 'accepted' | '
     
     if (requestError) throw requestError;
 
-    // 2. If accepted, create the dual-sided buddy relationship
     if (status === 'accepted') {
-        // We check if relationship already exists to prevent unique constraint errors
         const { data: existing } = await supabase
             .from('buddies')
             .select('id')
@@ -151,20 +134,20 @@ export const respondToRequest = async (requestId: string, status: 'accepted' | '
 export const fetchMyBuddies = async (userId: string): Promise<UserProfile[]> => {
     const { data: b1, error: e1 } = await supabase
         .from('buddies')
-        .select('other:profiles!buddies_user2_id_fkey(*)')
+        .select('other:profiles!buddies_user2_id_fkey(id, username, avatar_url, public_key)')
         .eq('user1_id', userId);
     
     const { data: b2, error: e2 } = await supabase
         .from('buddies')
-        .select('other:profiles!buddies_user1_id_fkey(*)')
+        .select('other:profiles!buddies_user1_id_fkey(id, username, avatar_url, public_key)')
         .eq('user2_id', userId);
 
     if (e1 || e2) throw (e1 || e2);
     
     const list1 = b1?.map((b: any) => ({
         id: b.other.id,
-        name: b.other.full_name,
-        email: b.other.email,
+        username: b.other.username,
+        name: b.other.username, // Mask name with username
         avatar: b.other.avatar_url,
         isLoggedIn: true,
         public_key: b.other.public_key
@@ -172,8 +155,8 @@ export const fetchMyBuddies = async (userId: string): Promise<UserProfile[]> => 
 
     const list2 = b2?.map((b: any) => ({
         id: b.other.id,
-        name: b.other.full_name,
-        email: b.other.email,
+        username: b.other.username,
+        name: b.other.username, // Mask name with username
         avatar: b.other.avatar_url,
         isLoggedIn: true,
         public_key: b.other.public_key
@@ -200,7 +183,7 @@ export const sendDuel = async (senderId: string, receiverId: string, targetSteps
         target_steps: targetSteps,
         status: 'pending',
         start_steps_sender: currentDailySteps,
-        start_steps_receiver: 0 // Will be set on acceptance
+        start_steps_receiver: 0 
     };
 
     const { error } = await supabase
@@ -215,7 +198,6 @@ export const sendDuel = async (senderId: string, receiverId: string, targetSteps
 };
 
 export const respondToDuel = async (messageId: string, status: 'active' | 'declined', receiverStartSteps?: number) => {
-    // 1. Fetch current duel config
     const { data } = await supabase.from('buddy_messages').select('duel_config').eq('id', messageId).single();
     if (!data) return;
 
@@ -240,7 +222,6 @@ export const uploadVoiceNote = async (blob: Blob, userId: string) => {
         .upload(fileName, blob);
         
     if (error) {
-        console.warn("Storage upload failed, using local blob URL for demo");
         return URL.createObjectURL(blob);
     }
     

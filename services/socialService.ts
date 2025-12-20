@@ -135,9 +135,10 @@ export const fetchTotalPendingCount = async (userId: string): Promise<number> =>
 };
 
 export const fetchPendingRequests = async (groupId: string): Promise<GroupMember[]> => {
+    // FIX: Switched full_name to username to match types and improve privacy
     const { data, error } = await supabase
         .from('group_members')
-        .select('*, profile:profiles(full_name, avatar_url)')
+        .select('*, profile:profiles(username, avatar_url)')
         .eq('group_id', groupId)
         .eq('status', 'pending');
     if (error) throw error;
@@ -176,9 +177,10 @@ export const kickMember = async (memberRecordId: string) => {
 };
 
 export const fetchGroupMembers = async (groupId: string): Promise<GroupMember[]> => {
+    // FIX: Switched full_name to username to match types and improve privacy
     const { data, error } = await supabase
         .from('group_members')
-        .select('*, profile:profiles(full_name, avatar_url)')
+        .select('*, profile:profiles(username, avatar_url)')
         .eq('group_id', groupId)
         .eq('status', 'active');
     if (error) throw error;
@@ -192,9 +194,10 @@ export const fetchGroupMemberStats = async (groupId: string): Promise<GroupMembe
     const today = new Date().toISOString().split('T')[0];
     
     // 1. Fetch active members
+    // FIX: Switched full_name to username to match types and improve privacy
     const { data: members, error: mError } = await supabase
         .from('group_members')
-        .select('*, profile:profiles(full_name, avatar_url)')
+        .select('*, profile:profiles(username, avatar_url)')
         .eq('group_id', groupId)
         .eq('status', 'active');
         
@@ -220,9 +223,10 @@ export const fetchGroupMemberStats = async (groupId: string): Promise<GroupMembe
 };
 
 export const fetchGroupPosts = async (groupId: string): Promise<GroupPost[]> => {
+    // FIX: Switched full_name to username to match types and improve privacy
     const { data, error } = await supabase
         .from('group_posts')
-        .select('*, profile:profiles(full_name, avatar_url)')
+        .select('*, profile:profiles(username, avatar_url)')
         .eq('group_id', groupId)
         .order('created_at', { ascending: false });
     if (error) throw error;
@@ -304,9 +308,10 @@ export const inviteToChallenge = async (challengeId: string, profileId: string) 
 };
 
 export const fetchLeaderboard = async (challengeId: string): Promise<ChallengeParticipant[]> => {
+    // FIX: Switched full_name to username to match types and improve privacy
     const { data, error } = await supabase
         .from('challenge_participants')
-        .select('current_steps, user_id, profile:profiles(full_name, avatar_url)')
+        .select('current_steps, user_id, profile:profiles(username, avatar_url)')
         .eq('challenge_id', challengeId)
         .order('current_steps', { ascending: false })
         .limit(50);
