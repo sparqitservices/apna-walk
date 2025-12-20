@@ -261,7 +261,7 @@ export const BuddyChat: React.FC<BuddyChatProps> = ({ userId, buddy, onBack }) =
                             </div>
                             <div className="space-y-1.5">
                                 <div className="flex justify-between text-[10px] font-black uppercase tracking-wider text-slate-400">
-                                    <span>{buddy.name || buddy.username}</span>
+                                    <span>{buddy.name || `@${buddy.username}`}</span>
                                     <span className="text-white">{buddyProgress} / {d.target_steps}</span>
                                 </div>
                                 <div className="h-2.5 w-full bg-slate-800 rounded-full overflow-hidden border border-slate-700/50 shadow-inner">
@@ -306,6 +306,7 @@ export const BuddyChat: React.FC<BuddyChatProps> = ({ userId, buddy, onBack }) =
                     <div>
                         <h4 className="text-white font-black text-sm tracking-tight">{buddy.name || `@${buddy.username}`}</h4>
                         <div className="flex items-center gap-2">
+                             {/* Friends see email */}
                              <span className="text-[9px] text-slate-500 font-black uppercase tracking-widest">{buddy.email || 'Friend Mode'}</span>
                              {isSecure && <span className="text-[8px] bg-brand-500/10 text-brand-400 px-1.5 py-0.5 rounded flex items-center gap-1 font-bold uppercase"><i className="fa-solid fa-shield-halved text-[7px]"></i> E2EE</span>}
                         </div>

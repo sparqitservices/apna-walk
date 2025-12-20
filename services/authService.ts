@@ -1,4 +1,3 @@
-
 import { supabase } from './supabaseClient';
 import { UserProfile } from '../types';
 
@@ -26,7 +25,7 @@ export const signOut = async () => {
 };
 
 const generateRandomUsername = (email: string) => {
-    const base = email.split('@')[0].replace(/[^a-zA-Z0-9]/g, '').slice(0, 8);
+    const base = (email || 'walker').split('@')[0].replace(/[^a-zA-Z0-9_]/g, '').slice(0, 8);
     const rand = Math.floor(Math.random() * 9000) + 1000;
     return `${base}_${rand}`;
 };
@@ -40,10 +39,17 @@ export const syncProfile = async (user: any): Promise<UserProfile> => {
         .single();
 
     if (existingProfile) {
+        // Ensure even existing users have a username if they missed it
+        const finalUsername = existingProfile.username || generateRandomUsername(existingProfile.email);
+        
+        if (!existingProfile.username) {
+            await supabase.from('profiles').update({ username: finalUsername }).eq('id', user.id);
+        }
+
         return {
             id: existingProfile.id,
             name: existingProfile.full_name,
-            username: existingProfile.username, // New
+            username: finalUsername,
             email: existingProfile.email,
             avatar: existingProfile.avatar_url,
             bio: existingProfile.bio,
@@ -62,7 +68,7 @@ export const syncProfile = async (user: any): Promise<UserProfile> => {
     const newProfile = {
         id: user.id,
         email: user.email,
-        full_name: user.user_metadata?.full_name || user.email?.split('@')[0],
+        full_name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'Apna Walker',
         username: username,
         avatar_url: user.user_metadata?.avatar_url || user.user_metadata?.picture,
         is_looking_for_buddy: true,

@@ -31,8 +31,8 @@ export const findNearbyBuddies = async (lat: number, lng: number, radiusMeters: 
     // Privacy: STRANGERS see only username
     return (data || []).map((p: any) => ({
         ...p,
-        name: "[Locked]", // Hide real name for strangers
-        email: "[Locked]" // Hide email for strangers
+        name: "[Hidden]", 
+        email: "[Hidden]" 
     })).filter((p: any) => !p.is_ghost_mode);
 };
 
@@ -51,9 +51,9 @@ export const searchUsers = async (query: string, currentUserId: string): Promise
     
     return (data || []).map(p => ({
         id: p.id,
-        name: "[Hidden]", // Strangers cannot see real name
+        name: "[Hidden]", 
         username: p.username,
-        email: "[Hidden]", // Strangers cannot see email
+        email: "[Hidden]", 
         avatar: p.avatar_url,
         isLoggedIn: true,
         bio: p.bio,
@@ -148,8 +148,8 @@ export const fetchMyBuddies = async (userId: string): Promise<UserProfile[]> => 
     const list1 = b1?.map((b: any) => ({
         id: b.other.id,
         username: b.other.username,
-        name: b.other.full_name, // Real name visible to friends
-        email: b.other.email,     // Email visible to friends
+        name: b.other.full_name, // Real name visible to buddies
+        email: b.other.email,     // Email visible to buddies
         avatar: b.other.avatar_url,
         isLoggedIn: true,
         public_key: b.other.public_key
@@ -158,8 +158,8 @@ export const fetchMyBuddies = async (userId: string): Promise<UserProfile[]> => 
     const list2 = b2?.map((b: any) => ({
         id: b.other.id,
         username: b.other.username,
-        name: b.other.full_name, // Real name visible to friends
-        email: b.other.email,     // Email visible to friends
+        name: b.other.full_name, // Real name visible to buddies
+        email: b.other.email,     // Email visible to buddies
         avatar: b.other.avatar_url,
         isLoggedIn: true,
         public_key: b.other.public_key
