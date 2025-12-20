@@ -18,7 +18,6 @@ export const ParkFinder: React.FC<ParkFinderProps> = ({ isOpen, onClose, profile
     const [parks, setParks] = useState<Park[]>([]);
     const [loading, setLoading] = useState(false);
     const [selectedPark, setSelectedPark] = useState<Park | null>(null);
-    const [searchQuery, setSearchQuery] = useState('');
     const [activeCategory, setActiveCategory] = useState<CategoryFilter>('park');
     const [locality, setLocality] = useState<string>('Detecting...');
     const [userCoords, setUserCoords] = useState<{lat: number, lng: number} | null>(null);
@@ -27,7 +26,6 @@ export const ParkFinder: React.FC<ParkFinderProps> = ({ isOpen, onClose, profile
     const mapRef = useRef<HTMLDivElement>(null);
     const leafletMap = useRef<any>(null);
     const markersRef = useRef<any[]>([]);
-    const listScrollRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
         if (isOpen) {
@@ -46,6 +44,7 @@ export const ParkFinder: React.FC<ParkFinderProps> = ({ isOpen, onClose, profile
     };
 
     const detectLocation = () => {
+        setLoading(true);
         navigator.geolocation.getCurrentPosition(async (pos) => {
             const { latitude, longitude } = pos.coords;
             setUserCoords({ lat: latitude, lng: longitude });
@@ -55,7 +54,8 @@ export const ParkFinder: React.FC<ParkFinderProps> = ({ isOpen, onClose, profile
         }, (err) => {
             console.error("Loc access denied", err);
             setLocality("Unknown Location");
-        });
+            setLoading(false);
+        }, { enableHighAccuracy: true });
     };
 
     const handleAiDiscovery = async (lat: number, lng: number, category: string) => {
@@ -68,7 +68,7 @@ export const ParkFinder: React.FC<ParkFinderProps> = ({ isOpen, onClose, profile
 
     useEffect(() => {
         if (viewMode === 'map' && isOpen && userCoords) {
-            const timer = setTimeout(initMap, 250);
+            const timer = setTimeout(initMap, 300);
             return () => clearTimeout(timer);
         }
     }, [viewMode, parks, isOpen]);
@@ -79,21 +79,35 @@ export const ParkFinder: React.FC<ParkFinderProps> = ({ isOpen, onClose, profile
             leafletMap.current.remove();
         }
 
-        // Using high-fidelity tiles that feel like Google Maps
-        const map = L.map(mapRef.current!, { zoomControl: false }).setView([userCoords.lat, userCoords.lng], 14);
+        // Standard zoom level 11 or 12 effectively covers ~20-30km radius on mobile/desktop.
+        const map = L.map(mapRef.current!, { zoomControl: false }).setView([userCoords.lat, userCoords.lng], 12);
         leafletMap.current = map;
         
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '&copy; OpenStreetMap'
+        // Use sleek dark tiles to match app aesthetics
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+            attribution: '&copy; CARTO'
         }).addTo(map);
 
-        // User Marker (The Blue Dot)
+        // User Marker (The Radar Origin)
         L.marker([userCoords.lat, userCoords.lng], {
             icon: L.divIcon({
                 className: 'bg-transparent',
-                html: `<div class="w-5 h-5 bg-blue-500 rounded-full border-2 border-white shadow-xl animate-pulse"></div>`,
-                iconSize: [20, 20]
+                html: `<div class="relative w-10 h-10 flex items-center justify-center">
+                        <div class="absolute inset-0 bg-blue-500/20 rounded-full animate-ping" style="animation-duration: 3s;"></div>
+                        <div class="w-4 h-4 bg-blue-500 rounded-full border-2 border-white shadow-xl z-10"></div>
+                       </div>`,
+                iconSize: [40, 40]
             })
+        }).addTo(map);
+
+        // Add a circle representing the 20km search radius
+        L.circle([userCoords.lat, userCoords.lng], {
+            color: '#10b981',
+            fillColor: '#10b981',
+            fillOpacity: 0.05,
+            radius: 20000,
+            weight: 1,
+            dashArray: '5, 10'
         }).addTo(map);
 
         markersRef.current = [];
@@ -105,7 +119,7 @@ export const ParkFinder: React.FC<ParkFinderProps> = ({ isOpen, onClose, profile
                 icon: L.divIcon({
                     className: 'bg-transparent',
                     html: `<div class="w-10 h-10 ${iconColor} rounded-2xl flex items-center justify-center text-white shadow-2xl border-2 border-white transition-transform hover:scale-125">
-                            <i class="fa-solid ${iconName}"></i>
+                            <i class="fa-solid ${iconName} text-xs"></i>
                            </div>`,
                     iconSize: [40, 40],
                     iconAnchor: [20, 20]
@@ -115,14 +129,13 @@ export const ParkFinder: React.FC<ParkFinderProps> = ({ isOpen, onClose, profile
             marker.on('click', () => {
                 setSelectedPark(park);
                 setViewMode('list');
-                // Optional: Scroll list to this item
             });
             markersRef.current.push(marker);
         });
 
         if (markersRef.current.length > 0) {
             const group = new L.featureGroup(markersRef.current);
-            map.fitBounds(group.getBounds().pad(0.2));
+            map.fitBounds(group.getBounds().pad(0.3));
         }
 
         map.whenReady(() => {
@@ -150,9 +163,9 @@ export const ParkFinder: React.FC<ParkFinderProps> = ({ isOpen, onClose, profile
                                 <i className="fa-solid fa-map-location-dot text-xl"></i>
                             </div>
                             <div>
-                                <h2 className="text-white font-black text-2xl tracking-tighter uppercase italic">Fitness Explorer</h2>
+                                <h2 className="text-white font-black text-2xl tracking-tighter uppercase italic">Local Radar</h2>
                                 <p className="text-slate-500 text-[10px] font-black uppercase tracking-[3px] flex items-center gap-2">
-                                    <i className="fa-solid fa-location-arrow text-brand-500"></i> {locality}
+                                    <i className="fa-solid fa-location-arrow text-brand-500"></i> {locality} (20km)
                                 </p>
                             </div>
                         </div>
@@ -184,12 +197,12 @@ export const ParkFinder: React.FC<ParkFinderProps> = ({ isOpen, onClose, profile
                 {/* Main Content Viewport */}
                 <div className="flex-1 overflow-hidden relative flex flex-col md:flex-row">
                     
-                    {/* Map View - Half or Full depending on mode */}
+                    {/* Map View */}
                     <div className={`relative bg-[#0b0f19] transition-all duration-500 ${viewMode === 'map' ? 'w-full h-full' : 'hidden md:block md:w-[400px] lg:w-[500px] border-r border-slate-800'}`}>
                         {loading && (
                             <div className="absolute inset-0 z-20 bg-slate-900/60 backdrop-blur-sm flex flex-col items-center justify-center">
                                 <div className="w-16 h-16 border-4 border-brand-500 border-t-transparent rounded-full animate-spin mb-4"></div>
-                                <p className="text-white font-black uppercase tracking-[5px] text-xs">AI Scanning Region...</p>
+                                <p className="text-white font-black uppercase tracking-[5px] text-xs">Scanning 20KM Radius...</p>
                             </div>
                         )}
                         <div ref={mapRef} className="w-full h-full" />
@@ -197,7 +210,7 @@ export const ParkFinder: React.FC<ParkFinderProps> = ({ isOpen, onClose, profile
                         {/* Grounding Attribution */}
                         <div className="absolute bottom-4 left-4 z-[400] bg-white/90 backdrop-blur p-2 rounded-lg flex items-center gap-2 shadow-xl border border-slate-200">
                             <img src="https://www.gstatic.com/images/branding/product/2x/maps_64dp.png" className="w-4 h-4" />
-                            <span className="text-[9px] font-bold text-slate-700 uppercase">Powered by Google Maps</span>
+                            <span className="text-[9px] font-bold text-slate-700 uppercase">Google Maps Grounding</span>
                         </div>
                     </div>
 
@@ -212,9 +225,9 @@ export const ParkFinder: React.FC<ParkFinderProps> = ({ isOpen, onClose, profile
                             </div>
                         ) : parks.length === 0 ? (
                             <div className="flex flex-col items-center justify-center py-20 opacity-30">
-                                <i className="fa-solid fa-cloud-sun text-7xl mb-6"></i>
-                                <p className="text-xl font-black uppercase tracking-[8px] text-white">No Spots Found</p>
-                                <button onClick={detectLocation} className="mt-6 text-brand-400 font-bold uppercase tracking-widest text-xs border border-brand-400/30 px-6 py-2 rounded-full hover:bg-brand-400 hover:text-white transition-all">Try Refreshing</button>
+                                <i className="fa-solid fa-location-crosshairs text-7xl mb-6"></i>
+                                <p className="text-xl font-black uppercase tracking-[8px] text-white">Searching local vicinity...</p>
+                                <button onClick={detectLocation} className="mt-6 text-brand-400 font-bold uppercase tracking-widest text-xs border border-brand-400/30 px-6 py-2 rounded-full hover:bg-brand-400 hover:text-white transition-all">Refresh Scan</button>
                             </div>
                         ) : (
                             parks.map(park => (
@@ -227,7 +240,7 @@ export const ParkFinder: React.FC<ParkFinderProps> = ({ isOpen, onClose, profile
                                         <img src={park.photo_url} className="w-full h-full object-cover opacity-60 group-hover:opacity-90 transition-all duration-700 group-hover:scale-105" />
                                         <div className="absolute inset-0 bg-gradient-to-t from-[#0f172a] via-transparent to-transparent"></div>
                                         <div className="absolute top-4 left-4 flex gap-2">
-                                            <span className="bg-black/40 backdrop-blur px-3 py-1.5 rounded-xl text-[9px] font-black text-white uppercase tracking-widest border border-white/10 flex items-center gap-1.5"><i className="fa-solid fa-star text-yellow-500"></i>{park.rating_avg}</span>
+                                            <span className="bg-black/40 backdrop-blur px-3 py-1.5 rounded-xl text-[9px] font-black text-white uppercase tracking-widest border border-white/10 flex items-center gap-1.5"><i className="fa-solid fa-star text-yellow-500"></i>{park.rating_avg.toFixed(1)}</span>
                                         </div>
                                         {park.google_maps_url && (
                                             <a 
@@ -259,7 +272,7 @@ export const ParkFinder: React.FC<ParkFinderProps> = ({ isOpen, onClose, profile
                                                     rel="noreferrer"
                                                     className="text-[9px] font-black text-brand-400 uppercase tracking-[2px] flex items-center gap-1.5 hover:text-white transition-colors"
                                                 >
-                                                    View Source <i className="fa-solid fa-arrow-up-right-from-square text-[8px]"></i>
+                                                    Google Source <i className="fa-solid fa-arrow-up-right-from-square text-[8px]"></i>
                                                 </a>
                                             )}
                                         </div>
@@ -271,7 +284,7 @@ export const ParkFinder: React.FC<ParkFinderProps> = ({ isOpen, onClose, profile
                         {/* Source compliance note */}
                         {groundingSources.length > 0 && (
                             <div className="pt-4 border-t border-slate-800">
-                                <p className="text-[8px] text-slate-500 font-bold uppercase tracking-widest mb-2">Discovery Sources</p>
+                                <p className="text-[8px] text-slate-500 font-bold uppercase tracking-widest mb-2">Verified Sources</p>
                                 <div className="flex flex-wrap gap-2">
                                     {groundingSources.slice(0, 3).map((s, i) => (
                                         <a key={i} href={s.maps.uri} target="_blank" rel="noreferrer" className="text-[8px] bg-slate-800 text-slate-400 px-2 py-1 rounded border border-slate-700 hover:text-white">{s.maps.title}</a>
@@ -282,14 +295,14 @@ export const ParkFinder: React.FC<ParkFinderProps> = ({ isOpen, onClose, profile
                     </div>
                 </div>
 
-                {/* Bottom Active Locality Pill - Matched to Screenshot */}
+                {/* Bottom Active Locality Pill */}
                 <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-[50] pointer-events-none w-full px-6 flex justify-center">
                     <div className="bg-[#0f172a]/95 backdrop-blur-2xl border-2 border-white/5 px-8 py-3.5 rounded-full shadow-[0_20px_50px_rgba(0,0,0,0.5)] flex items-center gap-5 animate-message-pop pointer-events-auto group hover:scale-105 transition-transform cursor-pointer" onClick={detectLocation}>
                         <div className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center text-white border border-slate-700 shadow-inner group-hover:text-brand-400 transition-colors">
                             <i className="fa-solid fa-location-crosshairs text-sm"></i>
                         </div>
                         <div className="text-left">
-                            <p className="text-[8px] font-black text-slate-500 uppercase tracking-[5px]">Active Radar</p>
+                            <p className="text-[8px] font-black text-slate-500 uppercase tracking-[5px]">Active Locality</p>
                             <p className="text-white font-black text-sm italic tracking-tighter uppercase">{locality}</p>
                         </div>
                         {loading && (
