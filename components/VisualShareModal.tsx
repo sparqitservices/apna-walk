@@ -138,31 +138,32 @@ export const VisualShareModal: React.FC<VisualShareModalProps> = ({ isOpen, onCl
               <div className="absolute top-[-50px] right-[-50px] w-[400px] h-[400px] bg-brand-500/5 rounded-full blur-[100px]"></div>
               <div className="absolute bottom-[-50px] left-[-50px] w-[400px] h-[400px] bg-blue-500/5 rounded-full blur-[100px]"></div>
 
-              {/* LOGO AT TOP - CENTERED AND BIGGER */}
-              <div className="mt-10 mb-8 z-10 scale-125">
+              {/* LOGO AT TOP - CENTERED AND BIG (Increased scale) */}
+              <div className="mt-12 mb-6 z-10 scale-150">
                   <div className="flex items-center gap-3">
-                      <i className="fa-solid fa-person-walking text-brand-500 text-4xl"></i>
-                      <div className="flex items-baseline gap-1.5 leading-none">
-                          <span className="font-black text-3xl text-white">Apna</span>
-                          <span className="font-black text-3xl text-[#FF9800]">Walk</span>
+                      <i className="fa-solid fa-person-walking text-brand-500 text-3xl"></i>
+                      <div className="flex items-baseline gap-1 leading-none">
+                          <span className="font-black text-2xl text-white">Apna</span>
+                          <span className="font-black text-2xl text-[#FF9800]">Walk</span>
                       </div>
                   </div>
               </div>
 
               {/* MAIN CONTENT AREA */}
-              <div className="flex-1 flex flex-col justify-center w-full px-6 relative z-10">
+              <div className="flex-1 flex flex-col justify-center w-full px-10 relative z-10">
                   {type === 'quote' && (
                       <div className="text-center relative">
-                        <i className="fa-solid fa-quote-left text-[150px] text-brand-500 mb-6 block opacity-[0.04] absolute -top-20 -left-12"></i>
+                        <i className="fa-solid fa-quote-left text-[140px] text-brand-500 mb-6 block opacity-[0.03] absolute -top-24 -left-16"></i>
                         
-                        <div className="bg-white/[0.02] backdrop-blur-3xl p-16 rounded-[4rem] border border-white/10 shadow-[0_40px_100px_rgba(0,0,0,0.6)] relative">
-                            <p className="text-[48px] font-black italic leading-[1.1] text-white mb-12 tracking-tight drop-shadow-2xl">
+                        <div className="bg-white/[0.015] backdrop-blur-3xl p-14 rounded-[4rem] border border-white/10 shadow-[0_40px_100px_rgba(0,0,0,0.6)] relative">
+                            {/* QUOTE TEXT - MEDIUM SIZE (38px instead of 48px) */}
+                            <p className="text-[38px] font-black italic leading-[1.25] text-white mb-10 tracking-tight drop-shadow-2xl">
                                 "{data.text}"
                             </p>
-                            <div className="flex items-center justify-center gap-8">
-                                <div className="w-12 h-0.5 bg-slate-800 rounded-full"></div>
-                                <p className="text-[#FF9933] font-black uppercase tracking-[8px] text-2xl drop-shadow-lg">{data.author}</p>
-                                <div className="w-12 h-0.5 bg-slate-800 rounded-full"></div>
+                            <div className="flex items-center justify-center gap-6">
+                                <div className="w-10 h-0.5 bg-slate-800 rounded-full"></div>
+                                <p className="text-[#FF9933] font-black uppercase tracking-[6px] text-xl drop-shadow-lg">{data.author}</p>
+                                <div className="w-10 h-0.5 bg-slate-800 rounded-full"></div>
                             </div>
                         </div>
                       </div>
@@ -171,7 +172,7 @@ export const VisualShareModal: React.FC<VisualShareModalProps> = ({ isOpen, onCl
                   {type === 'stats' && (
                       <div className="w-full">
                           <div className="mb-14 text-center">
-                              <h2 className="text-7xl font-black text-white mb-4 uppercase tracking-tighter italic">Walk Summary</h2>
+                              <h2 className="text-6xl font-black text-white mb-4 uppercase tracking-tighter italic">Walk Summary</h2>
                               <div className="inline-block px-8 py-3 bg-brand-600/10 rounded-full border border-brand-500/20 backdrop-blur-sm">
                                 <p className="text-brand-400 text-sm font-black uppercase tracking-[8px]">
                                     {new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}
@@ -186,12 +187,12 @@ export const VisualShareModal: React.FC<VisualShareModalProps> = ({ isOpen, onCl
                                   { icon: 'fa-route', color: 'text-blue-500', val: (data.distance/1000).toFixed(2), label: 'Km Covered', bg: 'bg-blue-500/10' },
                                   { icon: 'fa-stopwatch', color: 'text-purple-500', val: `${Math.floor(data.duration/60)}m`, label: 'Duration', bg: 'bg-purple-500/10' }
                               ].map((stat, i) => (
-                                  <div key={i} className="bg-slate-900/40 p-10 rounded-[3.5rem] border border-white/5 shadow-2xl flex flex-col items-center backdrop-blur-md">
-                                      <div className={`w-16 h-16 ${stat.bg} rounded-3xl flex items-center justify-center ${stat.color} mb-4 border border-white/5 shadow-inner`}>
-                                          <i className={`fa-solid ${stat.icon} text-3xl`}></i>
+                                  <div key={i} className="bg-slate-900/40 p-8 rounded-[3.5rem] border border-white/5 shadow-2xl flex flex-col items-center backdrop-blur-md">
+                                      <div className={`w-14 h-14 ${stat.bg} rounded-3xl flex items-center justify-center ${stat.color} mb-4 border border-white/5 shadow-inner`}>
+                                          <i className={`fa-solid ${stat.icon} text-2xl`}></i>
                                       </div>
-                                      <div className="text-5xl font-black tabular-nums tracking-tighter italic text-white drop-shadow-md">{stat.val}</div>
-                                      <div className="text-[11px] text-slate-500 font-black uppercase tracking-widest mt-2">{stat.label}</div>
+                                      <div className="text-4xl font-black tabular-nums tracking-tighter italic text-white drop-shadow-md">{stat.val}</div>
+                                      <div className="text-[10px] text-slate-500 font-black uppercase tracking-widest mt-2">{stat.label}</div>
                                   </div>
                               ))}
                           </div>
@@ -199,12 +200,15 @@ export const VisualShareModal: React.FC<VisualShareModalProps> = ({ isOpen, onCl
                   )}
               </div>
 
-              {/* REFINED FOOTER - DOMAIN AT BOTTOM, JOIN THE MOVEMENT PILL CENTERED */}
-              <div className="mt-auto mb-12 relative z-10 flex flex-col items-center">
-                  <div className="px-8 py-3 bg-black/40 border border-white/40 rounded-full mb-4 shadow-xl">
-                      <p className="text-white text-[12px] font-black uppercase tracking-[5px]">Join the movement</p>
+              {/* REFINED FOOTER - ARRANGED PROPERLY */}
+              <div className="mt-auto mb-16 relative z-10 flex flex-col items-center">
+                  {/* JOIN THE MOVEMENT text in square/rectangle pill */}
+                  <div className="px-10 py-3.5 bg-black/60 border-2 border-white/20 rounded-xl mb-5 shadow-2xl backdrop-blur-sm">
+                      <p className="text-white text-[11px] font-black uppercase tracking-[6px] whitespace-nowrap">Join the movement</p>
                   </div>
-                  <p className="text-xl font-bold text-white tracking-widest opacity-90">www.apnawalk.com</p>
+                  
+                  {/* DOMAIN - MEDIUM READABLE (Not stylish big) */}
+                  <p className="text-2xl font-bold text-white tracking-[4px] opacity-80 font-sans">WWW.APNAWALK.COM</p>
               </div>
               
               {/* Bottom Brand Bar */}
