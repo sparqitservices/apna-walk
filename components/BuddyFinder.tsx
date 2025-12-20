@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { UserProfile, NearbyBuddy, BuddyRequest } from '../types';
 import { 
@@ -46,7 +45,6 @@ export const BuddyFinder: React.FC<BuddyFinderProps> = ({ isOpen, onClose, profi
                         const { latitude, longitude } = pos.coords;
                         await updateLocation(profile.id!, latitude, longitude);
                         const results = await findNearbyBuddies(latitude, longitude, 5000, profile.id!);
-                        // Add Match Score Logic
                         const scored = results.map(b => {
                             let score = 0;
                             if (b.pace === pace) score += 40;
@@ -104,6 +102,22 @@ export const BuddyFinder: React.FC<BuddyFinderProps> = ({ isOpen, onClose, profi
         finally { setLoading(false); }
     };
 
+    const handleSavePrefs = async () => {
+        setLoading(true);
+        try {
+            await updateBuddyPreferences(profile.id!, {
+                is_looking_for_buddy: isLooking,
+                bio,
+                age,
+                pace,
+                preferred_time: time
+            });
+            alert("Discovery card updated!");
+            setView('discover');
+        } catch (e) { alert("Update failed."); }
+        setLoading(false);
+    };
+
     const getMatchGradient = (score?: number) => {
         if (!score) return "from-slate-700 to-slate-800";
         if (score >= 80) return "from-brand-600 to-emerald-500 shadow-brand-500/20";
@@ -116,31 +130,27 @@ export const BuddyFinder: React.FC<BuddyFinderProps> = ({ isOpen, onClose, profi
     return (
         <div className="fixed inset-0 bg-black/95 backdrop-blur-xl z-[90] flex items-center justify-center p-4">
             <div className="bg-dark-card w-full max-w-4xl h-[90vh] rounded-[3rem] border border-slate-800 shadow-2xl flex flex-col overflow-hidden animate-message-pop">
-                
-                {/* Header */}
-                <div className="p-8 border-b border-slate-800 flex justify-between items-center bg-slate-900/50 relative">
+                <div className="p-6 sm:p-8 border-b border-slate-800 flex justify-between items-center bg-slate-900/50 relative">
                     <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-brand-500 via-blue-500 to-orange-500 opacity-50"></div>
                     <div>
-                        <h2 className="text-white font-black text-3xl tracking-tighter flex items-center gap-3">
+                        <h2 className="text-white font-black text-2xl sm:text-3xl tracking-tighter flex items-center gap-3">
                             <i className="fa-solid fa-bolt-lightning text-brand-400"></i> Discovery
                         </h2>
-                        <p className="text-slate-500 text-xs font-bold uppercase tracking-[4px] mt-1 ml-1">Connect & Walk</p>
+                        <p className="text-slate-500 text-[10px] font-bold uppercase tracking-[4px] mt-1 ml-1">Connect & Walk</p>
                     </div>
-                    <button onClick={onClose} className="w-12 h-12 rounded-2xl bg-slate-800 text-slate-400 hover:text-white flex items-center justify-center transition-all hover:scale-110 active:scale-90 border border-slate-700 shadow-lg">
-                        <i className="fa-solid fa-xmark text-xl"></i>
+                    <button onClick={onClose} className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-slate-800 text-slate-400 hover:text-white flex items-center justify-center transition-all hover:scale-110 active:scale-90 border border-slate-700 shadow-lg">
+                        <i className="fa-solid fa-xmark text-lg sm:text-xl"></i>
                     </button>
                 </div>
 
-                {/* Sidebar + Main Content Layout */}
                 <div className="flex-1 flex overflow-hidden">
-                    {/* Sidebar Nav */}
-                    <div className="w-20 sm:w-64 border-r border-slate-800 flex flex-col bg-slate-900/30">
+                    <div className="w-20 sm:w-64 border-r border-slate-800 flex flex-col bg-slate-900/30 shrink-0">
                         <div className="p-4 space-y-2">
                             {[
                                 { id: 'discover', icon: 'fa-compass', label: 'Explore' },
                                 { id: 'requests', icon: 'fa-inbox', label: 'Inbox', count: requests.length },
                                 { id: 'my-buddies', icon: 'fa-user-group', label: 'Squad' },
-                                { id: 'settings', icon: 'fa-sliders', label: 'Preferences' }
+                                { id: 'settings', icon: 'fa-sliders', label: 'Setup' }
                             ].map(t => (
                                 <button 
                                     key={t.id}
@@ -157,18 +167,16 @@ export const BuddyFinder: React.FC<BuddyFinderProps> = ({ isOpen, onClose, profi
                         </div>
                     </div>
 
-                    {/* Main Area */}
-                    <div className="flex-1 overflow-y-auto no-scrollbar relative p-8 bg-dark-bg/20">
+                    <div className="flex-1 overflow-y-auto no-scrollbar relative p-4 sm:p-8 bg-dark-bg/20">
                         {loading && view !== 'chat' && (
                             <div className="h-full flex flex-col items-center justify-center">
                                  <div className="w-16 h-16 border-4 border-brand-500 border-t-transparent rounded-2xl animate-spin mb-6 shadow-xl"></div>
-                                 <p className="font-black uppercase text-xs tracking-[6px] text-slate-500 animate-pulse">Syncing Vibe Map...</p>
+                                 <p className="font-black uppercase text-[10px] tracking-[6px] text-slate-500 animate-pulse">Syncing Vibe Map...</p>
                             </div>
                         )}
 
                         {!loading && view === 'discover' && (
                             <div className="space-y-10 animate-fade-in">
-                                {/* Search Component */}
                                 <div className="relative group">
                                     <i className="fa-solid fa-search absolute left-6 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-brand-500 transition-colors"></i>
                                     <input 
@@ -181,68 +189,36 @@ export const BuddyFinder: React.FC<BuddyFinderProps> = ({ isOpen, onClose, profi
                                     />
                                 </div>
 
-                                {searchResults.length > 0 && (
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                                        {searchResults.map(b => (
-                                            <div key={b.id} className="bg-slate-800/40 border border-slate-700 rounded-[2.5rem] p-6 flex items-center gap-5 hover:border-brand-500/50 transition-all group animate-message-pop">
-                                                <div className="w-16 h-16 rounded-2xl bg-brand-500 flex items-center justify-center text-white font-black text-2xl overflow-hidden shadow-lg">
-                                                    {b.avatar ? <img src={b.avatar} className="w-full h-full object-cover" /> : b.username?.charAt(0).toUpperCase()}
-                                                </div>
-                                                <div className="flex-1 min-w-0">
-                                                    <h4 className="text-white font-black text-lg truncate">@{b.username}</h4>
-                                                    <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1">Walker found</p>
-                                                </div>
-                                                <button onClick={() => handleSendRequest(b)} className="w-12 h-12 rounded-2xl bg-brand-600 text-white flex items-center justify-center shadow-lg hover:scale-110 active:scale-90 transition-transform"><i className="fa-solid fa-user-plus"></i></button>
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-
-                                {/* Discovery Cards */}
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                                     {nearby.length === 0 ? (
                                         <div className="col-span-full py-20 text-center text-slate-600 flex flex-col items-center">
                                             <div className="w-24 h-24 bg-slate-800/50 rounded-full flex items-center justify-center mb-6 border border-slate-700"><i className="fa-solid fa-satellite-dish text-4xl opacity-30"></i></div>
-                                            <p className="font-black text-xl tracking-tighter uppercase mb-2">Nobody nearby right now</p>
-                                            <p className="text-sm max-w-xs mx-auto leading-relaxed">Adjust your preferences or try searching for a specific @username above.</p>
+                                            <p className="font-black text-xl tracking-tighter uppercase mb-2 text-white">Nobody nearby</p>
+                                            <p className="text-xs max-w-xs mx-auto leading-relaxed">Adjust your preferences or search for a specific @username above.</p>
                                         </div>
                                     ) : (
                                         nearby.map(b => (
-                                            <div key={b.id} className="relative group perspective-1000 h-[380px] animate-message-pop">
-                                                <div className={`absolute inset-0 bg-gradient-to-br ${getMatchGradient(b.match_score)} rounded-[3rem] p-1 shadow-2xl transition-all duration-500 group-hover:scale-[1.02] group-hover:-rotate-1`}>
-                                                    <div className="w-full h-full bg-slate-900 rounded-[2.8rem] overflow-hidden flex flex-col relative">
-                                                        {/* Top Section / Vibe Score */}
+                                            <div key={b.id} className="relative group h-[380px] animate-message-pop">
+                                                <div className={`absolute inset-0 bg-gradient-to-br ${getMatchGradient(b.match_score)} rounded-[3rem] p-1 shadow-2xl transition-all duration-500 group-hover:scale-[1.02]`}>
+                                                    <div className="w-full h-full bg-slate-900 rounded-[2.8rem] overflow-hidden flex flex-col">
                                                         <div className="h-40 bg-slate-800/50 relative overflow-hidden flex items-center justify-center p-8">
-                                                            <div className="absolute inset-0 opacity-10 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')]"></div>
                                                             <div className="relative z-10 w-24 h-24 rounded-3xl overflow-hidden border-4 border-slate-700 shadow-2xl bg-slate-950 flex items-center justify-center">
                                                                 {b.avatar ? <img src={b.avatar} className="w-full h-full object-cover" /> : <span className="text-white font-black text-4xl">{b.username?.charAt(0).toUpperCase()}</span>}
                                                             </div>
-                                                            <div className="absolute top-6 right-6 bg-brand-600 text-white font-black text-[10px] px-3 py-1.5 rounded-full shadow-lg border border-brand-400/50">
+                                                            <div className="absolute top-6 right-6 bg-brand-600 text-white font-black text-[10px] px-3 py-1.5 rounded-full shadow-lg">
                                                                 {b.match_score}% MATCH
                                                             </div>
                                                         </div>
-
-                                                        {/* Info Section */}
                                                         <div className="flex-1 p-6 flex flex-col justify-between">
                                                             <div>
-                                                                <h4 className="text-white font-black text-2xl tracking-tighter flex items-center gap-2 mb-2">
-                                                                    @{b.username}
-                                                                    {b.is_verified && <i className="fa-solid fa-circle-check text-blue-500 text-sm"></i>}
-                                                                </h4>
-                                                                <p className="text-slate-400 text-xs italic line-clamp-2 leading-relaxed h-8">"{b.bio || "Searching for walking squad..."}"</p>
+                                                                <h4 className="text-white font-black text-2xl tracking-tighter flex items-center gap-2 mb-2">@{b.username}</h4>
+                                                                <p className="text-slate-400 text-xs italic line-clamp-2">"{b.bio || "Searching for walking squad..."}"</p>
                                                             </div>
-
                                                             <div className="flex gap-2">
-                                                                <span className="flex-1 bg-slate-800/50 border border-slate-700 rounded-xl px-3 py-2 text-[10px] font-black text-slate-300 uppercase flex items-center justify-center gap-2"><i className="fa-solid fa-bolt text-brand-400"></i> {b.pace}</span>
-                                                                <span className="flex-1 bg-slate-800/50 border border-slate-700 rounded-xl px-3 py-2 text-[10px] font-black text-slate-300 uppercase flex items-center justify-center gap-2"><i className="fa-solid fa-clock text-blue-400"></i> {b.preferred_time}</span>
+                                                                <span className="flex-1 bg-slate-800/50 border border-slate-700 rounded-xl px-3 py-2 text-[10px] font-black text-slate-300 uppercase flex items-center justify-center gap-2">Pace: {b.pace}</span>
+                                                                <span className="flex-1 bg-slate-800/50 border border-slate-700 rounded-xl px-3 py-2 text-[10px] font-black text-slate-300 uppercase flex items-center justify-center gap-2">Time: {b.preferred_time}</span>
                                                             </div>
-
-                                                            <button 
-                                                                onClick={() => handleSendRequest(b)} 
-                                                                className="w-full bg-brand-600 hover:bg-brand-500 text-white font-black py-4 rounded-2xl shadow-xl transition-all active:scale-95 text-xs uppercase tracking-[4px]"
-                                                            >
-                                                                Send Namaste
-                                                            </button>
+                                                            <button onClick={() => handleSendRequest(b)} className="w-full bg-brand-600 hover:bg-brand-500 text-white font-black py-4 rounded-2xl shadow-xl transition-all uppercase tracking-[4px] text-xs">Send Namaste</button>
                                                         </div>
                                                     </div>
                                                 </div>
@@ -256,25 +232,25 @@ export const BuddyFinder: React.FC<BuddyFinderProps> = ({ isOpen, onClose, profi
                         {view === 'requests' && (
                             <div className="space-y-6 max-w-2xl mx-auto py-4 animate-fade-in">
                                 {requests.length === 0 ? (
-                                    <div className="text-center py-32 opacity-20"><i className="fa-solid fa-tray-full text-8xl mb-6"></i><p className="font-black text-2xl uppercase tracking-[10px]">Inbox Empty</p></div>
+                                    <div className="text-center py-32 opacity-20"><i className="fa-solid fa-tray-full text-8xl mb-6 text-white"></i><p className="font-black text-xl uppercase tracking-[10px] text-white">Inbox Empty</p></div>
                                 ) : (
                                     requests.map(req => (
-                                        <div key={req.id} className="bg-slate-800/40 border border-slate-700 rounded-[2.5rem] p-8 animate-message-pop hover:border-brand-500/30 transition-all group">
+                                        <div key={req.id} className="bg-slate-800/40 border border-slate-700 rounded-[2.5rem] p-8 animate-message-pop">
                                             <div className="flex gap-6 items-center mb-6">
-                                                <div className="w-16 h-16 rounded-2xl bg-brand-500 overflow-hidden shadow-lg border-2 border-slate-700">
+                                                <div className="w-16 h-16 rounded-2xl bg-brand-500 overflow-hidden shadow-lg">
                                                     <img src={req.sender_profile?.avatar_url || 'https://www.gravatar.com/avatar?d=mp'} className="w-full h-full object-cover" />
                                                 </div>
                                                 <div>
                                                     <h4 className="text-white font-black text-xl italic tracking-tighter">@{req.sender_profile?.username}</h4>
-                                                    <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1">Requested to walk</p>
+                                                    <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1">Invited you to walk</p>
                                                 </div>
                                             </div>
-                                            <div className="bg-slate-950 p-5 rounded-2xl mb-8 text-sm text-slate-300 border-l-4 border-brand-500 italic shadow-inner font-medium">
+                                            <div className="bg-slate-950 p-5 rounded-2xl mb-8 text-sm text-slate-300 border-l-4 border-brand-500 italic shadow-inner">
                                                 "{req.message || "Namaste, let's walk together!"}"
                                             </div>
                                             <div className="flex gap-4">
-                                                <button onClick={() => handleRespond(req, 'accepted')} className="flex-1 bg-brand-600 hover:bg-brand-500 text-white font-black py-4 rounded-2xl shadow-lg active:scale-95 transition-all uppercase tracking-widest">Accept</button>
-                                                <button onClick={() => handleRespond(req, 'declined')} className="px-8 bg-slate-800 text-slate-500 font-black py-4 rounded-2xl active:scale-95 transition-all uppercase tracking-widest">Ignore</button>
+                                                <button onClick={() => handleRespond(req, 'accepted')} className="flex-1 bg-brand-600 hover:bg-brand-500 text-white font-black py-4 rounded-2xl text-xs uppercase tracking-widest">Accept</button>
+                                                <button onClick={() => handleRespond(req, 'declined')} className="px-8 bg-slate-800 text-slate-500 font-black py-4 rounded-2xl text-xs uppercase tracking-widest">Ignore</button>
                                             </div>
                                         </div>
                                     ))
@@ -285,27 +261,21 @@ export const BuddyFinder: React.FC<BuddyFinderProps> = ({ isOpen, onClose, profi
                         {view === 'my-buddies' && (
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 animate-fade-in">
                                 {buddies.length === 0 ? (
-                                    <div className="col-span-full py-40 text-center opacity-20"><i className="fa-solid fa-user-astronaut text-8xl mb-6"></i><p className="font-black text-xl uppercase tracking-[8px]">No Squad Yet</p></div>
+                                    <div className="col-span-full py-40 text-center opacity-20"><i className="fa-solid fa-user-astronaut text-8xl mb-6 text-white"></i><p className="font-black text-xl uppercase tracking-[8px] text-white">No Squad Yet</p></div>
                                 ) : (
                                     buddies.map(buddy => (
-                                        <div 
-                                            key={buddy.id} 
-                                            onClick={() => { setSelectedBuddy(buddy); setView('chat'); }}
-                                            className="bg-slate-800/40 border border-slate-700 rounded-[2.5rem] p-6 flex items-center gap-6 cursor-pointer hover:bg-slate-800 hover:border-brand-500/50 transition-all group animate-message-pop shadow-lg"
-                                        >
+                                        <div key={buddy.id} onClick={() => { setSelectedBuddy(buddy); setView('chat'); }} className="bg-slate-800/40 border border-slate-700 rounded-[2.5rem] p-6 flex items-center gap-6 cursor-pointer hover:bg-slate-800 transition-all">
                                             <div className="relative">
-                                                <div className="w-20 h-20 rounded-2xl bg-brand-500 overflow-hidden shadow-2xl border-4 border-slate-800 group-hover:scale-105 transition-transform">
+                                                <div className="w-20 h-20 rounded-2xl bg-brand-500 overflow-hidden shadow-2xl border-4 border-slate-800">
                                                     <img src={buddy.avatar || 'https://www.gravatar.com/avatar?d=mp'} className="w-full h-full object-cover" />
                                                 </div>
                                                 <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-green-500 border-4 border-slate-900 rounded-full animate-pulse"></div>
                                             </div>
                                             <div className="flex-1 min-w-0">
                                                 <h4 className="text-white font-black text-xl italic tracking-tighter">@{buddy.username}</h4>
-                                                <div className="flex items-center gap-2 mt-1">
-                                                    <span className="text-[10px] text-brand-500 font-black uppercase tracking-widest">Online Squad</span>
-                                                </div>
+                                                <span className="text-[10px] text-brand-500 font-black uppercase tracking-widest">Online Squad</span>
                                             </div>
-                                            <div className="w-12 h-12 rounded-2xl bg-slate-900 text-brand-500 flex items-center justify-center group-hover:bg-brand-600 group-hover:text-white transition-all shadow-inner">
+                                            <div className="w-12 h-12 rounded-2xl bg-slate-900 text-brand-500 flex items-center justify-center">
                                                 <i className="fa-solid fa-comment-dots text-xl"></i>
                                             </div>
                                         </div>
@@ -315,57 +285,47 @@ export const BuddyFinder: React.FC<BuddyFinderProps> = ({ isOpen, onClose, profi
                         )}
 
                         {view === 'chat' && selectedBuddy && (
-                            <BuddyChat 
-                                userId={profile.id!} 
-                                buddy={selectedBuddy} 
-                                onBack={() => setView('my-buddies')} 
-                            />
+                            <BuddyChat userId={profile.id!} buddy={selectedBuddy} onBack={() => setView('my-buddies')} />
                         )}
 
                         {view === 'settings' && (
                             <div className="max-w-xl mx-auto space-y-10 py-4 animate-fade-in">
                                 <div className="bg-brand-600/10 border-2 border-brand-500/20 p-8 rounded-[2.5rem] flex items-center justify-between shadow-2xl relative overflow-hidden">
-                                    <div className="absolute top-0 right-0 w-32 h-32 bg-brand-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
                                     <div className="flex items-center gap-6 relative z-10">
                                         <div className="w-16 h-16 rounded-2xl bg-brand-500 flex items-center justify-center text-white text-3xl shadow-lg shadow-brand-500/30">
                                             <i className="fa-solid fa-earth-asia"></i>
                                         </div>
                                         <div>
-                                            <span className="text-xl text-white font-black block">Visible in Discovery</span>
-                                            <span className="text-xs text-brand-400 font-bold uppercase tracking-widest">Others can find @{profile.username}</span>
+                                            <span className="text-xl text-white font-black block">Discoverable</span>
+                                            <span className="text-[10px] text-brand-400 font-bold uppercase tracking-widest">Others find @{profile.username}</span>
                                         </div>
                                     </div>
                                     <label className="relative inline-flex items-center cursor-pointer scale-125">
-                                        <input type="checkbox" checked={isLooking} onChange={e => setIsLooking(e.target.checked)} className="sr-only peer" />
+                                        <input type="checkbox" checked={isLooking} onChange={(e) => setIsLooking(e.target.checked)} className="sr-only peer" />
                                         <div className="w-11 h-6 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-brand-600"></div>
                                     </label>
                                 </div>
 
                                 <div className="space-y-6">
                                     <div>
-                                        <label className="text-[10px] text-slate-500 font-black uppercase tracking-[4px] mb-4 block ml-4">About You</label>
-                                        <textarea 
-                                            value={bio} 
-                                            onChange={e => setBio(e.target.value)} 
-                                            placeholder="Introduce yourself to the local walking community..." 
-                                            className="w-full bg-slate-800/40 border-2 border-slate-800 rounded-[2rem] p-8 text-sm text-white focus:border-brand-500 outline-none h-40 resize-none shadow-inner transition-all focus:bg-slate-800"
-                                        />
+                                        <label className="text-[10px] text-slate-500 font-black uppercase tracking-[4px] mb-4 block ml-4">Bio</label>
+                                        <textarea value={bio} onChange={(e) => setBio(e.target.value)} placeholder="Introduce yourself..." className="w-full bg-slate-800/40 border-2 border-slate-800 rounded-[2rem] p-8 text-sm text-white focus:border-brand-500 outline-none h-40 resize-none transition-all" />
                                     </div>
                                     <div className="grid grid-cols-2 gap-6">
                                         <div>
-                                            <label className="text-[10px] text-slate-500 font-black uppercase tracking-[2px] mb-3 block ml-4">Age Bracket</label>
-                                            <input type="number" value={age} onChange={e => setAge(parseInt(e.target.value))} className="w-full bg-slate-800/40 border-2 border-slate-800 rounded-2xl p-4 text-sm font-black text-white outline-none focus:border-brand-500 transition-all" />
+                                            <label className="text-[10px] text-slate-500 font-black uppercase tracking-[2px] mb-3 block ml-4">Age</label>
+                                            <input type="number" value={age} onChange={(e) => setAge(parseInt(e.target.value) || 0)} className="w-full bg-slate-800/40 border-2 border-slate-800 rounded-2xl p-4 text-sm font-black text-white outline-none focus:border-brand-500" />
                                         </div>
                                         <div>
-                                            <label className="text-[10px] text-slate-500 font-black uppercase tracking-[2px] mb-3 block ml-4">Walking Pace</label>
-                                            <select value={pace} onChange={e => setPace(e.target.value as any)} className="w-full bg-slate-800/40 border-2 border-slate-800 rounded-2xl p-4 text-sm font-black text-white outline-none focus:border-brand-500 transition-all appearance-none cursor-pointer">
+                                            <label className="text-[10px] text-slate-500 font-black uppercase tracking-[2px] mb-3 block ml-4">Pace</label>
+                                            <select value={pace} onChange={(e) => setPace(e.target.value as any)} className="w-full bg-slate-800/40 border-2 border-slate-800 rounded-2xl p-4 text-sm font-black text-white outline-none focus:border-brand-500 cursor-pointer">
                                                 <option value="slow">Slow Stroll</option>
                                                 <option value="moderate">Steady Pace</option>
                                                 <option value="fast">Brisk / Power</option>
                                             </select>
                                         </div>
                                     </div>
-                                    <button onClick={handleSavePrefs} className="w-full bg-brand-600 hover:bg-brand-500 text-white font-black py-6 rounded-3xl shadow-2xl shadow-brand-900/20 active:scale-95 transition-all text-sm uppercase tracking-[4px]">Update Walking Deck</button>
+                                    <button onClick={handleSavePrefs} className="w-full bg-brand-600 hover:bg-brand-500 text-white font-black py-6 rounded-3xl shadow-2xl shadow-brand-900/20 active:scale-95 transition-all text-xs uppercase tracking-[4px]">Update Discovery Deck</button>
                                 </div>
                             </div>
                         )}
