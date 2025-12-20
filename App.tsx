@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { RadialProgress } from './components/RadialProgress';
 import { StatsGrid } from './components/StatsGrid';
-// Fixed the broken import of AICoachModal
 import { AICoachModal } from './components/AICoachModal';
 import { LoginScreen } from './components/LoginScreen';
 import { SettingsModal } from './components/SettingsModal';
@@ -60,9 +59,9 @@ const THEMES = {
 const App: React.FC = () => {
   const path = typeof window !== 'undefined' ? window.location.pathname : '/';
   
-  if (path === '/privacy-policy') return < PrivacyPolicyPage />;
-  if (path === '/terms-conditions') return < TermsConditionsPage />;
-  if (path === '/admin') return < AdminDashboard />;
+  if (path === '/privacy-policy') return <PrivacyPolicyPage />;
+  if (path === '/terms-conditions') return <TermsConditionsPage />;
+  if (path === '/admin') return <AdminDashboard />;
 
   const [profile, setProfile] = useState<UserProfile>(() => {
     const saved = getProfile();
@@ -94,7 +93,7 @@ const App: React.FC = () => {
   const [earnedBadges, setEarnedBadges] = useState<Badge[]>([]);
   const [hydration, setHydration] = useState<HydrationLog>({ date: '', currentMl: 0, goalMl: 2500 });
   const [hydrationTip, setHydrationTip] = useState<string>("");
-  const [location, setLocation] = useState<string>("Locating..."); 
+  const [location, setLocation] = useState<string>("Detecting..."); 
   const [coords, setCoords] = useState<{lat: number, lng: number} | null>(null);
   const [weather, setWeather] = useState<WeatherData | null>(null);
   const [weatherLoading, setWeatherLoading] = useState(false);
@@ -314,7 +313,7 @@ const App: React.FC = () => {
         >
            <ApnaWalkLogo size={32} showText={true} className="!items-start" />
            <div className="flex items-center gap-1.5 mt-0.5 ml-0.5">
-                <i className={`fa-solid fa-location-dot text-[10px] transition-colors ${location === 'Locating...' ? 'text-brand-500 animate-pulse' : 'text-brand-500 group-hover:text-brand-400'}`}></i>
+                <i className={`fa-solid fa-location-dot text-[10px] transition-colors ${location === 'Detecting...' ? 'text-brand-500 animate-pulse' : 'text-brand-500 group-hover:text-brand-400'}`}></i>
                 <p className="text-slate-500 text-[9px] font-black uppercase tracking-[2px] truncate max-w-[140px] group-hover:text-dark-text transition-colors">{location}</p>
            </div>
         </div>
@@ -358,15 +357,15 @@ const App: React.FC = () => {
                 activePlan ? <ActivePlanCard plan={activePlan} onRemove={() => setActivePlan(null)} /> : (
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                         {[
-                            { id: 'planner', label: 'AI Planner', icon: 'fa-calendar-day', color: 'text-brand-400', bg: 'bg-brand-500/10', border: 'hover:border-brand-500/40', action: () => setShowPlanner(true) },
+                            { id: 'planner', label: 'AI Planner', icon: 'fa-calendar-day', color: 'text-brand-400', bg: 'bg-brand-500/10', border: 'hover:border-brand-500/40', action: () => setShowPlanner(true), badge: 0 },
                             { id: 'social', label: 'Social Hub', icon: 'fa-users', color: 'text-orange-400', bg: 'bg-orange-500/10', border: 'hover:border-orange-500/40', action: () => setShowSocialHub(true), badge: totalPendingSocial },
                             { id: 'buddy', label: 'Buddy', icon: 'fa-people-arrows', color: 'text-blue-400', bg: 'bg-blue-500/10', border: 'hover:border-blue-500/40', action: () => setShowBuddyFinder(true), badge: totalPendingBuddies },
-                            { id: 'parks', label: 'Parks', icon: 'fa-map-location-dot', color: 'text-emerald-400', bg: 'bg-emerald-500/10', border: 'hover:border-emerald-500/40', action: () => setShowParkFinder(true) }
+                            { id: 'parks', label: 'Parks', icon: 'fa-map-location-dot', color: 'text-emerald-400', bg: 'bg-emerald-500/10', border: 'hover:border-emerald-500/40', action: () => setShowParkFinder(true), badge: 0 }
                         ].map(tool => (
                             <button key={tool.id} onClick={tool.action} className={`bg-dark-card border border-slate-800/50 p-6 rounded-[2.5rem] flex flex-col items-center justify-center shadow-xl transition-all active:scale-95 group h-40 relative overflow-hidden ${tool.border}`}>
                                 <div className={`w-14 h-14 rounded-2xl ${tool.bg} flex items-center justify-center ${tool.color} group-hover:scale-110 transition-transform mb-4 shadow-inner`}><i className={`fa-solid ${tool.icon} text-xl`}></i></div>
                                 <div className="text-white font-black text-[10px] uppercase tracking-widest text-center">{tool.label}</div>
-                                {tool.badge > 0 && <div className="absolute top-4 right-4 bg-red-500 text-white text-[10px] font-black w-6 h-6 rounded-full flex items-center justify-center border-4 border-dark-card shadow-lg animate-bounce">{tool.badge}</div>}
+                                {!!tool.badge && tool.badge > 0 && <div className="absolute top-4 right-4 bg-red-500 text-white text-[10px] font-black w-6 h-6 rounded-full flex items-center justify-center border-4 border-dark-card shadow-lg animate-bounce">{tool.badge}</div>}
                             </button>
                         ))}
                     </div>
@@ -403,7 +402,7 @@ const App: React.FC = () => {
         <section className="bg-dark-card p-8 rounded-[3rem] border border-slate-800 shadow-2xl space-y-8">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
                 <div>
-                    <h3 className="font-black text-2xl text-white tracking-tighter italic uppercase italic">History</h3>
+                    <h3 className="font-black text-2xl text-white tracking-tighter uppercase italic">History</h3>
                     <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1">Past 30 Days Insight</p>
                 </div>
                 <div className="bg-slate-800 rounded-2xl p-1 flex border border-slate-700">
