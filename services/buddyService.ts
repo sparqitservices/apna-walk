@@ -28,10 +28,12 @@ export const findNearbyBuddies = async (lat: number, lng: number, radiusMeters: 
     
     if (error) throw error;
     
-    // Filter out ghost mode users (done in SQL usually but safe here too)
-    const candidates = (data || []).filter((p: any) => !p.is_ghost_mode);
-    
-    return candidates;
+    // Privacy: STRANGERS see only username
+    return (data || []).map((p: any) => ({
+        ...p,
+        name: "[Locked]", // Hide real name for strangers
+        email: "[Locked]" // Hide email for strangers
+    })).filter((p: any) => !p.is_ghost_mode);
 };
 
 export const searchUsers = async (query: string, currentUserId: string): Promise<UserProfile[]> => {
@@ -39,22 +41,21 @@ export const searchUsers = async (query: string, currentUserId: string): Promise
     
     const { data, error } = await supabase
         .from('profiles')
-        .select('*')
+        .select('id, username, avatar_url, bio, pace, preferred_time, public_key, is_ghost_mode')
         .neq('id', currentUserId)
-        .eq('is_ghost_mode', false) // Respect ghost mode
-        .or(`username.ilike.%${query}%`) // Search by username ONLY for privacy
+        .eq('is_ghost_mode', false)
+        .or(`username.ilike.%${query}%`)
         .limit(10);
     
     if (error) throw error;
     
     return (data || []).map(p => ({
         id: p.id,
-        name: "[Hidden]", // Masked
+        name: "[Hidden]", // Strangers cannot see real name
         username: p.username,
-        email: "[Hidden]", // Masked
+        email: "[Hidden]", // Strangers cannot see email
         avatar: p.avatar_url,
         isLoggedIn: true,
-        is_verified: p.is_verified,
         bio: p.bio,
         pace: p.pace,
         preferred_time: p.preferred_time,
@@ -131,14 +132,15 @@ export const respondToRequest = async (requestId: string, status: 'accepted' | '
 };
 
 export const fetchMyBuddies = async (userId: string): Promise<UserProfile[]> => {
+    // Friends: Fetch ALL data (full_name, email)
     const { data: b1, error: e1 } = await supabase
         .from('buddies')
-        .select('other:profiles!buddies_user2_id_fkey(id, username, avatar_url, public_key)')
+        .select('other:profiles!buddies_user2_id_fkey(id, username, full_name, email, avatar_url, public_key)')
         .eq('user1_id', userId);
     
     const { data: b2, error: e2 } = await supabase
         .from('buddies')
-        .select('other:profiles!buddies_user1_id_fkey(id, username, avatar_url, public_key)')
+        .select('other:profiles!buddies_user1_id_fkey(id, username, full_name, email, avatar_url, public_key)')
         .eq('user2_id', userId);
 
     if (e1 || e2) throw (e1 || e2);
@@ -146,8 +148,8 @@ export const fetchMyBuddies = async (userId: string): Promise<UserProfile[]> => 
     const list1 = b1?.map((b: any) => ({
         id: b.other.id,
         username: b.other.username,
-        name: b.other.username, // Mask name with username
-        email: "[Hidden]", // Added missing required property
+        name: b.other.full_name, // Real name visible to friends
+        email: b.other.email,     // Email visible to friends
         avatar: b.other.avatar_url,
         isLoggedIn: true,
         public_key: b.other.public_key
@@ -156,8 +158,8 @@ export const fetchMyBuddies = async (userId: string): Promise<UserProfile[]> => 
     const list2 = b2?.map((b: any) => ({
         id: b.other.id,
         username: b.other.username,
-        name: b.other.username, // Mask name with username
-        email: "[Hidden]", // Added missing required property
+        name: b.other.full_name, // Real name visible to friends
+        email: b.other.email,     // Email visible to friends
         avatar: b.other.avatar_url,
         isLoggedIn: true,
         public_key: b.other.public_key

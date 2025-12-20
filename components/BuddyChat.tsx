@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { UserProfile, BuddyMessage, DuelConfig } from '../types';
 import { fetchMessages, sendMessage, subscribeToMessages, createSyncChannel, uploadVoiceNote, sendDuel, respondToDuel } from '../services/buddyService';
@@ -19,7 +18,7 @@ export const BuddyChat: React.FC<BuddyChatProps> = ({ userId, buddy, onBack }) =
     const [partnerTyping, setPartnerTyping] = useState(false);
     const [showDuelPicker, setShowDuelPicker] = useState(false);
     
-    // Duel live state (for current active duel only)
+    // Duel live state
     const [liveDuelSteps, setLiveDuelSteps] = useState<{ [senderId: string]: number }>({});
 
     // E2EE Keys
@@ -66,7 +65,6 @@ export const BuddyChat: React.FC<BuddyChatProps> = ({ userId, buddy, onBack }) =
         };
     }, [buddy.id]);
 
-    // Broadcast our steps if we have an active duel
     useEffect(() => {
         const activeDuel = messages.find(m => m.duel_config?.status === 'active');
         if (activeDuel) {
@@ -209,7 +207,6 @@ export const BuddyChat: React.FC<BuddyChatProps> = ({ userId, buddy, onBack }) =
         const today = new Date().toISOString().split('T')[0];
         const myCurrentDaily = parseInt(localStorage.getItem(`daily_steps_${today}`) || '0', 10);
         
-        // Progress Logic
         const senderProgress = isMeSender 
             ? Math.max(0, myCurrentDaily - d.start_steps_sender)
             : Math.max(0, (liveDuelSteps[m.sender_id] || d.start_steps_sender) - d.start_steps_sender);
@@ -223,7 +220,6 @@ export const BuddyChat: React.FC<BuddyChatProps> = ({ userId, buddy, onBack }) =
 
         return (
             <div className="w-full bg-gradient-to-br from-slate-900 via-slate-800 to-black border-2 border-orange-500/40 rounded-3xl p-5 shadow-2xl animate-message-pop relative overflow-hidden">
-                {/* Background Text */}
                 <div className="absolute -top-4 -right-4 opacity-5 text-6xl font-black italic select-none">MUQABLA</div>
                 
                 <div className="flex justify-between items-center mb-6">
@@ -242,7 +238,7 @@ export const BuddyChat: React.FC<BuddyChatProps> = ({ userId, buddy, onBack }) =
                     <div className="space-y-4">
                         {isMeSender ? (
                             <div className="bg-slate-800/50 p-3 rounded-xl border border-slate-700 text-center">
-                                <p className="text-xs text-slate-400 font-medium">Waiting for {buddy.name.split(' ')[0]} to accept...</p>
+                                <p className="text-xs text-slate-400 font-medium">Waiting for @{buddy.username} to accept...</p>
                             </div>
                         ) : (
                             <div className="flex gap-2">
@@ -253,7 +249,6 @@ export const BuddyChat: React.FC<BuddyChatProps> = ({ userId, buddy, onBack }) =
                     </div>
                 ) : (
                     <div className="space-y-6">
-                        {/* Progressive Bars */}
                         <div className="space-y-4">
                             <div className="space-y-1.5">
                                 <div className="flex justify-between text-[10px] font-black uppercase tracking-wider text-slate-400">
@@ -266,7 +261,7 @@ export const BuddyChat: React.FC<BuddyChatProps> = ({ userId, buddy, onBack }) =
                             </div>
                             <div className="space-y-1.5">
                                 <div className="flex justify-between text-[10px] font-black uppercase tracking-wider text-slate-400">
-                                    <span>{buddy.name.split(' ')[0]}</span>
+                                    <span>{buddy.name || buddy.username}</span>
                                     <span className="text-white">{buddyProgress} / {d.target_steps}</span>
                                 </div>
                                 <div className="h-2.5 w-full bg-slate-800 rounded-full overflow-hidden border border-slate-700/50 shadow-inner">
@@ -275,7 +270,6 @@ export const BuddyChat: React.FC<BuddyChatProps> = ({ userId, buddy, onBack }) =
                             </div>
                         </div>
 
-                        {/* Condition Check */}
                         <div className="text-center py-2">
                             {myProgress >= d.target_steps ? (
                                 <div className="bg-green-500/10 border border-green-500/30 p-2 rounded-xl text-green-400 text-[10px] font-black uppercase tracking-[2px] animate-bounce">
@@ -300,7 +294,6 @@ export const BuddyChat: React.FC<BuddyChatProps> = ({ userId, buddy, onBack }) =
 
     return (
         <div className="h-full flex flex-col animate-fade-in relative bg-dark-bg/20 backdrop-blur-sm rounded-[2rem] overflow-hidden border border-white/5">
-            {/* Header */}
             <div className="flex items-center justify-between p-4 bg-white/5 backdrop-blur-xl border-b border-white/10 z-20">
                 <div className="flex items-center gap-4">
                     <button onClick={onBack} className="w-10 h-10 rounded-full bg-slate-800/80 text-white flex items-center justify-center hover:bg-brand-600 transition-all shadow-lg active:scale-90">
@@ -311,16 +304,15 @@ export const BuddyChat: React.FC<BuddyChatProps> = ({ userId, buddy, onBack }) =
                         <div className="absolute -bottom-1 -right-1 w-3.5 h-3.5 bg-green-500 border-2 border-slate-900 rounded-full animate-pulse shadow-md"></div>
                     </div>
                     <div>
-                        <h4 className="text-white font-black text-sm tracking-tight">{buddy.name}</h4>
+                        <h4 className="text-white font-black text-sm tracking-tight">{buddy.name || `@${buddy.username}`}</h4>
                         <div className="flex items-center gap-2">
-                             <span className="text-[9px] text-green-400 font-black uppercase tracking-widest">Online</span>
+                             <span className="text-[9px] text-slate-500 font-black uppercase tracking-widest">{buddy.email || 'Friend Mode'}</span>
                              {isSecure && <span className="text-[8px] bg-brand-500/10 text-brand-400 px-1.5 py-0.5 rounded flex items-center gap-1 font-bold uppercase"><i className="fa-solid fa-shield-halved text-[7px]"></i> E2EE</span>}
                         </div>
                     </div>
                 </div>
             </div>
 
-            {/* Message History */}
             <div ref={scrollRef} className="flex-1 overflow-y-auto space-y-6 p-6 no-scrollbar relative z-10 scroll-smooth pb-32">
                 {loading ? (
                     <div className="h-full flex flex-col items-center justify-center opacity-30 gap-3">
@@ -378,7 +370,6 @@ export const BuddyChat: React.FC<BuddyChatProps> = ({ userId, buddy, onBack }) =
                 )}
             </div>
 
-            {/* Duel Selection Picker Overlay */}
             {showDuelPicker && (
                 <div className="absolute bottom-24 left-4 right-4 bg-slate-900 border border-orange-500/50 rounded-[2.5rem] p-6 z-50 animate-message-pop shadow-2xl">
                     <div className="flex justify-between items-center mb-6">
@@ -401,7 +392,6 @@ export const BuddyChat: React.FC<BuddyChatProps> = ({ userId, buddy, onBack }) =
                 </div>
             )}
 
-            {/* Input Deck */}
             <div className="p-4 bg-white/5 backdrop-blur-2xl border-t border-white/10 z-20">
                 {isRecording ? (
                     <div className="bg-red-500/10 border border-red-500/30 rounded-3xl p-3 flex items-center gap-4 animate-message-pop shadow-2xl">

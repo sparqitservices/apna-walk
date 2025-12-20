@@ -1,6 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { UserSettings, UserProfile } from '../types';
-import { usePedometer } from '../hooks/usePedometer'; 
 import { requestNotificationPermission } from '../services/notificationService';
 
 interface SettingsModalProps {
@@ -180,7 +179,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 
                 <div className="flex-1 min-w-0 w-full">
                     <div className="space-y-5">
-                        {/* EMAIL DISPLAY - For Identification */}
+                        {/* EMAIL DISPLAY - Fixed Visibility */}
                         <div className="bg-black/20 p-4 rounded-2xl border border-white/5 shadow-sm">
                             <label className="text-[8px] text-slate-500 font-black uppercase tracking-[2px] block mb-1">Logged in as</label>
                             <div className="text-white font-bold text-sm truncate flex items-center gap-2">
