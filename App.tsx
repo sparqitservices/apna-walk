@@ -497,8 +497,8 @@ const App: React.FC = () => {
           </div>
       )}
 
-      {/* REFINED HEADER */}
-      <div className="flex justify-between items-center p-6 bg-dark-bg/95 backdrop-blur-sm text-dark-text sticky top-0 z-40 transition-colors">
+      {/* NAVBAR: REFINED FOR BRAND FOCUS & HUB ACCESS */}
+      <div className="flex justify-between items-center p-6 bg-dark-bg/95 backdrop-blur-sm text-dark-text sticky top-0 z-40 transition-colors border-b border-white/5">
         <div className="flex items-center">
            <ApnaWalkLogo size={36} showText={true} />
            <div className="flex items-center gap-1 pl-3 border-l border-slate-800 ml-3 cursor-pointer hover:text-brand-500 transition-colors group" onClick={handleRefreshLocation}>
@@ -506,17 +506,17 @@ const App: React.FC = () => {
                 <p className="text-slate-500 text-xs font-medium truncate max-w-[100px] group-hover:text-dark-text transition-colors">{location}</p>
            </div>
         </div>
-        <div className="flex gap-2 items-center">
-            {installPrompt && <button onClick={handleInstall} className="w-10 h-10 rounded-full bg-dark-card border border-dark-border text-dark-text hover:bg-slate-700 flex items-center justify-center animate-pulse shadow-sm transition-colors"><i className="fa-solid fa-download"></i></button>}
-            <button onClick={toggleThemeMode} className="w-10 h-10 rounded-full bg-dark-card border border-dark-border text-dark-text hover:bg-slate-700 flex items-center justify-center transition-colors shadow-sm"><i className={`fa-solid ${isDarkMode ? 'fa-sun' : 'fa-moon'}`}></i></button>
+        <div className="flex gap-2.5 items-center">
+            {installPrompt && <button onClick={handleInstall} className="w-10 h-10 rounded-full bg-dark-card border border-dark-border text-dark-text hover:bg-slate-700 flex items-center justify-center animate-pulse shadow-sm transition-colors" title="Install App"><i className="fa-solid fa-download"></i></button>}
+            <button onClick={toggleThemeMode} className="w-10 h-10 rounded-full bg-dark-card border border-dark-border text-dark-text hover:bg-slate-700 flex items-center justify-center transition-colors shadow-sm" title="Toggle Theme"><i className={`fa-solid ${isDarkMode ? 'fa-sun' : 'fa-moon'}`}></i></button>
             
-            {/* NEW PROFILE / SETTINGS TRIGGER AT TOP RIGHT */}
+            {/* SETTINGS / PROFILE HUB TRIGGER */}
             <button 
                 onClick={() => setShowSettings(true)}
-                className={`w-10 h-10 rounded-full border-2 border-slate-700 flex items-center justify-center font-bold cursor-pointer hover:border-brand-500 transition-all overflow-hidden ml-1 ${profile.isGuest ? 'bg-slate-600 text-slate-300' : 'bg-brand-600 text-white shadow-lg shadow-brand-500/20'}`}
+                className={`w-11 h-11 rounded-full border-2 flex items-center justify-center font-bold cursor-pointer hover:scale-105 active:scale-95 transition-all overflow-hidden ml-1 border-white/10 ${profile.isGuest ? 'bg-slate-700 text-slate-400' : 'bg-brand-600 text-white shadow-xl shadow-brand-500/20'}`}
                 title="Profile & Settings"
             >
-                {profile.avatar ? <img src={profile.avatar} alt="Profile" className="w-full h-full object-cover" /> : (profile.isGuest ? <i className="fa-solid fa-user-gear"></i> : profile.username?.charAt(0).toUpperCase() || profile.name.charAt(0).toUpperCase())}
+                {profile.avatar ? <img src={profile.avatar} alt="Profile" className="w-full h-full object-cover" /> : (profile.isGuest ? <i className="fa-solid fa-user-secret"></i> : <span className="text-lg">{profile.username?.charAt(0).toUpperCase() || profile.name.charAt(0).toUpperCase()}</span>)}
             </button>
         </div>
       </div>
