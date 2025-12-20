@@ -13,12 +13,6 @@ interface ParkFinderProps {
 
 type CategoryFilter = 'all' | 'park' | 'gym' | 'shop' | 'health';
 
-const MOCK_ROUTES = [
-    { id: 'r1', name: 'Morning Loop', distance: '1.2km', pace: '6:30 min/km', difficulty: 'Easy', user: 'Sunil_82' },
-    { id: 'r2', name: 'Power Straight', distance: '0.8km', pace: '5:10 min/km', difficulty: 'Medium', user: 'Priya_X' },
-    { id: 'r3', name: 'Park Perimeter', distance: '2.5km', pace: '7:00 min/km', difficulty: 'Endurance', user: 'Coach_Afzal' }
-];
-
 export const ParkFinder: React.FC<ParkFinderProps> = ({ isOpen, onClose, profile }) => {
     const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
     const [parks, setParks] = useState<Park[]>([]);
@@ -45,9 +39,10 @@ export const ParkFinder: React.FC<ParkFinderProps> = ({ isOpen, onClose, profile
                 (err) => console.warn(err),
                 { enableHighAccuracy: true }
             );
-            return () => navigator.geolocation.clearWatch(id);
-        } else {
-            cleanupMap();
+            return () => {
+                navigator.geolocation.clearWatch(id);
+                cleanupMap();
+            };
         }
     }, [isOpen]);
 
@@ -63,12 +58,13 @@ export const ParkFinder: React.FC<ParkFinderProps> = ({ isOpen, onClose, profile
         markersRef.current = [];
     };
 
+    // Effect to initialize map when switching to map view or when coords/parks are ready
     useEffect(() => {
-        if (viewMode === 'map' && isOpen && parks.length > 0) {
+        if (viewMode === 'map' && isOpen && userCoords) {
             const timer = setTimeout(initMap, 200);
             return () => clearTimeout(timer);
         }
-    }, [viewMode, activeCategory, parks]);
+    }, [viewMode, isOpen, userCoords, activeCategory, parks.length]);
 
     useEffect(() => {
         if (liveNavMode && selectedPark) {
@@ -140,6 +136,10 @@ export const ParkFinder: React.FC<ParkFinderProps> = ({ isOpen, onClose, profile
 
         const group = new L.featureGroup([userM, destM]);
         map.fitBounds(group.getBounds().pad(0.3));
+        
+        map.whenReady(() => {
+            setTimeout(() => map.invalidateSize(), 100);
+        });
     };
 
     const getMarkerIcon = (category: string) => {
@@ -163,7 +163,10 @@ export const ParkFinder: React.FC<ParkFinderProps> = ({ isOpen, onClose, profile
 
         const map = L.map(mapRef.current!, { zoomControl: false }).setView([userCoords.lat, userCoords.lng], 15);
         leafletMap.current = map;
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png').addTo(map);
+        
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+            attribution: '&copy; CARTO'
+        }).addTo(map);
 
         L.marker([userCoords.lat, userCoords.lng], {
             icon: L.divIcon({
@@ -185,16 +188,21 @@ export const ParkFinder: React.FC<ParkFinderProps> = ({ isOpen, onClose, profile
 
         if (markersRef.current.length > 0) {
             const group = new L.featureGroup(markersRef.current);
-            map.fitBounds(group.getBounds().pad(0.1));
+            map.fitBounds(group.getBounds().pad(0.2));
         }
+
+        // CRITICAL: Ensure map redraws when container becomes visible or size changes
+        map.whenReady(() => {
+            setTimeout(() => map.invalidateSize(), 250);
+        });
     };
 
-    const filteredParks = parks.filter(p => 
+    const filteredParks = useMemo(() => parks.filter(p => 
         p.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
         p.address.toLowerCase().includes(searchQuery.toLowerCase())
-    );
+    ), [parks, searchQuery]);
 
-    const activeList = activeCategory === 'all' ? filteredParks : filteredParks.filter(p => p.category === activeCategory);
+    const activeList = useMemo(() => activeCategory === 'all' ? filteredParks : filteredParks.filter(p => p.category === activeCategory), [filteredParks, activeCategory]);
 
     const categories: { id: CategoryFilter, label: string, icon: string }[] = [
         { id: 'all', label: 'All', icon: 'fa-layer-group' },
@@ -209,7 +217,7 @@ export const ParkFinder: React.FC<ParkFinderProps> = ({ isOpen, onClose, profile
         <div className="fixed inset-0 bg-black/95 backdrop-blur-xl z-[90] flex items-center justify-center p-0 sm:p-4">
             <div className="bg-[#1a2327] w-full max-w-5xl h-full sm:h-[92vh] sm:rounded-[3rem] border border-slate-800 shadow-2xl flex flex-col overflow-hidden animate-message-pop">
                 
-                {/* Header Section - Matched to Screenshot */}
+                {/* Header Section */}
                 <div className="p-6 sm:p-8 border-b border-slate-800/50 bg-[#1a2327] shrink-0">
                     <div className="flex justify-between items-start mb-6">
                         <div>
@@ -268,12 +276,6 @@ export const ParkFinder: React.FC<ParkFinderProps> = ({ isOpen, onClose, profile
                                             <span className="bg-black/40 backdrop-blur px-3 py-1.5 rounded-xl text-[10px] font-black text-white uppercase tracking-widest border border-white/10 flex items-center gap-2"><i className="fa-solid fa-location-arrow text-brand-400"></i>{(park.distance! / 1000).toFixed(1)} km</span>
                                             <span className={`px-3 py-1.5 rounded-xl text-[10px] font-black text-white uppercase tracking-widest border border-white/10 flex items-center gap-2 ${park.category === 'gym' ? 'bg-blue-600/60' : park.category === 'shop' ? 'bg-orange-600/60' : 'bg-brand-600/60'}`}>{park.category}</span>
                                         </div>
-                                        {park.visitor_count && park.visitor_count > 0 && (
-                                            <div className="absolute top-4 right-4 bg-red-500/80 backdrop-blur px-2 py-1 rounded-lg text-[9px] font-black text-white uppercase flex items-center gap-1.5">
-                                                <span className="w-1.5 h-1.5 bg-white rounded-full animate-pulse"></span>
-                                                {park.visitor_count} Live
-                                            </div>
-                                        )}
                                     </div>
                                     <div className="p-6">
                                         <div className="flex justify-between items-start mb-2">
@@ -294,12 +296,17 @@ export const ParkFinder: React.FC<ParkFinderProps> = ({ isOpen, onClose, profile
                             ))}
                         </div>
                     ) : (
-                        <div className="relative h-full w-full">
+                        <div className="relative h-full w-full bg-[#0b0f11]">
+                            {!userCoords && !loading && (
+                                <div className="absolute inset-0 flex items-center justify-center z-10 bg-black/40 backdrop-blur-sm">
+                                    <p className="text-white font-black uppercase tracking-[4px] text-xs">Waiting for GPS...</p>
+                                </div>
+                            )}
                             <div ref={mapRef} className="h-full w-full z-0" />
                         </div>
                     )}
 
-                    {/* Active Locality Pill - Matched to Screenshot */}
+                    {/* Active Locality Pill */}
                     <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-[20] pointer-events-none w-full px-6 flex justify-center">
                         <div className="bg-[#1a2327]/90 backdrop-blur-2xl border-2 border-white/10 px-8 py-3 rounded-full shadow-2xl flex items-center gap-4 animate-message-pop">
                             <div className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center text-white border border-slate-700 shadow-inner">
