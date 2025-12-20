@@ -138,25 +138,25 @@ export const VisualShareModal: React.FC<VisualShareModalProps> = ({ isOpen, onCl
               <div className="absolute top-[-50px] right-[-50px] w-[400px] h-[400px] bg-brand-500/5 rounded-full blur-[100px]"></div>
               <div className="absolute bottom-[-50px] left-[-50px] w-[400px] h-[400px] bg-blue-500/5 rounded-full blur-[100px]"></div>
 
-              {/* LOGO AT TOP - CENTERED AND SMALL */}
-              <div className="mt-8 mb-6 z-10">
+              {/* LOGO AT TOP - CENTERED AND BIGGER */}
+              <div className="mt-10 mb-8 z-10 scale-125">
                   <div className="flex items-center gap-3">
-                      <i className="fa-solid fa-person-walking text-brand-500 text-3xl"></i>
-                      <div className="flex items-baseline gap-1 leading-none">
-                          <span className="font-black text-2xl text-white">Apna</span>
-                          <span className="font-black text-2xl text-[#FF9800]">Walk</span>
+                      <i className="fa-solid fa-person-walking text-brand-500 text-4xl"></i>
+                      <div className="flex items-baseline gap-1.5 leading-none">
+                          <span className="font-black text-3xl text-white">Apna</span>
+                          <span className="font-black text-3xl text-[#FF9800]">Walk</span>
                       </div>
                   </div>
               </div>
 
               {/* MAIN CONTENT AREA */}
-              <div className="flex-1 flex flex-col justify-center w-full px-4 relative z-10">
+              <div className="flex-1 flex flex-col justify-center w-full px-6 relative z-10">
                   {type === 'quote' && (
                       <div className="text-center relative">
-                        <i className="fa-solid fa-quote-left text-[140px] text-brand-500 mb-6 block opacity-[0.05] absolute -top-16 -left-10"></i>
+                        <i className="fa-solid fa-quote-left text-[150px] text-brand-500 mb-6 block opacity-[0.04] absolute -top-20 -left-12"></i>
                         
-                        <div className="bg-white/[0.03] backdrop-blur-3xl p-16 rounded-[4rem] border border-white/10 shadow-[0_40px_100px_rgba(0,0,0,0.6)] relative">
-                            <p className="text-[46px] font-black italic leading-[1.1] text-white mb-12 tracking-tight drop-shadow-2xl">
+                        <div className="bg-white/[0.02] backdrop-blur-3xl p-16 rounded-[4rem] border border-white/10 shadow-[0_40px_100px_rgba(0,0,0,0.6)] relative">
+                            <p className="text-[48px] font-black italic leading-[1.1] text-white mb-12 tracking-tight drop-shadow-2xl">
                                 "{data.text}"
                             </p>
                             <div className="flex items-center justify-center gap-8">
@@ -199,13 +199,12 @@ export const VisualShareModal: React.FC<VisualShareModalProps> = ({ isOpen, onCl
                   )}
               </div>
 
-              {/* DOMAIN AT BOTTOM - CENTERED */}
-              <div className="mt-auto mb-8 relative z-10 flex flex-col items-center">
-                  <div className="flex items-center gap-3 px-5 py-2 bg-brand-600/10 border border-brand-500/20 rounded-full mb-3">
-                      <div className="w-1.5 h-1.5 bg-brand-500 rounded-full animate-pulse shadow-[0_0_10px_rgba(74,222,128,0.5)]"></div>
-                      <p className="text-brand-400 text-[10px] font-black uppercase tracking-[6px] mr-[-6px]">Join the movement</p>
+              {/* REFINED FOOTER - DOMAIN AT BOTTOM, JOIN THE MOVEMENT PILL CENTERED */}
+              <div className="mt-auto mb-12 relative z-10 flex flex-col items-center">
+                  <div className="px-8 py-3 bg-black/40 border border-white/40 rounded-full mb-4 shadow-xl">
+                      <p className="text-white text-[12px] font-black uppercase tracking-[5px]">Join the movement</p>
                   </div>
-                  <p className="text-4xl font-black text-white italic tracking-tighter drop-shadow-2xl">www.apnawalk.com</p>
+                  <p className="text-xl font-bold text-white tracking-widest opacity-90">www.apnawalk.com</p>
               </div>
               
               {/* Bottom Brand Bar */}
