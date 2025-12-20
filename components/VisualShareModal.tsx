@@ -19,7 +19,7 @@ export const VisualShareModal: React.FC<VisualShareModalProps> = ({ isOpen, onCl
     if (isOpen) {
       setImgUrl(null);
       setGenerating(true);
-      const timer = setTimeout(generateImage, 1500); // Higher delay for assets
+      const timer = setTimeout(generateImage, 1500); 
       return () => clearTimeout(timer);
     }
   }, [isOpen, data]);
@@ -28,11 +28,12 @@ export const VisualShareModal: React.FC<VisualShareModalProps> = ({ isOpen, onCl
     if (cardRef.current && typeof html2canvas !== 'undefined') {
       try {
         const canvas = await html2canvas(cardRef.current, {
-          scale: 2,
+          scale: 3, // Even higher scale for crispness
           backgroundColor: '#020617', 
           useCORS: true,
           logging: false,
-          allowTaint: true
+          allowTaint: true,
+          letterRendering: true
         });
         setImgUrl(canvas.toDataURL('image/png'));
         setGenerating(false);
@@ -53,8 +54,8 @@ export const VisualShareModal: React.FC<VisualShareModalProps> = ({ isOpen, onCl
       if (navigator.canShare && navigator.canShare({ files: [file] })) {
         await navigator.share({
           files: [file],
-          title: 'ApnaWalk achievement',
-          text: type === 'quote' ? 'Daily inspiration from ApnaWalk!' : 'Check out my stats on ApnaWalk!'
+          title: 'ApnaWalk Inspiration',
+          text: type === 'quote' ? 'Daily inspiration from ApnaWalk!' : 'Check out my progress on ApnaWalk!'
         });
       } else {
         handleDownload();
@@ -96,7 +97,7 @@ export const VisualShareModal: React.FC<VisualShareModalProps> = ({ isOpen, onCl
                         <div className="absolute inset-0 border-4 border-slate-800 rounded-2xl"></div>
                         <div className="absolute inset-0 border-4 border-brand-500 rounded-2xl border-t-transparent animate-spin"></div>
                     </div>
-                    <p className="text-[10px] font-black uppercase tracking-[5px] animate-pulse">Rendering Design...</p>
+                    <p className="text-[10px] font-black uppercase tracking-[5px] animate-pulse">Creating Masterpiece...</p>
                 </div>
             ) : (
                 <img src={imgUrl!} alt="Share Preview" className="w-full h-full object-contain" />
@@ -124,65 +125,70 @@ export const VisualShareModal: React.FC<VisualShareModalProps> = ({ isOpen, onCl
         </div>
       </div>
 
-      {/* HIDDEN RENDER AREA - High Definition Layout */}
+      {/* HIDDEN RENDER AREA - Premium High Fidelity Capture */}
       <div className="fixed left-[-9999px] top-0 pointer-events-none">
           <div 
             ref={cardRef} 
-            className="w-[500px] h-[700px] bg-[#020617] text-white p-12 flex flex-col relative overflow-hidden"
+            className="w-[600px] h-[840px] bg-[#020617] text-white p-16 flex flex-col relative overflow-hidden"
           >
-              {/* Premium Top Bar */}
-              <div className="absolute top-0 left-0 w-full h-3 bg-gradient-to-r from-[#FF9933] via-white to-[#138808]"></div>
+              {/* Brand Tricolor Accent Bars */}
+              <div className="absolute top-0 left-0 w-full h-4 bg-gradient-to-r from-[#FF9933] via-white to-[#138808]"></div>
+              <div className="absolute bottom-0 left-0 w-full h-2 bg-gradient-to-r from-[#FF9933] via-white to-[#138808] opacity-50"></div>
               
-              {/* Center Top Logo Branding */}
-              <div className="flex flex-col items-center mb-10 relative z-10 pt-2">
-                  <div className="bg-white/5 backdrop-blur-md px-10 py-6 rounded-[2.5rem] border border-white/10 flex flex-col items-center shadow-2xl">
-                      <ApnaWalkLogo size={60} useGradient={true} />
-                      <div className="h-px w-24 bg-slate-700 mt-4 opacity-30"></div>
-                      <p className="text-[14px] text-brand-400 font-black uppercase tracking-[8px] mt-4 italic">apnawalk.com</p>
-                  </div>
+              {/* Premium Background Ambiance */}
+              <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-brand-500/10 rounded-full blur-[140px] -translate-y-1/2 translate-x-1/4"></div>
+              <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-emerald-500/5 rounded-full blur-[120px] translate-y-1/2 -translate-x-1/4"></div>
+              <div className="absolute inset-0 opacity-[0.03]" style={{backgroundImage: 'radial-gradient(#ffffff 2px, transparent 2px)', backgroundSize: '40px 40px'}}></div>
+
+              {/* CENTERED LOGO ONLY */}
+              <div className="flex flex-col items-center mb-16 relative z-10 pt-4">
+                  <ApnaWalkLogo size={90} useGradient={true} />
               </div>
 
-              {/* Content Core */}
-              <div className="flex-1 flex flex-col justify-center relative z-10">
+              {/* MAIN CONTENT AREA */}
+              <div className="flex-1 flex flex-col justify-center relative z-10 px-4">
                   {type === 'quote' && (
-                      <div className="text-center bg-white/[0.03] backdrop-blur-xl p-12 rounded-[4rem] border border-white/5 shadow-2xl relative overflow-hidden">
-                        <div className="absolute top-0 left-0 w-2 h-full bg-gradient-to-b from-[#FF9933] to-[#138808] opacity-20"></div>
-                        <i className="fa-solid fa-quote-left text-7xl text-brand-500 mb-8 block opacity-10"></i>
-                        <p className="text-[34px] font-black italic leading-[1.2] text-white mb-10 tracking-tight">
-                            "{data.text}"
-                        </p>
-                        <div className="flex items-center justify-center gap-6">
-                            <div className="w-12 h-px bg-slate-800"></div>
-                            <p className="text-[#FF9933] font-black uppercase tracking-[7px] text-sm">{data.author}</p>
-                            <div className="w-12 h-px bg-slate-800"></div>
+                      <div className="text-center relative">
+                        {/* Elegant Decorative Quotes */}
+                        <i className="fa-solid fa-quote-left text-9xl text-brand-500 mb-6 block opacity-10 absolute -top-12 -left-8"></i>
+                        
+                        <div className="bg-white/[0.02] backdrop-blur-xl p-14 rounded-[5rem] border border-white/10 shadow-[0_40px_100px_rgba(0,0,0,0.4)] relative">
+                            <p className="text-[42px] font-black italic leading-[1.1] text-white mb-10 tracking-tight drop-shadow-2xl">
+                                "{data.text}"
+                            </p>
+                            <div className="flex items-center justify-center gap-6">
+                                <div className="w-16 h-px bg-gradient-to-r from-transparent to-slate-700"></div>
+                                <p className="text-[#FF9933] font-black uppercase tracking-[8px] text-lg">{data.author}</p>
+                                <div className="w-16 h-px bg-gradient-to-l from-transparent to-slate-700"></div>
+                            </div>
                         </div>
                       </div>
                   )}
 
                   {type === 'stats' && (
                       <div className="w-full">
-                          <div className="mb-10 text-center">
-                              <h2 className="text-6xl font-black text-white mb-3 uppercase tracking-tighter italic">Walk Summary</h2>
-                              <div className="inline-block px-6 py-2 bg-brand-600/20 rounded-full border border-brand-500/30">
-                                <p className="text-brand-400 text-xs font-black uppercase tracking-[6px]">
+                          <div className="mb-12 text-center">
+                              <h2 className="text-7xl font-black text-white mb-4 uppercase tracking-tighter italic">Walk Summary</h2>
+                              <div className="inline-block px-8 py-3 bg-brand-600/10 rounded-full border border-brand-500/20">
+                                <p className="text-brand-400 text-sm font-black uppercase tracking-[8px]">
                                     {new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}
                                 </p>
                               </div>
                           </div>
                           
-                          <div className="grid grid-cols-2 gap-6">
+                          <div className="grid grid-cols-2 gap-8">
                               {[
                                   { icon: 'fa-shoe-prints', color: 'text-brand-400', val: data.steps.toLocaleString(), label: 'Steps', bg: 'bg-brand-500/10' },
                                   { icon: 'fa-fire', color: 'text-orange-500', val: data.calories, label: 'Calories', bg: 'bg-orange-500/10' },
                                   { icon: 'fa-route', color: 'text-blue-500', val: (data.distance/1000).toFixed(2), label: 'Km Covered', bg: 'bg-blue-500/10' },
                                   { icon: 'fa-stopwatch', color: 'text-purple-500', val: `${Math.floor(data.duration/60)}m`, label: 'Duration', bg: 'bg-purple-500/10' }
                               ].map((stat, i) => (
-                                  <div key={i} className="bg-slate-900/60 p-8 rounded-[2.5rem] border border-white/[0.03] shadow-2xl flex flex-col items-center group">
-                                      <div className={`w-14 h-14 ${stat.bg} rounded-2xl flex items-center justify-center ${stat.color} mb-4 border border-white/5`}>
-                                          <i className={`fa-solid ${stat.icon} text-2xl`}></i>
+                                  <div key={i} className="bg-slate-900/40 p-10 rounded-[3rem] border border-white/5 shadow-2xl flex flex-col items-center group">
+                                      <div className={`w-16 h-16 ${stat.bg} rounded-2xl flex items-center justify-center ${stat.color} mb-4 border border-white/5`}>
+                                          <i className={`fa-solid ${stat.icon} text-3xl`}></i>
                                       </div>
-                                      <div className="text-4xl font-black tabular-nums tracking-tighter italic text-white">{stat.val}</div>
-                                      <div className="text-[10px] text-slate-500 font-black uppercase tracking-widest mt-2">{stat.label}</div>
+                                      <div className="text-5xl font-black tabular-nums tracking-tighter italic text-white">{stat.val}</div>
+                                      <div className="text-xs text-slate-500 font-black uppercase tracking-widest mt-2">{stat.label}</div>
                                   </div>
                               ))}
                           </div>
@@ -190,47 +196,36 @@ export const VisualShareModal: React.FC<VisualShareModalProps> = ({ isOpen, onCl
                   )}
               </div>
 
-              {/* Redesigned Footer */}
-              <div className="mt-12 pt-8 border-t border-white/5 relative z-10 flex flex-col items-center w-full">
+              {/* REDESIGNED FOOTER: QR Left, URL Right */}
+              <div className="mt-20 pt-10 border-t border-white/5 relative z-10 flex items-end justify-between w-full">
                   
-                  {/* Left Side Domain Branding */}
-                  <div className="w-full flex justify-between items-center mb-6">
-                      <div className="flex flex-col">
-                          <span className="text-[10px] text-slate-500 font-black uppercase tracking-[3px] mb-1">website url:</span>
-                          <p className="text-xl font-black text-white italic tracking-tighter leading-none">www.apnawalk.com</p>
-                      </div>
-                      
-                      <div className="flex gap-4">
-                          <div className="w-12 h-12 bg-white text-[#020617] rounded-full flex items-center justify-center shadow-xl">
-                              <i className="fa-solid fa-person-walking text-xl"></i>
-                          </div>
-                          <div className="w-12 h-12 bg-slate-800 rounded-full flex items-center justify-center border border-white/10">
-                              <i className="fa-solid fa-robot text-brand-500 text-xl"></i>
-                          </div>
-                      </div>
-                  </div>
-
-                  {/* QR SECTION with CTA */}
-                  <div className="flex flex-col items-center w-full gap-3">
-                      <div className="flex items-center gap-3 px-8 py-3 bg-gradient-to-r from-brand-600/10 via-white/5 to-emerald-600/10 border border-white/10 rounded-full shadow-2xl">
-                          <div className="w-2 h-2 bg-brand-500 rounded-full animate-pulse shadow-[0_0_10px_rgba(76,175,80,0.8)]"></div>
-                          <p className="text-[13px] font-black text-white uppercase tracking-[10px] mr-[-10px]">Download App Now!</p>
-                      </div>
-                      
-                      {/* Scan Friendly QR Code */}
-                      <div className="mt-2 p-3 bg-white rounded-3xl shadow-[0_0_40px_rgba(255,255,255,0.15)] border-2 border-brand-500/20">
+                  {/* Bottom Left: QR Code */}
+                  <div className="flex flex-col items-start gap-4">
+                      <div className="p-3 bg-white rounded-[2rem] shadow-[0_0_50px_rgba(255,255,255,0.1)] border-2 border-brand-500/30">
                           <img 
-                            src="https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=https://apnawalk.com&bgcolor=ffffff&color=020617" 
-                            alt="Scan to Download" 
+                            src="https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=https://apnawalk.com&bgcolor=ffffff&color=020617" 
+                            alt="Scan" 
                             className="w-24 h-24"
                           />
                       </div>
-                      <p className="text-[10px] text-slate-500 font-black uppercase tracking-[4px] mt-2 opacity-60">Scan to join the community</p>
+                      <div>
+                        <p className="text-[11px] font-black text-white uppercase tracking-[4px]">Scan to Join</p>
+                        <p className="text-[9px] text-slate-500 font-bold uppercase tracking-[2px]">Download App</p>
+                      </div>
                   </div>
+
+                  {/* Bottom Right: URL and Branding */}
+                  <div className="text-right flex flex-col items-end gap-2">
+                      <div className="bg-brand-600/10 px-5 py-2 rounded-full border border-brand-500/20 mb-2">
+                          <p className="text-brand-400 text-[10px] font-black uppercase tracking-[6px] mr-[-6px]">Join the Movement</p>
+                      </div>
+                      <div>
+                        <span className="text-[10px] text-slate-500 font-black uppercase tracking-[4px] block mb-1">Visit us at:</span>
+                        <p className="text-3xl font-black text-white italic tracking-tighter leading-none">www.apnawalk.com</p>
+                      </div>
+                  </div>
+
               </div>
-              
-              {/* Bottom Decorative Bar */}
-              <div className="absolute bottom-0 left-0 w-full h-1.5 bg-gradient-to-r from-[#FF9933] via-white to-[#138808] opacity-50"></div>
           </div>
       </div>
     </div>
