@@ -279,7 +279,7 @@ export const BuddyFinder: React.FC<BuddyFinderProps> = ({ isOpen, onClose, profi
                                                 <i className="fa-solid fa-comment-dots text-xl"></i>
                                             </div>
                                         </div>
-                                    ))}
+                                    ))
                                 )}
                             </div>
                         )}
