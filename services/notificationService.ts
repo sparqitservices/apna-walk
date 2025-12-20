@@ -1,81 +1,100 @@
-
 // Check if browser supports notifications
 const isSupported = () => 'Notification' in window;
 
+export const DESI_NOTIFICATIONS = {
+    SEDENTARY: [
+        { title: "Arre Boss, Utho! 🚶‍♂️", body: "Chair se chipak gaye ho kya? Chalo 5 min walk karlo!" },
+        { title: "Break Toh Banta Hai! ☕", body: "Kaam chalta rahega, thoda tehel lo. Body ko recharge karo!" }
+    ],
+    GOAL_50: [
+        { title: "Half Century! 🏏", body: "Shabaash! Aadhe raaste pahunch gaye. Ek number stamina hai!" }
+    ],
+    GOAL_100: [
+        { title: "Jhandey Gaad Diye! 🎉", body: "100% Goal Complete! Aaj toh party banti hai!" }
+    ],
+    HYDRATION: [
+        { title: "Engine Check! 💧", body: "Pani piyo mere bhai! Stamina engine ko fuel chahiye." },
+        { title: "Galat Baat! 🥛", body: "Pani peena bhul gaye? Ek glass piyo aur fresh ho jao." }
+    ],
+    MORNING: [
+        { title: "Suprabhat, Guru! ☀️", body: "Naya din, naya target. Chalo jootey pehno aur nikal pado!" }
+    ]
+};
+
 export const requestNotificationPermission = async (): Promise<boolean> => {
   if (!isSupported()) return false;
-  
   if (Notification.permission === 'granted') return true;
-  
   const permission = await Notification.requestPermission();
   return permission === 'granted';
 };
 
-export const sendNotification = (title: string, body: string, icon: string = '/icon.png') => {
+export const sendNotification = (type: keyof typeof DESI_NOTIFICATIONS) => {
   if (!isSupported() || Notification.permission !== 'granted') return;
 
-  // Mobile browsers might require a service worker for some features, 
-  // but standard Notification API works for local triggers in active tabs.
+  const options = DESI_NOTIFICATIONS[type];
+  const choice = options[Math.floor(Math.random() * options.length)];
+
   try {
-      new Notification(title, {
-          body,
-          icon,
-          badge: icon,
-          vibrate: [200, 100, 200]
+      // Basic browser notification
+      const n = new Notification(choice.title, {
+          body: choice.body,
+          icon: '/favicon.ico',
+          badge: '/favicon.ico',
+          tag: type, // Prevents duplicate notifications of same type
+          renotify: true
       } as any);
+
+      // Play a subtle sound if possible
+      if (typeof navigator.vibrate === 'function') {
+          navigator.vibrate([200, 100, 200]);
+      }
   } catch (e) {
       console.warn("Notification failed", e);
   }
 };
 
-export const scheduleReminders = (
-    settings: { water: boolean, walk: boolean, breath: boolean },
-    lastTimes: { water: number, walk: number, breath: number },
-    stepsToday: number
-): string[] => {
+/**
+ * Logic to check if we should trigger a notification based on app state
+ */
+export const checkAndNotify = (
+    currentSteps: number, 
+    goal: number, 
+    lastSteps: number, 
+    lastNotifyTimes: Record<string, number>
+) => {
     const now = Date.now();
-    const triggered: string[] = [];
+    const results: Record<string, number> = { ...lastNotifyTimes };
     
-    // Constants for Intervals
-    const HOURS_2 = 2 * 60 * 60 * 1000;
-    const HOURS_3 = 3 * 60 * 60 * 1000;
-    const HOURS_4 = 4 * 60 * 60 * 1000;
-
-    // 1. Water Reminder (Every 2 hours)
-    if (settings.water && (now - lastTimes.water > HOURS_2)) {
-        sendNotification(
-            "💧 Hydration Check", 
-            "Time to drink a glass of water and stay energetic!"
-        );
-        triggered.push('water');
+    // 1. Goal Progress (One-time triggers)
+    const progress = (currentSteps / goal) * 100;
+    
+    if (progress >= 100 && !lastNotifyTimes.goal_100) {
+        sendNotification('GOAL_100');
+        results.goal_100 = now;
+    } else if (progress >= 50 && !lastNotifyTimes.goal_50) {
+        sendNotification('GOAL_50');
+        results.goal_50 = now;
     }
 
-    // 2. Breath Exercise (Every 3 hours)
-    if (settings.breath && (now - lastTimes.breath > HOURS_3)) {
-        sendNotification(
-            "🧘 Breathe & Relax", 
-            "Take a moment to center yourself with a quick breathing exercise."
-        );
-        triggered.push('breath');
-    }
-
-    // 3. Walk Reminder (Every 4 hours if sedentary)
-    // We check if 4 hours passed. Then we check if user has moved enough today.
-    // If they have < 3000 steps by the check time, we nudge them.
-    if (settings.walk && (now - lastTimes.walk > HOURS_4)) {
-        if (stepsToday < 3000) {
-            sendNotification(
-                "🚶 Time to Move!", 
-                "You haven't moved much lately. Let's take a 5-minute stroll!"
-            );
-            triggered.push('walk');
-        } else {
-            // Even if we don't send a notification (because they are active), 
-            // we treat this as "checked" so we don't spam them immediately again.
-            // We push a special tag or just 'walk' to reset the timer.
-            triggered.push('walk');
+    // 2. Sedentary Check (Every 1 hour of no movement during 9 AM - 9 PM)
+    const hour = new Date().getHours();
+    if (hour >= 9 && hour <= 21) {
+        const timeSinceLastMove = now - (lastNotifyTimes.last_move_time || now);
+        if (currentSteps === lastSteps && timeSinceLastMove > 3600000) { // 1 hour
+            if (!lastNotifyTimes.last_sedentary_notify || (now - lastNotifyTimes.last_sedentary_notify > 7200000)) {
+                sendNotification('SEDENTARY');
+                results.last_sedentary_notify = now;
+            }
+        } else if (currentSteps > lastSteps) {
+            results.last_move_time = now;
         }
     }
-    
-    return triggered;
+
+    // 3. Hydration (Every 3 hours)
+    if (!lastNotifyTimes.last_hydration || (now - lastNotifyTimes.last_hydration > 10800000)) {
+        sendNotification('HYDRATION');
+        results.last_hydration = now;
+    }
+
+    return results;
 };
