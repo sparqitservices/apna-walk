@@ -139,31 +139,31 @@ export const VisualShareModal: React.FC<VisualShareModalProps> = ({ isOpen, onCl
               <div className="absolute bottom-[-50px] left-[-50px] w-[400px] h-[400px] bg-blue-500/5 rounded-full blur-[100px]"></div>
 
               {/* LOGO AT TOP - CENTERED AND BIG (Increased scale) */}
-              <div className="mt-12 mb-6 z-10 scale-150">
+              <div className="mt-14 mb-4 z-10 scale-150">
                   <div className="flex items-center gap-3">
-                      <i className="fa-solid fa-person-walking text-brand-500 text-3xl"></i>
+                      <i className="fa-solid fa-person-walking text-brand-500 text-4xl"></i>
                       <div className="flex items-baseline gap-1 leading-none">
-                          <span className="font-black text-2xl text-white">Apna</span>
-                          <span className="font-black text-2xl text-[#FF9800]">Walk</span>
+                          <span className="font-black text-3xl text-white">Apna</span>
+                          <span className="font-black text-3xl text-[#FF9800]">Walk</span>
                       </div>
                   </div>
               </div>
 
               {/* MAIN CONTENT AREA */}
-              <div className="flex-1 flex flex-col justify-center w-full px-10 relative z-10">
+              <div className="flex-1 flex flex-col justify-center w-full px-12 relative z-10">
                   {type === 'quote' && (
                       <div className="text-center relative">
-                        <i className="fa-solid fa-quote-left text-[140px] text-brand-500 mb-6 block opacity-[0.03] absolute -top-24 -left-16"></i>
+                        <i className="fa-solid fa-quote-left text-[140px] text-brand-500 mb-6 block opacity-[0.03] absolute -top-28 -left-16"></i>
                         
-                        <div className="bg-white/[0.015] backdrop-blur-3xl p-14 rounded-[4rem] border border-white/10 shadow-[0_40px_100px_rgba(0,0,0,0.6)] relative">
-                            {/* QUOTE TEXT - MEDIUM SIZE (38px instead of 48px) */}
-                            <p className="text-[38px] font-black italic leading-[1.25] text-white mb-10 tracking-tight drop-shadow-2xl">
+                        <div className="bg-white/[0.01] backdrop-blur-3xl p-16 rounded-[4rem] border border-white/10 shadow-[0_40px_100px_rgba(0,0,0,0.6)] relative">
+                            {/* QUOTE TEXT - Refined for high readability */}
+                            <p className="text-[36px] font-extrabold italic leading-[1.3] text-white mb-10 tracking-tight drop-shadow-2xl">
                                 "{data.text}"
                             </p>
                             <div className="flex items-center justify-center gap-6">
-                                <div className="w-10 h-0.5 bg-slate-800 rounded-full"></div>
-                                <p className="text-[#FF9933] font-black uppercase tracking-[6px] text-xl drop-shadow-lg">{data.author}</p>
-                                <div className="w-10 h-0.5 bg-slate-800 rounded-full"></div>
+                                <div className="w-12 h-0.5 bg-slate-800 rounded-full"></div>
+                                <p className="text-[#FF9933] font-black uppercase tracking-[8px] text-xl drop-shadow-lg">{data.author}</p>
+                                <div className="w-12 h-0.5 bg-slate-800 rounded-full"></div>
                             </div>
                         </div>
                       </div>
@@ -200,15 +200,15 @@ export const VisualShareModal: React.FC<VisualShareModalProps> = ({ isOpen, onCl
                   )}
               </div>
 
-              {/* REFINED FOOTER - ARRANGED PROPERLY */}
-              <div className="mt-auto mb-16 relative z-10 flex flex-col items-center">
-                  {/* JOIN THE MOVEMENT text in square/rectangle pill */}
-                  <div className="px-10 py-3.5 bg-black/60 border-2 border-white/20 rounded-xl mb-5 shadow-2xl backdrop-blur-sm">
-                      <p className="text-white text-[11px] font-black uppercase tracking-[6px] whitespace-nowrap">Join the movement</p>
+              {/* REFINED FOOTER - ENSURING PERFECT CENTERING */}
+              <div className="mt-auto mb-16 relative z-10 flex flex-col items-center w-full">
+                  {/* JOIN THE MOVEMENT text in perfectly centered box */}
+                  <div className="flex items-center justify-center min-w-[320px] py-4 bg-black/60 border-2 border-white/20 rounded-2xl mb-6 shadow-2xl backdrop-blur-sm">
+                      <p className="text-white text-[12px] font-black uppercase tracking-[8px] leading-none">Join the movement</p>
                   </div>
                   
-                  {/* DOMAIN - MEDIUM READABLE (Not stylish big) */}
-                  <p className="text-2xl font-bold text-white tracking-[4px] opacity-80 font-sans">WWW.APNAWALK.COM</p>
+                  {/* DOMAIN - Highly readable clean sans-serif */}
+                  <p className="text-2xl font-black text-white tracking-[5px] opacity-90 font-sans">WWW.APNAWALK.COM</p>
               </div>
               
               {/* Bottom Brand Bar */}
