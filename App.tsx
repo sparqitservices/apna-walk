@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { RadialProgress } from './components/RadialProgress';
 import { StatsGrid } from './components/StatsGrid';
@@ -498,17 +497,27 @@ const App: React.FC = () => {
           </div>
       )}
 
+      {/* REFINED HEADER */}
       <div className="flex justify-between items-center p-6 bg-dark-bg/95 backdrop-blur-sm text-dark-text sticky top-0 z-40 transition-colors">
-        <div className="flex items-center gap-3" onClick={() => setShowSettings(true)}>
-           <div className={`w-10 h-10 rounded-full border-2 border-slate-700 flex items-center justify-center font-bold cursor-pointer hover:border-brand-500 transition-all overflow-hidden ${profile.isGuest ? 'bg-slate-600 text-slate-300' : 'bg-brand-600 text-white shadow-lg shadow-brand-500/20'}`}>
-                {profile.avatar ? <img src={profile.avatar} alt="Profile" className="w-full h-full object-cover" /> : (profile.isGuest ? <i className="fa-solid fa-user"></i> : profile.name.charAt(0).toUpperCase())}
+        <div className="flex items-center">
+           <ApnaWalkLogo size={36} showText={true} />
+           <div className="flex items-center gap-1 pl-3 border-l border-slate-800 ml-3 cursor-pointer hover:text-brand-500 transition-colors group" onClick={handleRefreshLocation}>
+                <i className="fa-solid fa-location-dot text-[10px] text-brand-500 group-hover:text-brand-400 transition-colors"></i>
+                <p className="text-slate-500 text-xs font-medium truncate max-w-[100px] group-hover:text-dark-text transition-colors">{location}</p>
            </div>
-           <div><div className="-ml-2"><ApnaWalkLogo size={36} showText={true} /></div><div className="flex items-center gap-1 pl-1 mt-0.5 cursor-pointer hover:text-brand-500 transition-colors group" onClick={(e) => { e.stopPropagation(); handleRefreshLocation(); }}><i className="fa-solid fa-location-dot text-[10px] text-brand-500 group-hover:text-brand-400 transition-colors"></i><p className="text-slate-500 text-xs font-medium truncate max-w-[100px] group-hover:text-dark-text transition-colors">{location}</p></div></div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 items-center">
             {installPrompt && <button onClick={handleInstall} className="w-10 h-10 rounded-full bg-dark-card border border-dark-border text-dark-text hover:bg-slate-700 flex items-center justify-center animate-pulse shadow-sm transition-colors"><i className="fa-solid fa-download"></i></button>}
             <button onClick={toggleThemeMode} className="w-10 h-10 rounded-full bg-dark-card border border-dark-border text-dark-text hover:bg-slate-700 flex items-center justify-center transition-colors shadow-sm"><i className={`fa-solid ${isDarkMode ? 'fa-sun' : 'fa-moon'}`}></i></button>
-            <button onClick={() => setShowSettings(true)} className="w-10 h-10 rounded-full bg-dark-card border border-dark-border text-dark-text hover:bg-slate-700 flex items-center justify-center transition-colors shadow-sm"><i className="fa-solid fa-wrench"></i></button>
+            
+            {/* NEW PROFILE / SETTINGS TRIGGER AT TOP RIGHT */}
+            <button 
+                onClick={() => setShowSettings(true)}
+                className={`w-10 h-10 rounded-full border-2 border-slate-700 flex items-center justify-center font-bold cursor-pointer hover:border-brand-500 transition-all overflow-hidden ml-1 ${profile.isGuest ? 'bg-slate-600 text-slate-300' : 'bg-brand-600 text-white shadow-lg shadow-brand-500/20'}`}
+                title="Profile & Settings"
+            >
+                {profile.avatar ? <img src={profile.avatar} alt="Profile" className="w-full h-full object-cover" /> : (profile.isGuest ? <i className="fa-solid fa-user-gear"></i> : profile.username?.charAt(0).toUpperCase() || profile.name.charAt(0).toUpperCase())}
+            </button>
         </div>
       </div>
 
