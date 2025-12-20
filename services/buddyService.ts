@@ -1,4 +1,3 @@
-
 import { supabase } from './supabaseClient';
 import { NearbyBuddy, BuddyRequest, BuddyMessage, UserProfile, DuelConfig } from '../types';
 
@@ -148,6 +147,7 @@ export const fetchMyBuddies = async (userId: string): Promise<UserProfile[]> => 
         id: b.other.id,
         username: b.other.username,
         name: b.other.username, // Mask name with username
+        email: "[Hidden]", // Added missing required property
         avatar: b.other.avatar_url,
         isLoggedIn: true,
         public_key: b.other.public_key
@@ -157,6 +157,7 @@ export const fetchMyBuddies = async (userId: string): Promise<UserProfile[]> => 
         id: b.other.id,
         username: b.other.username,
         name: b.other.username, // Mask name with username
+        email: "[Hidden]", // Added missing required property
         avatar: b.other.avatar_url,
         isLoggedIn: true,
         public_key: b.other.public_key

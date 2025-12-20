@@ -1,4 +1,3 @@
-
 import { DailyHistory, UserSettings, Badge, WalkSession, UserProfile, WeeklyPlan, HydrationLog, AdminUserView } from '../types';
 import { supabase } from './supabaseClient';
 
@@ -267,6 +266,7 @@ export const fetchAllUsersAdmin = async (): Promise<AdminUserView[]> => {
              const todayLog = dailyLogs?.find((l: any) => l.user_id === p.id);
              return {
                  id: p.id,
+                 username: p.username || 'unknown',
                  full_name: p.full_name || 'Unknown',
                  email: p.email,
                  avatar_url: p.avatar_url,
