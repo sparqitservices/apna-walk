@@ -108,7 +108,8 @@ export const VisualShareModal: React.FC<VisualShareModalProps> = ({ isOpen, onCl
                 disabled={generating}
                 className="w-full bg-gradient-to-r from-brand-600 to-emerald-600 hover:from-brand-500 hover:to-emerald-500 disabled:opacity-30 text-white font-black py-4 rounded-[1.5rem] shadow-xl shadow-brand-500/20 active:scale-[0.98] flex items-center justify-center gap-3 transition-all uppercase tracking-[4px] text-[10px]"
             >
-                <i className="fa-solid fa-share-nodes text-sm"></i> Share Achievement
+                <i className="fa-solid fa-share-nodes text-sm"></i> 
+                {type === 'quote' ? 'Share this Quote' : 'Share Achievement'}
             </button>
             
             <button 
@@ -121,11 +122,11 @@ export const VisualShareModal: React.FC<VisualShareModalProps> = ({ isOpen, onCl
         </div>
       </div>
 
-      {/* HIDDEN RENDER AREA */}
+      {/* HIDDEN RENDER AREA - Centered Logo & Added QR */}
       <div className="fixed left-[-9999px] top-0 pointer-events-none">
           <div 
             ref={cardRef} 
-            className="w-[500px] h-[650px] bg-[#020617] text-white p-12 flex flex-col relative overflow-hidden"
+            className="w-[500px] h-[720px] bg-[#020617] text-white p-12 flex flex-col relative overflow-hidden"
           >
               {/* Premium Background Elements */}
               <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-[#FF9933] via-white to-[#138808]"></div>
@@ -133,22 +134,16 @@ export const VisualShareModal: React.FC<VisualShareModalProps> = ({ isOpen, onCl
               <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-emerald-500/5 rounded-full blur-[120px] translate-y-1/2 -translate-x-1/4"></div>
               <div className="absolute inset-0 opacity-[0.04]" style={{backgroundImage: 'radial-gradient(#ffffff 2px, transparent 2px)', backgroundSize: '30px 30px'}}></div>
 
-              {/* Branding Header */}
-              <div className="flex justify-between items-center mb-10 relative z-10">
-                  <div className="flex flex-col items-start">
-                      <div className="bg-white/5 backdrop-blur-md px-5 py-3 rounded-2xl border border-white/10 flex items-center gap-3">
-                          <ApnaWalkLogo size={40} useGradient={false} />
-                      </div>
-                      <p className="text-[11px] text-brand-500 font-black uppercase tracking-[3px] mt-3 ml-2 italic">apnawalk.com</p>
-                  </div>
-                  <div className="text-right">
-                      <p className="text-[9px] text-slate-500 font-black uppercase tracking-[5px]">Performance Report</p>
-                      <p className="text-lg font-black text-white italic tracking-tighter leading-tight mt-1">ApnaWalk App</p>
+              {/* CENTERED LOGO HEADER */}
+              <div className="flex flex-col items-center mb-8 relative z-10">
+                  <div className="bg-white/5 backdrop-blur-md px-8 py-4 rounded-[2rem] border border-white/10 flex flex-col items-center shadow-2xl">
+                      <ApnaWalkLogo size={52} useGradient={true} />
+                      <p className="text-[12px] text-brand-400 font-black uppercase tracking-[6px] mt-3 italic">apnawalk.com</p>
                   </div>
               </div>
 
               {/* Content Core */}
-              <div className="flex-1 flex flex-col justify-center relative z-10">
+              <div className="flex-1 flex flex-col justify-center relative z-10 mb-8">
                   {type === 'quote' && (
                       <div className="text-center bg-white/5 backdrop-blur-xl p-10 rounded-[4rem] border border-white/10 shadow-2xl relative overflow-hidden">
                         <div className="absolute top-0 left-0 w-1.5 h-full bg-gradient-to-b from-[#FF9933] to-[#138808] opacity-50"></div>
@@ -195,15 +190,13 @@ export const VisualShareModal: React.FC<VisualShareModalProps> = ({ isOpen, onCl
                   )}
               </div>
 
-              {/* Enhanced Branding Footer */}
-              <div className="mt-10 pt-8 border-t border-white/10 relative z-10 flex flex-col gap-6">
-                  <div className="flex justify-between items-center">
+              {/* Enhanced Branding Footer with QR Code */}
+              <div className="mt-auto pt-8 border-t border-white/10 relative z-10 flex flex-col items-center gap-6">
+                  
+                  <div className="w-full flex justify-between items-center">
                       <div className="flex flex-col">
-                          <p className="text-[9px] text-slate-500 font-black uppercase tracking-[4px] mb-1.5">Connect with us</p>
-                          <div className="flex items-center gap-2">
-                              <span className="text-[9px] font-bold text-brand-500 uppercase tracking-widest bg-brand-500/10 px-2 py-1 rounded border border-brand-500/20">website url:</span>
-                              <p className="text-lg font-black text-white italic tracking-tighter leading-none">www.apnawalk.com</p>
-                          </div>
+                          <p className="text-[10px] text-slate-500 font-black uppercase tracking-[4px] mb-1">Download & Join</p>
+                          <p className="text-xl font-black text-white italic tracking-tighter leading-none">www.apnawalk.com</p>
                       </div>
                       
                       <div className="flex gap-3">
@@ -216,17 +209,27 @@ export const VisualShareModal: React.FC<VisualShareModalProps> = ({ isOpen, onCl
                       </div>
                   </div>
 
-                  {/* Bottom "Download App Now!" Section */}
-                  <div className="w-full text-center pb-2">
-                      <div className="inline-flex items-center gap-3 px-6 py-2.5 bg-gradient-to-r from-[#FF9933]/10 via-white/5 to-[#138808]/10 border border-white/10 rounded-full backdrop-blur-xl">
-                          <span className="w-1.5 h-1.5 bg-brand-500 rounded-full animate-pulse"></span>
-                          <p className="text-[11px] font-black text-white uppercase tracking-[8px] mr-[-8px]">Download App Now!</p>
+                  {/* QR SECTION */}
+                  <div className="flex flex-col items-center gap-4 w-full">
+                      <div className="inline-flex items-center gap-4 px-8 py-3 bg-gradient-to-r from-[#FF9933]/10 via-white/5 to-[#138808]/10 border border-white/10 rounded-[2rem] backdrop-blur-xl shadow-2xl">
+                          <span className="w-2 h-2 bg-brand-500 rounded-full animate-pulse"></span>
+                          <p className="text-[12px] font-black text-white uppercase tracking-[8px] mr-[-8px]">Download App Now!</p>
                       </div>
+                      
+                      {/* Scan Friendly QR Code */}
+                      <div className="p-3 bg-white rounded-3xl shadow-[0_0_30px_rgba(255,255,255,0.2)] border-2 border-brand-500/20">
+                          <img 
+                            src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=https://apnawalk.com&bgcolor=ffffff&color=020617" 
+                            alt="QR Code" 
+                            className="w-20 h-20"
+                          />
+                      </div>
+                      <p className="text-[9px] text-slate-500 font-black uppercase tracking-[3px] opacity-70">Scan to join the squad</p>
                   </div>
               </div>
               
               {/* Bottom Decorative Signature */}
-              <div className="absolute bottom-0 left-0 w-full h-1 bg-gradient-to-r from-[#FF9933] via-white to-[#138808] opacity-50"></div>
+              <div className="absolute bottom-0 left-0 w-full h-1 bg-gradient-to-r from-[#FF9933] via-white to-[#138808] opacity-40"></div>
           </div>
       </div>
     </div>
