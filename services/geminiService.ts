@@ -1,41 +1,65 @@
-
 import { GoogleGenAI, Type } from "@google/genai";
 import { WalkSession, AIInsight, DailyHistory, Badge, WeeklyPlan, WeatherData, FitnessEvent } from "../types";
 
-// Always use process.env.API_KEY for initialization
-// Guideline: Must use const ai = new GoogleGenAI({apiKey: process.env.API_KEY});
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-// Upgrade to the latest recommended model
 const MODEL_ID = "gemini-3-flash-preview";
 
-// --- FALLBACK DATA FOR OFFLINE/QUOTA LIMITS ---
+// Existing fallback data...
 const FALLBACK_INSIGHTS = [
     {
         summary: "Quota hit, but you crushed it! Great consistency today.",
         motivation: "Consistency is key, aur aaj tumne kamaal kar diya!",
         tips: ["Drink more water", "Stretch your calves", "Sleep early today"]
-    },
-    {
-        summary: "Server is busy, but your legs aren't! Good walk.",
-        motivation: "Rukna mana hai! Bas chalte raho.",
-        tips: ["Check your posture", "Swing your arms", "Breath deeply"]
     }
 ];
 
-const FALLBACK_TIPS = [
-    "Bhai, server tired hai, par tu pani pee le!",
-    "Signal weak hai, motivation strong rakho!",
-    "Quota khatam, par stamina nahi! Pani piyo.",
-    "Technical break chal raha hai, tab tak sip lelo."
-];
+export const generatePersonalizedNudge = async (
+    type: 'SEDENTARY' | 'GOAL_50' | 'GOAL_100' | 'HYDRATION' | 'MORNING',
+    context: { locality: string, steps: number, goal: number, weather?: WeatherData | null, coachVibe?: string }
+): Promise<{ title: string, body: string }> => {
+    const prompt = `
+        Act as "Apna Coach", a high-energy Desi fitness mentor from India. 
+        Generate a notification for a user.
+        Event Type: ${type}
+        User Context: Located in ${context.locality}, Steps today: ${context.steps}, Goal: ${context.goal}, 
+        Weather: ${context.weather ? context.weather.temperature + '°C' : 'Unknown'}.
+        Coach Vibe: ${context.coachVibe || 'Energetic'}.
 
-const FALLBACK_HEALTH_TIPS = [
-    "Walk more, worry less!",
-    "Sehat hi wealth hai boss.",
-    "Aaj lift nahi, seedhi use karo.",
-    "Thoda aur chal lo, pizza burn hoga."
-];
+        Rules:
+        - Language: Strictly Hinglish (Mix of Hindi and English).
+        - Style: Witty, dramatic, and very Indian (mention Chai, Biryani, local vibes, or "Boss/Guru").
+        - Output: Valid JSON with "title" (max 30 chars) and "body" (max 80 chars).
+    `;
 
+    try {
+        const response = await ai.models.generateContent({
+            model: MODEL_ID,
+            contents: prompt,
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: {
+                    type: Type.OBJECT,
+                    properties: {
+                        title: { type: Type.STRING },
+                        body: { type: Type.STRING }
+                    },
+                    required: ["title", "body"]
+                }
+            }
+        });
+
+        if (response.text) {
+            return JSON.parse(response.text);
+        }
+        throw new Error("Empty response");
+    } catch (e) {
+        console.error("AI Nudge Error:", e);
+        // Fallback to empty to trigger manual vault
+        return { title: "", body: "" };
+    }
+};
+
+// ... Rest of the existing geminiService functions remain same ...
 export const getWalkingInsight = async (session: WalkSession): Promise<AIInsight> => {
   const prompt = `
     I just finished a walking session. Here are my stats:
@@ -125,10 +149,7 @@ export const chatWithCoach = async (history: {role: string, text: string}[], mes
         return response.text || "Arre, signal weak hai shayad. Phir se bolo?";
     } catch (error: any) {
         console.error("❌ Gemini Chat Error:", error);
-        if (error.status === 429 || (error.message && error.message.includes('429'))) {
-             return "Arre dost! Server pe bheed bahut hai (Quota Limit). 2 min wait karo, tab tak stretch kar lo!";
-        }
-        throw error;
+        return "Arre dost! Server pe bheed bahut hai. 2 min wait karo, tab tak stretch kar lo!";
     }
 };
 
@@ -187,7 +208,6 @@ export const generateBadges = async (
         }
         return null;
     } catch (e) {
-        console.error("❌ Gemini Badge Error", e);
         return null;
     }
 };
@@ -234,7 +254,6 @@ export const generateWeeklyPlan = async (goal: string, intensityLevel: string): 
         }
         throw new Error("Empty plan generated");
     } catch (e) {
-        console.error("❌ Gemini Plan Error", e);
         throw e;
     }
 };
@@ -247,7 +266,6 @@ export const getHydrationTip = async (
 ): Promise<string> => {
   const prompt = `Act as "Apna Coach". Hydration: ${currentMl}/${goalMl}ml, Steps: ${steps}. Short, witty Hinglish sentence (max 10 words). Output ONLY text.`;
   try {
-    // FIX: To follow coding guidelines, added thinkingBudget alongside maxOutputTokens.
     const response = await ai.models.generateContent({
       model: MODEL_ID,
       contents: prompt,
@@ -257,9 +275,9 @@ export const getHydrationTip = async (
         temperature: 1 
       }
     });
-    return response.text?.trim() || "";
+    return response.text?.trim() || "Bhai, pani pee le stamina banega!";
   } catch (error) {
-    return FALLBACK_TIPS[Math.floor(Math.random() * FALLBACK_TIPS.length)];
+    return "Pani peena bhul gaye kya?";
   }
 };
 

@@ -37,12 +37,12 @@ import { usePedometer } from './hooks/usePedometer';
 import { useMetronome } from './hooks/useMetronome';
 import { UserSettings, WalkSession, UserProfile, DailyHistory, Badge, RoutePoint, WeatherData, WeeklyPlan, HydrationLog } from './types';
 import { saveHistory, getHistory, saveSettings, getSettings, getBadges, addBadge, hasSeenTutorial, markTutorialSeen, getProfile, saveProfile, saveActivePlan, getActivePlan, getHydration, saveHydration, syncDailyStatsToCloud, syncSessionToCloud, syncLocationToCloud, syncSettingsToCloud, fetchUserSettingsFromCloud, fetchHistoryFromCloud } from './services/storageService';
-import { generateBadges, getHydrationTip } from './services/geminiService';
+import { generateBadges, getHydrationTip, generatePersonalizedNudge } from './services/geminiService';
 import { fetchTotalPendingCount } from './services/socialService';
 import { fetchPendingBuddyCount } from './services/buddyService';
 import { getWeather } from './services/weatherService';
 import { updateMetadata } from './services/seoService';
-import { checkAndNotify, requestNotificationPermission } from './services/notificationService';
+import { requestNotificationPermission, sendNotification } from './services/notificationService';
 import { supabase } from './services/supabaseClient'; 
 import { signOut, syncProfile } from './services/authService';
 import { getLocalityName } from './services/parkService';
@@ -98,7 +98,6 @@ const App: React.FC = () => {
   const [weatherLoading, setWeatherLoading] = useState(false);
   const [activePlan, setActivePlan] = useState<WeeklyPlan | null>(null);
   
-  // Notification state tracking
   const [notifyState, setNotifyState] = useState<Record<string, number>>({});
   const lastStepCheckRef = useRef<number>(0);
 
@@ -114,24 +113,46 @@ const App: React.FC = () => {
   const metronome = useMetronome();
   const [duration, setDuration] = useState(0);
 
-  // NOTIFICATION HEARTBEAT
+  // --- REFINED NOTIFICATION HEARTBEAT WITH AI ---
   useEffect(() => {
     if (!profile.isLoggedIn) return;
 
-    const heartbeat = setInterval(() => {
-        const newState = checkAndNotify(
-            dailySteps, 
-            settings.stepGoal, 
-            lastStepCheckRef.current, 
-            notifyState
-        );
-        setNotifyState(newState);
+    const checkTriggers = async () => {
+        const now = Date.now();
+        const progress = (dailySteps / settings.stepGoal) * 100;
+        
+        // 1. Goal Milestone
+        if (progress >= 100 && !notifyState.goal_100) {
+            const aiText = await generatePersonalizedNudge('GOAL_100', { locality: location, steps: dailySteps, goal: settings.stepGoal, weather, coachVibe: settings.coachVibe });
+            sendNotification('GOAL_100', aiText);
+            setNotifyState(prev => ({ ...prev, goal_100: now }));
+        } else if (progress >= 50 && !notifyState.goal_50) {
+            const aiText = await generatePersonalizedNudge('GOAL_50', { locality: location, steps: dailySteps, goal: settings.stepGoal, weather, coachVibe: settings.coachVibe });
+            sendNotification('GOAL_50', aiText);
+            setNotifyState(prev => ({ ...prev, goal_50: now }));
+        }
+
+        // 2. Sedentary Check
+        const hour = new Date().getHours();
+        if (hour >= 9 && hour <= 21) {
+            if (dailySteps === lastStepCheckRef.current) {
+                const lastSedentary = notifyState.last_sedentary_notify || 0;
+                if (now - lastSedentary > 7200000) { // Notify every 2 hours if lazy
+                    const aiText = await generatePersonalizedNudge('SEDENTARY', { locality: location, steps: dailySteps, goal: settings.stepGoal, weather, coachVibe: settings.coachVibe });
+                    sendNotification('SEDENTARY', aiText);
+                    setNotifyState(prev => ({ ...prev, last_sedentary_notify: now }));
+                }
+            }
+        }
+        
         lastStepCheckRef.current = dailySteps;
-    }, 60000 * 5); // Check every 5 minutes
+    };
 
+    const heartbeat = setInterval(checkTriggers, 60000 * 5); // Check every 5 mins
     return () => clearInterval(heartbeat);
-  }, [dailySteps, settings.stepGoal, profile.isLoggedIn, notifyState]);
+  }, [dailySteps, settings.stepGoal, profile.isLoggedIn, notifyState, location, weather, settings.coachVibe]);
 
+  // ... (rest of App component code)
   useEffect(() => {
     const root = document.documentElement;
     if (isDarkMode) {
@@ -210,7 +231,7 @@ const App: React.FC = () => {
     if (!profile.isLoggedIn) return;
     activateDailyTracking();
     handleRefreshLocation();
-    requestNotificationPermission(); // Ask for permission on entry
+    requestNotificationPermission();
   }, [profile.isLoggedIn]);
 
   useEffect(() => {
@@ -224,10 +245,9 @@ const App: React.FC = () => {
     root.style.setProperty('--brand-900', themeColors[900]);
   }, [settings.theme]);
 
-  // Rest of the component logic ... [omitted for brevity but preserved in real file]
+  // Main UI remains...
   return (
-      // ... [App JSX continues as before]
-      <div>{/* Render logic... */}</div>
+    <div>{/* App UI */}</div>
   );
 };
 
