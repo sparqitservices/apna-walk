@@ -11,7 +11,78 @@
   font-family: inherit;
 }
 
-/* Animated Background Elements */
+/* Base state for the walking icon */
+.walk-icon {
+  display: inline-block;
+  vertical-align: middle;
+  animation: walk-idle-bounce 2s ease-in-out infinite;
+  filter: drop-shadow(0 0 4px rgba(76, 175, 80, 0.3));
+  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes walk-idle-bounce {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-5%) rotate(-2deg); }
+}
+
+/* Hover state for the entire logo group */
+.logo-root-container:hover .walk-icon {
+  animation: walk-active-pulse 0.8s ease-in-out infinite;
+  filter: drop-shadow(0 0 12px rgba(76, 175, 80, 0.6));
+  color: #4ade80; /* Brighter green on hover */
+}
+
+@keyframes walk-active-pulse {
+  0%, 100% { transform: scale(1) translateY(0); }
+  50% { transform: scale(1.15) translateY(-10%); }
+}
+
+/* Enhanced hover for the shimmer text */
+.logo-root-container:hover .walk-text-shimmer {
+  animation: premium-shimmer 1.5s cubic-bezier(0.4, 0, 0.2, 1) infinite; /* Speed up shimmer on hover */
+  transform: scale(1.05);
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.6)) 
+          drop-shadow(0 0 15px rgba(255, 153, 51, 0.3));
+}
+
+.walk-text-shimmer {
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  /* Ultra-vibrant Tricolor with a sharp liquid highlight */
+  background: linear-gradient(
+    110deg,
+    #FF9933 0%,    /* Deep Saffron */
+    #FFCC33 15%,   /* Bright Saffron */
+    #FFFFFF 30%,   /* White start */
+    #E0F7FA 45%,   /* Brilliant Sheen highlight (Cyan-White) */
+    #FFFFFF 60%,   /* White end */
+    #2E7D32 75%,   /* Rich Green */
+    #138808 100%   /* Deep Green */
+  );
+  
+  background-size: 300% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: #FF9933; 
+
+  animation: premium-shimmer 4s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  display: inline-block; 
+  padding-bottom: 2px;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.5)) 
+          drop-shadow(0 0 10px rgba(255, 153, 51, 0.15));
+}
+
+@keyframes premium-shimmer {
+  0% {
+    background-position: 150% center;
+  }
+  100% {
+    background-position: -150% center;
+  }
+}
+
+/* Background elements from original */
 .bg-pulse {
   position: absolute;
   top: 50%;
@@ -21,9 +92,6 @@
   height: 100%;
   pointer-events: none;
   z-index: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
 }
 
 .pulse-ring {
@@ -33,200 +101,8 @@
   animation: pulse-expand 4s ease-out infinite;
 }
 
-.pulse-ring:nth-child(1) { 
-  width: 200px; 
-  height: 200px; 
-  animation-delay: 0s; 
-  border-color: rgba(76, 175, 80, 0.2); /* Primary Green */
-}
-
-.pulse-ring:nth-child(2) { 
-  width: 280px; 
-  height: 280px; 
-  animation-delay: 1s; 
-  border-color: rgba(255, 152, 0, 0.2); /* Primary Orange */
-}
-
-.pulse-ring:nth-child(3) { 
-  width: 360px; 
-  height: 360px; 
-  animation-delay: 2s; 
-  border-color: rgba(76, 175, 80, 0.1);
-}
-
 @keyframes pulse-expand {
-  0% {
-    transform: scale(0.5);
-    opacity: 0;
-  }
-  50% {
-    opacity: 0.5;
-  }
-  100% {
-    transform: scale(1.2);
-    opacity: 0;
-  }
-}
-
-/* Heartbeat Line Background */
-.heartbeat-line {
-  position: absolute;
-  top: 50%;
-  left: 0;
-  right: 0;
-  height: 100px;
-  opacity: 0.15;
-  transform: translateY(-50%);
-  z-index: 0;
-  overflow: hidden;
-  width: 100%;
-}
-
-.heartbeat-svg {
-  width: 200%;
-  height: 100%;
-}
-
-@keyframes heartbeat-move {
-  0% { transform: translateX(0); }
-  100% { transform: translateX(-50%); }
-}
-
-.heartbeat-path {
-  animation: heartbeat-move 10s linear infinite;
-}
-
-/* Floating Footsteps */
-.footsteps {
-  position: absolute;
-  width: 100%;
-  height: 100%;
-  top: 0;
-  left: 0;
-  pointer-events: none;
-  z-index: 5;
-}
-
-.footstep {
-  position: absolute;
-  width: 20px;
-  height: 30px;
-  opacity: 0;
-  animation: footstep-float 4s ease-in-out infinite;
-}
-
-.footstep:nth-child(1) { left: 10%; top: 60%; animation-delay: 0s; }
-.footstep:nth-child(2) { left: 30%; top: 30%; animation-delay: 0.8s; }
-.footstep:nth-child(3) { right: 30%; top: 40%; animation-delay: 1.6s; transform: scaleX(-1); }
-.footstep:nth-child(4) { right: 10%; top: 70%; animation-delay: 2.4s; transform: scaleX(-1); }
-.footstep:nth-child(5) { left: 50%; top: 10%; animation-delay: 3.2s; }
-
-@keyframes footstep-float {
-  0% { opacity: 0; transform: translateY(10px) rotate(-15deg); }
-  20% { opacity: 0.3; }
-  80% { opacity: 0; transform: translateY(-30px) rotate(-15deg); }
-  100% { opacity: 0; }
-}
-
-/* Main Logo Text */
-.logo-text {
-  position: relative;
-  z-index: 10;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
-.brand-name {
-  font-weight: 900;
-  color: white;
-  letter-spacing: 4px;
-  margin: 0;
-  text-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  line-height: 1;
-}
-
-/* Walking icon integrated in text */
-.walk-icon {
-  display: inline-block;
-  margin: 0 0.2em;
-  vertical-align: middle;
-  animation: walk-bounce 1.5s ease-in-out infinite;
-  filter: drop-shadow(0 0 8px rgb(var(--brand-400) / 0.6));
-}
-
-@keyframes walk-bounce {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-10%); }
-}
-
-.tagline {
-  color: rgba(255, 255, 255, 0.8);
-  font-weight: 400;
-  letter-spacing: 2px;
-  margin-top: 1rem;
-  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
-  text-transform: uppercase;
-  font-size: 0.3em; /* Relative to brand name size */
-}
-
-/* Gradient text effect for headings */
-.gradient-text {
-  background: linear-gradient(90deg, #fff, rgb(var(--brand-400)), rgb(var(--brand-500)), #fff);
-  background-size: 200% auto;
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  animation: gradient-shift 4s linear infinite;
-}
-
-@keyframes gradient-shift {
-  0% { background-position: 0% center; }
-  100% { background-position: 200% center; }
-}
-
-/* Indian Flag Tricolor Shimmer Effect for 'Walk' text */
-.walk-text-shimmer {
-  /* Tiranga Palette: Saffron, White, Green */
-  background: linear-gradient(
-    110deg,
-    #FF9933 0%,    /* Saffron */
-    #FF9933 20%,
-    #FFFFFF 40%,   /* White */
-    #FFFFFF 60%,
-    #138808 80%,   /* Green */
-    #138808 100%
-  );
-  
-  background-size: 200% auto;
-  
-  /* Text Clip Magic */
-  -webkit-background-clip: text;
-  background-clip: text;
-  
-  /* Transparent fill to show gradient */
-  -webkit-text-fill-color: transparent;
-  color: #FF9933; 
-
-  /* Animation */
-  animation: shimmer-flow 5s linear infinite;
-  
-  /* Layout */
-  display: inline-block; 
-  padding-bottom: 2px;
-  
-  /* Subtle shadow to make it pop against any background */
-  filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.4));
-}
-
-@keyframes shimmer-flow {
-  0% {
-    background-position: 200% center;
-  }
-  100% {
-    background-position: -200% center;
-  }
+  0% { transform: scale(0.5); opacity: 0; }
+  50% { opacity: 0.5; }
+  100% { transform: scale(1.2); opacity: 0; }
 }

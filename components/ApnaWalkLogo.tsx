@@ -1,3 +1,4 @@
+
 import React from "react";
 import "./ApnaWalkLogo.css";
 
@@ -16,24 +17,30 @@ export const ApnaWalkLogo: React.FC<ApnaWalkLogoProps> = ({
 }) => {
   
   // Calculate font sizes proportional to the passed size prop
-  // Base text size
   const textSize = Math.max(20, size * 0.8);
-  const tagSize = Math.max(10, size * 0.35);
+  const iconSize = textSize * 0.9;
 
   return (
     <div
-      className={`flex flex-col items-center justify-center ${className}`}
+      className={`logo-root-container flex flex-col items-center justify-center ${className}`}
       role="banner"
       aria-label="Apna Walk logo"
     >
-      {/* Text Only Logo */}
-      <div className="flex flex-col leading-none justify-center items-start">
-          <span className="font-black tracking-tight text-dark-text leading-none flex items-baseline gap-1 drop-shadow-md" style={{ fontSize: `${textSize}px` }}>
-            Apna 
-            <span className={useGradient ? "walk-text-shimmer" : "text-apna-orange"}>
-                Walk
-            </span>
-          </span>
+      <div className="flex items-center leading-none justify-center gap-2 group cursor-pointer">
+          {/* Walking Icon with hover pulse */}
+          <div className="walk-icon-wrapper" style={{ fontSize: `${iconSize}px` }}>
+              <i className="fa-solid fa-person-walking walk-icon text-brand-500"></i>
+          </div>
+
+          {/* Brand Text */}
+          <div className="flex flex-col items-start leading-none">
+              <span className="font-black tracking-tight text-dark-text leading-none flex items-baseline gap-1 drop-shadow-lg" style={{ fontSize: `${textSize}px` }}>
+                Apna 
+                <span className={useGradient ? "walk-text-shimmer" : "text-apna-orange"}>
+                    Walk
+                </span>
+              </span>
+          </div>
       </div>
     </div>
   );

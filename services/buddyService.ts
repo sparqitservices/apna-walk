@@ -62,7 +62,7 @@ export const sendBuddyRequest = async (senderId: string, receiverId: string, mes
         .from('buddy_requests')
         .insert([{ sender_id: senderId, receiver_id: receiverId, message, status: 'pending' }]);
     if (error) {
-        if (error.code === '23505') throw new Error("Request already sent!");
+        if (error.code === '23505') throw new Error("Request already sent to this user!");
         throw error;
     }
 };
@@ -79,16 +79,50 @@ export const fetchPendingBuddyCount = async (userId: string): Promise<number> =>
 };
 
 export const fetchMyBuddyRequests = async (userId: string): Promise<BuddyRequest[]> => {
-    const { data, error } = await supabase
-        .from('buddy_requests')
-        .select('*, sender_profile:profiles(full_name, avatar_url)')
-        .eq('receiver_id', userId)
-        .eq('status', 'pending');
-    if (error) throw error;
-    return data || [];
+    try {
+        // We use a more robust selector to handle potential naming mismatches in the schema
+        const { data, error } = await supabase
+            .from('buddy_requests')
+            .select(`
+                *,
+                sender_profile:profiles!buddy_requests_sender_id_fkey (
+                    full_name,
+                    avatar_url
+                )
+            `)
+            .eq('receiver_id', userId)
+            .eq('status', 'pending')
+            .order('created_at', { ascending: false });
+
+        if (error) {
+            console.error("Supabase error fetching buddy requests:", error);
+            // Fallback: try without the alias if the above fails due to relationship name
+            const { data: fallbackData, error: fallbackError } = await supabase
+                .from('buddy_requests')
+                .select('*, profiles (full_name, avatar_url)')
+                .eq('receiver_id', userId)
+                .eq('status', 'pending');
+                
+            if (fallbackError) throw fallbackError;
+            
+            return (fallbackData || []).map((req: any) => ({
+                ...req,
+                sender_profile: req.profiles ? {
+                    full_name: req.profiles.full_name,
+                    avatar_url: req.profiles.avatar_url
+                } : undefined
+            }));
+        }
+        
+        return data || [];
+    } catch (e) {
+        console.error("fetchMyBuddyRequests critical error:", e);
+        return [];
+    }
 };
 
 export const respondToRequest = async (requestId: string, status: 'accepted' | 'declined', senderId: string, receiverId: string) => {
+    // 1. Update the request status
     const { error: requestError } = await supabase
         .from('buddy_requests')
         .update({ status })
@@ -96,11 +130,21 @@ export const respondToRequest = async (requestId: string, status: 'accepted' | '
     
     if (requestError) throw requestError;
 
+    // 2. If accepted, create the dual-sided buddy relationship
     if (status === 'accepted') {
-        const { error: buddyError } = await supabase
+        // We check if relationship already exists to prevent unique constraint errors
+        const { data: existing } = await supabase
             .from('buddies')
-            .insert([{ user1_id: senderId, user2_id: receiverId }]);
-        if (buddyError) throw buddyError;
+            .select('id')
+            .or(`and(user1_id.eq.${senderId},user2_id.eq.${receiverId}),and(user1_id.eq.${receiverId},user2_id.eq.${senderId})`)
+            .maybeSingle();
+
+        if (!existing) {
+            const { error: buddyError } = await supabase
+                .from('buddies')
+                .insert([{ user1_id: senderId, user2_id: receiverId }]);
+            if (buddyError) throw buddyError;
+        }
     }
 };
 

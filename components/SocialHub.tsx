@@ -45,6 +45,7 @@ export const SocialHub: React.FC<SocialHubProps> = ({ isOpen, onClose, profile }
   const [newChallengeName, setNewChallengeName] = useState('');
   const [newChallengeDesc, setNewChallengeDesc] = useState('');
   const [newChallengeTarget, setNewChallengeTarget] = useState(50000);
+  const [newChallengeDuration, setNewChallengeDuration] = useState(7); // Days
   const [inviteId, setInviteId] = useState('');
   const [invitedList, setInvitedList] = useState<string[]>([]);
 
@@ -94,33 +95,46 @@ export const SocialHub: React.FC<SocialHubProps> = ({ isOpen, onClose, profile }
   const handleCreateChallenge = async () => {
       if (!newChallengeName) return;
       const today = new Date();
-      const nextMonth = new Date(today.getFullYear(), today.getMonth() + 1, today.getDate());
+      const endDate = new Date();
+      endDate.setDate(today.getDate() + newChallengeDuration);
+
       try {
           await createCustomChallenge({
               name: newChallengeName,
-              description: newChallengeDesc || "A custom monthly challenge!",
+              description: newChallengeDesc || "A custom community challenge!",
               target_steps: newChallengeTarget,
               type: 'custom',
               start_date: today.toISOString().split('T')[0],
-              end_date: nextMonth.toISOString().split('T')[0]
+              end_date: endDate.toISOString().split('T')[0]
           }, profile.id!, invitedList);
+          
           setShowCreateChallenge(false);
           setNewChallengeName('');
           setNewChallengeDesc('');
           setNewChallengeTarget(50000);
+          setNewChallengeDuration(7);
           setInvitedList([]);
           loadData();
-          alert("Challenge created and friends invited! Chalo shuru karein!");
+          alert("Challenge created successfully! Friends have been invited.");
       } catch (e) {
           alert("Failed to create challenge. Check your connection.");
       }
   };
 
   const handleAddInvite = () => {
-      if (!inviteId.trim()) return;
-      if (invitedList.includes(inviteId.trim())) return;
-      setInvitedList([...invitedList, inviteId.trim()]);
+      const trimmed = inviteId.trim();
+      if (!trimmed) return;
+      if (invitedList.includes(trimmed)) return;
+      if (trimmed === profile.id) {
+          alert("You are already joined automatically!");
+          return;
+      }
+      setInvitedList([...invitedList, trimmed]);
       setInviteId('');
+  };
+
+  const removeInvited = (id: string) => {
+      setInvitedList(invitedList.filter(i => i !== id));
   };
 
   const handleUpdateGroup = async () => {
@@ -344,17 +358,52 @@ export const SocialHub: React.FC<SocialHubProps> = ({ isOpen, onClose, profile }
                 ) : (
                     <div className="flex-1 overflow-y-auto p-4 space-y-4 no-scrollbar">
                         <button onClick={() => setShowCreateChallenge(!showCreateChallenge)} className={`w-full py-4 border-2 border-dashed rounded-2xl text-sm font-black transition-all flex items-center justify-center gap-2 ${showCreateChallenge ? 'bg-orange-500/10 border-orange-500 text-orange-400' : 'bg-slate-800/40 border-slate-700 text-slate-500 hover:border-orange-500 hover:text-orange-500'}`}>
-                            <i className={`fa-solid ${showCreateChallenge ? 'fa-minus' : 'fa-plus'}`}></i> {showCreateChallenge ? 'Cancel Challenge' : 'Custom Challenge'}
+                            <i className={`fa-solid ${showCreateChallenge ? 'fa-minus' : 'fa-plus'}`}></i> {showCreateChallenge ? 'Cancel' : 'New Challenge'}
                         </button>
+                        
                         {showCreateChallenge && (
-                            <div className="bg-slate-800 p-4 rounded-2xl animate-fade-in border border-orange-500/30 shadow-xl space-y-3">
-                                <h5 className="text-white text-xs font-bold uppercase tracking-wider mb-2">Challenge Details</h5>
-                                <input className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-white focus:border-orange-500 outline-none" placeholder="Challenge Name" value={newChallengeName} onChange={e => setNewChallengeName(e.target.value)} />
-                                <textarea className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-xs text-white focus:border-orange-500 outline-none h-16 resize-none" placeholder="Description" value={newChallengeDesc} onChange={e => setNewChallengeDesc(e.target.value)} />
-                                <input type="number" className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-white focus:border-orange-500 outline-none" value={newChallengeTarget} onChange={e => setNewChallengeTarget(parseInt(e.target.value))} />
-                                <button onClick={handleCreateChallenge} disabled={!newChallengeName} className="w-full bg-orange-500 hover:bg-orange-600 text-white py-3 rounded-xl text-sm font-black transition-all shadow-lg mt-2">Create Challenge</button>
+                            <div className="bg-slate-800 p-5 rounded-3xl animate-fade-in border border-orange-500/30 shadow-2xl space-y-4">
+                                <h5 className="text-white text-xs font-black uppercase tracking-widest mb-1 text-center">Customize Challenge</h5>
+                                
+                                <div className="space-y-3">
+                                    <input className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-white focus:border-orange-500 outline-none" placeholder="Challenge Name" value={newChallengeName} onChange={e => setNewChallengeName(e.target.value)} />
+                                    <textarea className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-xs text-white focus:border-orange-500 outline-none h-20 resize-none" placeholder="Goal/Description (e.g. Morning 5k for a week!)" value={newChallengeDesc} onChange={e => setNewChallengeDesc(e.target.value)} />
+                                    
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <div>
+                                            <label className="text-[9px] text-slate-500 font-black uppercase ml-1">Target Steps</label>
+                                            <input type="number" className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-white focus:border-orange-500 outline-none" value={newChallengeTarget} onChange={e => setNewChallengeTarget(parseInt(e.target.value))} />
+                                        </div>
+                                        <div>
+                                            <label className="text-[9px] text-slate-500 font-black uppercase ml-1">Days</label>
+                                            <input type="number" className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-white focus:border-orange-500 outline-none" value={newChallengeDuration} onChange={e => setNewChallengeDuration(parseInt(e.target.value))} min="1" max="30" />
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="space-y-2 border-t border-slate-700 pt-3">
+                                    <label className="text-[9px] text-slate-500 font-black uppercase ml-1">Invite Friends (IDs)</label>
+                                    <div className="flex gap-2">
+                                        <input className="flex-1 bg-slate-900 border border-slate-700 rounded-xl p-3 text-xs text-white focus:border-orange-500 outline-none" placeholder="Paste Profile ID" value={inviteId} onChange={e => setInviteId(e.target.value)} />
+                                        <button onClick={handleAddInvite} className="bg-slate-700 hover:bg-slate-600 text-white px-3 rounded-xl transition-all"><i className="fa-solid fa-user-plus"></i></button>
+                                    </div>
+                                    
+                                    {invitedList.length > 0 && (
+                                        <div className="flex flex-wrap gap-2 mt-2">
+                                            {invitedList.map(id => (
+                                                <span key={id} className="bg-orange-500/10 border border-orange-500/20 text-orange-400 px-2 py-1 rounded-lg text-[9px] font-bold flex items-center gap-1">
+                                                    {id.substring(0, 8)}...
+                                                    <button onClick={() => removeInvited(id)} className="hover:text-white"><i className="fa-solid fa-xmark"></i></button>
+                                                </span>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+
+                                <button onClick={handleCreateChallenge} disabled={!newChallengeName} className="w-full bg-orange-500 hover:bg-orange-600 disabled:opacity-30 text-white py-3.5 rounded-2xl text-xs font-black uppercase tracking-widest transition-all shadow-lg active:scale-95">Launch Challenge</button>
                             </div>
                         )}
+
                         {challenges.map(c => (
                             <div key={c.id} onClick={() => openChallenge(c)} className={`p-4 rounded-2xl border cursor-pointer transition-all hover:scale-[1.02] active:scale-95 relative overflow-hidden ${selectedChallenge?.id === c.id ? 'bg-orange-600 border-orange-400 shadow-xl' : 'bg-slate-800/60 border-slate-700 hover:border-slate-500'}`}>
                                 <span className={`text-[9px] uppercase font-black tracking-[2px] ${selectedChallenge?.id === c.id ? 'text-orange-200' : 'text-orange-400'}`}>{c.type}</span>
@@ -559,6 +608,18 @@ export const SocialHub: React.FC<SocialHubProps> = ({ isOpen, onClose, profile }
                                 ? "Find your tribe! Create or join a local walking group to share your progress and motivate the squad." 
                                 : "Rise to the top! Compete in monthly or custom challenges with thousands of walkers across India."}
                         </p>
+                        {!profile.isGuest && (
+                            <div className="mt-8 p-4 bg-slate-800/40 border border-slate-700 rounded-2xl flex flex-col items-center gap-2">
+                                <p className="text-[10px] text-slate-500 uppercase font-black">Your Profile ID</p>
+                                <code className="text-brand-400 text-xs font-mono font-bold bg-black/30 px-3 py-1.5 rounded-lg border border-white/5">{profile.id}</code>
+                                <button 
+                                    onClick={() => { navigator.clipboard.writeText(profile.id!); alert("Copied! Share this with friends so they can invite you."); }}
+                                    className="text-[10px] text-slate-400 hover:text-white underline mt-1"
+                                >
+                                    Copy to share
+                                </button>
+                            </div>
+                        )}
                     </div>
                 )}
             </div>
