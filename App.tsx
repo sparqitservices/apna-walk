@@ -45,6 +45,7 @@ import { updateMetadata } from './services/seoService';
 import { scheduleReminders, requestNotificationPermission } from './services/notificationService';
 import { supabase } from './services/supabaseClient'; 
 import { signOut, syncProfile } from './services/authService';
+import { getLocalityName } from './services/parkService';
 import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 
 const THEMES = {
@@ -104,7 +105,7 @@ const App: React.FC = () => {
   const [earnedBadges, setEarnedBadges] = useState<Badge[]>([]);
   const [hydration, setHydration] = useState<HydrationLog>({ date: '', currentMl: 0, goalMl: 2500 });
   const [hydrationTip, setHydrationTip] = useState<string>("");
-  const [location, setLocation] = useState<string>("Lucknow, UP"); 
+  const [location, setLocation] = useState<string>("Detecting..."); 
   const [coords, setCoords] = useState<{lat: number, lng: number} | null>(null);
   const [weather, setWeather] = useState<WeatherData | null>(null);
   const [weatherLoading, setWeatherLoading] = useState(false);
@@ -270,32 +271,33 @@ const App: React.FC = () => {
   };
 
   const useDefaultLocation = () => {
-        const defLat = 26.8467;
-        const defLng = 80.9462;
-        setLocation("Lucknow, UP");
-        setCoords({ lat: defLat, lng: defLng });
-        fetchLocalWeather(defLat, defLng);
+        setLocation("Tap to set location");
+        setCoords(null);
+        setWeather(null);
   };
 
   const handleRefreshLocation = () => {
-    if (!navigator.geolocation) return;
+    if (!navigator.geolocation) {
+        setLocation("Geo disabled");
+        return;
+    }
     setLocation("Locating...");
     navigator.geolocation.getCurrentPosition(
         (pos) => {
             const { latitude, longitude } = pos.coords;
-            setLocation(`${latitude.toFixed(2)}°N, ${longitude.toFixed(2)}°E`);
+            getLocalityName(latitude, longitude).then(name => setLocation(name));
             setCoords({ lat: latitude, lng: longitude });
             fetchLocalWeather(latitude, longitude);
         },
         () => useDefaultLocation(),
-        { timeout: 10000 }
+        { timeout: 10000, enableHighAccuracy: true }
     );
   };
 
   useEffect(() => {
     if (!profile.isLoggedIn) return;
     activateDailyTracking();
-    useDefaultLocation();
+    handleRefreshLocation();
   }, [profile.isLoggedIn]);
 
   useEffect(() => {
@@ -499,11 +501,15 @@ const App: React.FC = () => {
 
       {/* NAVBAR: REFINED FOR BRAND FOCUS & HUB ACCESS */}
       <div className="flex justify-between items-center p-6 bg-dark-bg/95 backdrop-blur-sm text-dark-text sticky top-0 z-40 transition-colors border-b border-white/5">
-        <div className="flex items-center">
-           <ApnaWalkLogo size={36} showText={true} />
-           <div className="flex items-center gap-1 pl-3 border-l border-slate-800 ml-3 cursor-pointer hover:text-brand-500 transition-colors group" onClick={handleRefreshLocation}>
-                <i className="fa-solid fa-location-dot text-[10px] text-brand-500 group-hover:text-brand-400 transition-colors"></i>
-                <p className="text-slate-500 text-xs font-medium truncate max-w-[100px] group-hover:text-dark-text transition-colors">{location}</p>
+        <div 
+          className="flex flex-col items-start cursor-pointer group" 
+          onClick={handleRefreshLocation}
+          title="Tap to refresh location"
+        >
+           <ApnaWalkLogo size={36} showText={true} className="!items-start" />
+           <div className="flex items-center gap-1.5 mt-1 ml-0.5">
+                <i className={`fa-solid fa-location-dot text-[10px] transition-colors ${location === 'Detecting...' ? 'text-brand-500 animate-pulse' : 'text-brand-500 group-hover:text-brand-400'}`}></i>
+                <p className="text-slate-500 text-[10px] font-black uppercase tracking-[2px] truncate max-w-[180px] group-hover:text-dark-text transition-colors">{location}</p>
            </div>
         </div>
         <div className="flex gap-2.5 items-center">
@@ -644,6 +650,7 @@ const App: React.FC = () => {
                                     <div>
                                         <div className="flex items-center gap-2">
                                             <span className="text-white font-bold text-sm">{session.steps.toLocaleString()} Steps</span>
+                                            {/* FIX: Wrapped fallback CSS classes in quotes to prevent syntax error and restore JSX parsing context */}
                                             <span className={`text-[8px] font-black uppercase px-1.5 py-0.5 rounded border ${
                                                 session.type === 'Power Walk' ? 'border-orange-500/30 text-orange-400' :
                                                 session.type === 'Brisk Walk' ? 'border-brand-500/30 text-brand-400' :
