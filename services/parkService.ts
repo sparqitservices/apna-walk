@@ -1,17 +1,18 @@
-
 import { supabase } from './supabaseClient';
 import { Park, ParkReview } from '../types';
 
 /**
- * Fetches the locality name from coordinates using OpenStreetMap Nominatim.
+ * Fetches the locality name and country from coordinates using OpenStreetMap Nominatim.
  */
-export const getLocalityName = async (lat: number, lng: number): Promise<string> => {
+export const getLocalityName = async (lat: number, lng: number): Promise<{locality: string, country: string}> => {
     try {
         const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}`);
         const data = await res.json();
-        return data.address.suburb || data.address.neighbourhood || data.address.city_district || data.address.city || "Nearby Area";
+        const locality = data.address.suburb || data.address.neighbourhood || data.address.city_district || data.address.city || "Nearby Area";
+        const country = data.address.country || "";
+        return { locality, country };
     } catch (e) {
-        return "Unknown Locality";
+        return { locality: "Unknown Locality", country: "" };
     }
 };
 

@@ -135,9 +135,12 @@ export interface UserSettings {
   heightCm: number;
   strideLengthCm: number;
   stepGoal: number;
+  distanceGoal?: number; // In meters
+  calorieGoal?: number; // In Kcal
   sensitivity: number;
   enableLocation: boolean;
   theme: 'green' | 'blue' | 'orange' | 'purple' | 'pink';
+  coachVibe?: 'Energetic' | 'Strict' | 'Chill';
   notifications: {
     water: boolean;
     walk: boolean;

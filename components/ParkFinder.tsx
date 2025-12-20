@@ -48,8 +48,10 @@ export const ParkFinder: React.FC<ParkFinderProps> = ({ isOpen, onClose, profile
         navigator.geolocation.getCurrentPosition(async (pos) => {
             const { latitude, longitude } = pos.coords;
             setUserCoords({ lat: latitude, lng: longitude });
-            const locName = await getLocalityName(latitude, longitude);
-            setLocality(locName);
+            // FIX: getLocalityName returns an object { locality: string, country: string }.
+            // We extract only the locality string for the locality state.
+            const locData = await getLocalityName(latitude, longitude);
+            setLocality(locData.locality);
             handleAiDiscovery(latitude, longitude, activeCategory);
         }, (err) => {
             console.error("Loc access denied", err);

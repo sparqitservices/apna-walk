@@ -74,8 +74,11 @@ const App: React.FC = () => {
     heightCm: 175,
     strideLengthCm: 73,
     stepGoal: 6000,
+    distanceGoal: 5000,
+    calorieGoal: 300,
     sensitivity: 3,
     enableLocation: true,
+    coachVibe: 'Energetic',
     notifications: { water: true, walk: true, breath: true },
     theme: 'green'
   });
@@ -94,6 +97,7 @@ const App: React.FC = () => {
   const [hydration, setHydration] = useState<HydrationLog>({ date: '', currentMl: 0, goalMl: 2500 });
   const [hydrationTip, setHydrationTip] = useState<string>("");
   const [location, setLocation] = useState<string>("Detecting..."); 
+  const [country, setCountry] = useState<string>("");
   const [coords, setCoords] = useState<{lat: number, lng: number} | null>(null);
   const [weather, setWeather] = useState<WeatherData | null>(null);
   const [weatherLoading, setWeatherLoading] = useState(false);
@@ -161,7 +165,7 @@ const App: React.FC = () => {
 
   useEffect(() => {
     const savedSettings = getSettings();
-    if (savedSettings) setSettings(savedSettings);
+    if (savedSettings) setSettings(prev => ({ ...prev, ...savedSettings }));
     setHistory(getHistory());
     setEarnedBadges(getBadges());
     setActivePlan(getActivePlan());
@@ -174,7 +178,7 @@ const App: React.FC = () => {
                 setProfile(fullProfile);
                 saveProfile(fullProfile);
                 const cloudSettings = await fetchUserSettingsFromCloud(session.user.id);
-                if (cloudSettings) setSettings(cloudSettings);
+                if (cloudSettings) setSettings(prev => ({ ...prev, ...cloudSettings }));
                 const cloudHistory = await fetchHistoryFromCloud(session.user.id);
                 if (cloudHistory.length > 0) setHistory(cloudHistory);
             });
@@ -212,7 +216,10 @@ const App: React.FC = () => {
     navigator.geolocation.getCurrentPosition(
         (pos) => {
             const { latitude, longitude } = pos.coords;
-            getLocalityName(latitude, longitude).then(name => setLocation(name));
+            getLocalityName(latitude, longitude).then(data => {
+                setLocation(data.locality);
+                setCountry(data.country);
+            });
             setCoords({ lat: latitude, lng: longitude });
             fetchLocalWeather(latitude, longitude);
         },
@@ -314,7 +321,9 @@ const App: React.FC = () => {
            <ApnaWalkLogo size={32} showText={true} className="!items-start" />
            <div className="flex items-center gap-1.5 mt-0.5 ml-0.5">
                 <i className={`fa-solid fa-location-dot text-[10px] transition-colors ${location === 'Detecting...' ? 'text-brand-500 animate-pulse' : 'text-brand-500 group-hover:text-brand-400'}`}></i>
-                <p className="text-slate-500 text-[9px] font-black uppercase tracking-[2px] truncate max-w-[140px] group-hover:text-dark-text transition-colors">{location}</p>
+                <p className="text-slate-500 text-[9px] font-black uppercase tracking-[2px] truncate max-w-[200px] group-hover:text-dark-text transition-colors">
+                    {location}{country ? `, ${country}` : ""}
+                </p>
            </div>
         </div>
         <div className="flex gap-2.5 items-center">
