@@ -19,6 +19,19 @@ export const signInWithGoogle = async () => {
   return data;
 };
 
+/**
+ * Signs in using a Google ID Token (JWT) provided by Google One Tap.
+ */
+export const signInWithGoogleOneTap = async (idToken: string) => {
+  const { data, error } = await supabase.auth.signInWithIdToken({
+    provider: 'google',
+    token: idToken,
+  });
+
+  if (error) throw error;
+  return data;
+};
+
 export const signOut = async () => {
   const { error } = await supabase.auth.signOut();
   if (error) throw error;

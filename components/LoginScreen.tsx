@@ -1,24 +1,64 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ApnaWalkLogo } from './ApnaWalkLogo';
-import { signInWithGoogle } from '../services/authService';
+import { signInWithGoogle, signInWithGoogleOneTap } from '../services/authService';
 
 interface LoginScreenProps {
-  onLogin: (name: string, email: string) => void; // Kept for Guest flow compatibility
+  onLogin: (name: string, email: string) => void; 
   onGuest: () => void;
   onShowLegal: (type: 'privacy' | 'terms') => void;
 }
 
+declare const google: any;
+
 export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onGuest, onShowLegal }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  // Initialize Google One Tap
+  useEffect(() => {
+    // Only proceed if the Google GSI script has loaded
+    const initializeOneTap = () => {
+      if (typeof google !== 'undefined' && google.accounts && google.accounts.id) {
+        google.accounts.id.initialize({
+          // Replace with your actual client ID or use an environment variable
+          client_id: "680287114674-8b6g3id67v9sq6o47is6n9m2v991j2sh.apps.googleusercontent.com", 
+          callback: async (response: any) => {
+            setIsLoading(true);
+            try {
+              await signInWithGoogleOneTap(response.credential);
+              // App.tsx handles state sync via Supabase onAuthStateChange
+            } catch (err: any) {
+              console.error("One Tap Login Failed", err);
+              setErrorMsg("Automatic login failed. Please use the button.");
+              setIsLoading(false);
+            }
+          },
+          auto_select: false, // Don't log in automatically without prompt
+          cancel_on_tap_outside: true,
+        });
+
+        google.accounts.id.prompt((notification: any) => {
+          if (notification.isNotDisplayed()) {
+            console.log("One Tap skipped:", notification.getNotDisplayedReason());
+          } else if (notification.isSkippedMoment()) {
+            console.log("One Tap moment skipped:", notification.getSkippedReason());
+          } else if (notification.isDismissedMoment()) {
+            console.log("One Tap dismissed by user");
+          }
+        });
+      }
+    };
+
+    // Small delay to ensure script availability
+    const timer = setTimeout(initializeOneTap, 1000);
+    return () => clearTimeout(timer);
+  }, []);
 
   const handleGoogleLogin = async () => {
     setIsLoading(true);
     setErrorMsg(null);
     try {
         await signInWithGoogle();
-        // The app will reload/redirect due to OAuth, so we don't need to manually call onLogin here.
-        // App.tsx will handle the session check on mount.
     } catch (error: any) {
         console.error("Login Failed", error);
         setErrorMsg(error.message || "Failed to connect to Google.");
@@ -28,7 +68,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onGuest, onSh
 
   return (
     <div className="min-h-screen bg-dark-bg flex flex-col items-center justify-center p-6 relative overflow-hidden transition-colors duration-500">
-      {/* Background Ambience - Dynamic for Light/Dark */}
+      {/* Background Ambience */}
       <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-brand-500/10 via-dark-bg to-dark-bg z-0"></div>
       
       <div className="w-full max-w-md relative z-10 flex flex-col items-center">
@@ -89,15 +129,11 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onGuest, onSh
                 By continuing, you agree to our <a href="/terms-conditions" className="text-brand-500 hover:underline">Terms</a> & <a href="/privacy-policy" className="text-brand-500 hover:underline">Privacy Policy</a>.
              </p>
              
-             {/* Developer Credits - Desi Humor */}
              <div className="pt-6 pb-2 border-t border-dark-border/20 mt-4">
                 <p className="text-xs text-dark-muted">
                     Built with ❤️ & <span className="text-orange-500 font-bold">Masala Chai ☕</span> by 
                     <span className="block text-brand-500 font-bold mt-1 text-sm tracking-wide">Afzal Hameed</span>
                     <span className="text-[10px] block opacity-70">from Sparq IT Service</span>
-                </p>
-                <p className="text-[10px] text-slate-500 mt-2 italic font-medium">
-                    "Code phatne ki guarantee nahi, par aapke fat burn hone ki hai!" 🏃‍♂️🔥
                 </p>
              </div>
         </div>
