@@ -1,6 +1,6 @@
 
 import { supabase } from './supabaseClient';
-import { WalkingGroup, Challenge, GroupMember, GroupPost, ChallengeParticipant } from '../types';
+import { WalkingGroup, Challenge, GroupMember, GroupPost, ChallengeParticipant, GroupMemberStats } from '../types';
 
 // --- GROUPS ---
 
@@ -167,6 +167,14 @@ export const rejectMember = async (memberRecordId: string) => {
     if (error) throw error;
 };
 
+export const kickMember = async (memberRecordId: string) => {
+    const { error } = await supabase
+        .from('group_members')
+        .delete()
+        .eq('id', memberRecordId);
+    if (error) throw error;
+};
+
 export const fetchGroupMembers = async (groupId: string): Promise<GroupMember[]> => {
     const { data, error } = await supabase
         .from('group_members')
@@ -178,6 +186,37 @@ export const fetchGroupMembers = async (groupId: string): Promise<GroupMember[]>
         ...m,
         profile: m.profile
     }));
+};
+
+export const fetchGroupMemberStats = async (groupId: string): Promise<GroupMemberStats[]> => {
+    const today = new Date().toISOString().split('T')[0];
+    
+    // 1. Fetch active members
+    const { data: members, error: mError } = await supabase
+        .from('group_members')
+        .select('*, profile:profiles(full_name, avatar_url)')
+        .eq('group_id', groupId)
+        .eq('status', 'active');
+        
+    if (mError) throw mError;
+    
+    // 2. Fetch today's steps for these members
+    const userIds = members.map((m: any) => m.user_id);
+    const { data: logs, error: lError } = await supabase
+        .from('daily_logs')
+        .select('user_id, steps')
+        .eq('date', today)
+        .in('user_id', userIds);
+        
+    if (lError) throw lError;
+    
+    return members.map((m: any) => {
+        const log = logs?.find(l => l.user_id === m.user_id);
+        return {
+            ...m,
+            today_steps: log ? log.steps : 0
+        };
+    }).sort((a, b) => b.today_steps - a.today_steps);
 };
 
 export const fetchGroupPosts = async (groupId: string): Promise<GroupPost[]> => {

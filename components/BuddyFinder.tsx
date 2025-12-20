@@ -3,7 +3,8 @@ import React, { useState, useEffect } from 'react';
 import { UserProfile, NearbyBuddy, BuddyRequest } from '../types';
 import { 
     findNearbyBuddies, updateBuddyPreferences, updateLocation, 
-    sendBuddyRequest, fetchMyBuddyRequests, respondToRequest, fetchMyBuddies 
+    sendBuddyRequest, fetchMyBuddyRequests, respondToRequest, fetchMyBuddies,
+    searchUsers 
 } from '../services/buddyService';
 import { BuddyChat } from './BuddyChat';
 
@@ -17,6 +18,8 @@ export const BuddyFinder: React.FC<BuddyFinderProps> = ({ isOpen, onClose, profi
     const [view, setView] = useState<'discover' | 'requests' | 'my-buddies' | 'settings' | 'chat'>('discover');
     const [loading, setLoading] = useState(false);
     const [nearby, setNearby] = useState<NearbyBuddy[]>([]);
+    const [searchResults, setSearchResults] = useState<UserProfile[]>([]);
+    const [searchQuery, setSearchQuery] = useState('');
     const [requests, setRequests] = useState<BuddyRequest[]>([]);
     const [buddies, setBuddies] = useState<UserProfile[]>([]);
     const [selectedBuddy, setSelectedBuddy] = useState<UserProfile | null>(null);
@@ -45,7 +48,7 @@ export const BuddyFinder: React.FC<BuddyFinderProps> = ({ isOpen, onClose, profi
                     setNearby(results);
                     setLoading(false);
                 }, () => {
-                    alert("Location access needed to find buddies!");
+                    // Fail silently on discovery if geolocation fails, we still allow search
                     setLoading(false);
                 });
             } else if (view === 'requests') {
@@ -61,6 +64,16 @@ export const BuddyFinder: React.FC<BuddyFinderProps> = ({ isOpen, onClose, profi
             console.error(e);
             setLoading(false);
         }
+    };
+
+    const handleSearch = async () => {
+        if (searchQuery.length < 3) return;
+        setLoading(true);
+        try {
+            const results = await searchUsers(searchQuery, profile.id!);
+            setSearchResults(results);
+        } catch (e) { console.error(e); }
+        setLoading(false);
     };
 
     const handleSavePrefs = async () => {
@@ -79,14 +92,15 @@ export const BuddyFinder: React.FC<BuddyFinderProps> = ({ isOpen, onClose, profi
         setLoading(false);
     };
 
-    const handleSendRequest = async (buddy: NearbyBuddy) => {
+    const handleSendRequest = async (buddy: UserProfile | NearbyBuddy) => {
         try {
             const msg = prompt("Send a short intro message:", "Hey! Want to walk together?");
             if (msg === null) return;
             await sendBuddyRequest(profile.id!, buddy.id!, msg);
             alert("Request sent!");
             setNearby(prev => prev.filter(n => n.id !== buddy.id));
-        } catch (e) { alert("Already requested or failed."); }
+            setSearchResults(prev => prev.filter(s => s.id !== buddy.id));
+        } catch (e: any) { alert(e.message || "Failed to send request."); }
     };
 
     const handleRespond = async (req: BuddyRequest, status: 'accepted' | 'declined') => {
@@ -138,41 +152,86 @@ export const BuddyFinder: React.FC<BuddyFinderProps> = ({ isOpen, onClose, profi
 
                 {/* Content */}
                 <div className="flex-1 overflow-y-auto p-5 no-scrollbar bg-slate-900/20">
-                    {loading && (
-                        <div className="h-full flex flex-col items-center justify-center py-20 text-slate-500">
-                            <i className="fa-solid fa-circle-notch fa-spin text-3xl mb-4"></i>
-                            <p className="font-bold animate-pulse">Checking the neighborhood...</p>
-                        </div>
-                    )}
+                    {view === 'discover' && (
+                        <div className="space-y-6">
+                            {/* Search Bar */}
+                            <div className="flex gap-2">
+                                <div className="flex-1 relative">
+                                    <i className="fa-solid fa-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-500"></i>
+                                    <input 
+                                        type="text" 
+                                        placeholder="Search friends by name or email..." 
+                                        value={searchQuery}
+                                        onChange={e => setSearchQuery(e.target.value)}
+                                        onKeyDown={e => e.key === 'Enter' && handleSearch()}
+                                        className="w-full bg-slate-800 border border-slate-700 rounded-2xl pl-11 pr-4 py-3 text-sm text-white focus:border-brand-500 outline-none transition-all"
+                                    />
+                                </div>
+                                <button 
+                                    onClick={handleSearch}
+                                    className="bg-brand-600 text-white px-5 rounded-2xl font-black text-xs active:scale-95 transition-all shadow-lg"
+                                >
+                                    Search
+                                </button>
+                            </div>
 
-                    {!loading && view === 'discover' && (
-                        <div className="space-y-4">
-                            {nearby.length === 0 ? (
-                                <div className="text-center py-20 text-slate-600">
-                                    <i className="fa-solid fa-ghost text-5xl mb-4 opacity-30"></i>
-                                    <p className="font-bold">No one nearby is looking right now.</p>
-                                    <button onClick={() => setView('settings')} className="text-brand-500 text-sm mt-2 font-black underline">Update your status to 'Looking'</button>
+                            {loading ? (
+                                <div className="text-center py-10 text-slate-500">
+                                    <i className="fa-solid fa-circle-notch fa-spin text-3xl mb-4"></i>
+                                    <p className="font-bold">Checking the neighborhood...</p>
                                 </div>
                             ) : (
-                                nearby.map(buddy => (
-                                    <div key={buddy.id} className="bg-slate-800/40 border border-slate-700 rounded-2xl p-4 flex gap-4 items-center group hover:bg-slate-800/60 transition-all">
-                                        <div className="relative">
-                                            <img src={buddy.avatar || 'https://www.gravatar.com/avatar?d=mp'} className="w-16 h-16 rounded-2xl border-2 border-slate-700 object-cover" />
-                                            {buddy.is_verified && <i className="fa-solid fa-circle-check absolute -top-1 -right-1 text-blue-500 bg-white rounded-full text-xs"></i>}
+                                <>
+                                    {/* Search Results */}
+                                    {searchResults.length > 0 && (
+                                        <div className="space-y-4">
+                                            <h3 className="text-xs font-black text-slate-500 uppercase tracking-widest px-2">Search Results</h3>
+                                            {searchResults.map(buddy => (
+                                                <div key={buddy.id} className="bg-slate-800/60 border border-brand-500/30 rounded-2xl p-4 flex gap-4 items-center group hover:bg-slate-800/80 transition-all">
+                                                    <img src={buddy.avatar || 'https://www.gravatar.com/avatar?d=mp'} className="w-14 h-14 rounded-2xl border-2 border-slate-700 object-cover" />
+                                                    <div className="flex-1 min-w-0">
+                                                        <h4 className="text-white font-black truncate">{buddy.name}</h4>
+                                                        <p className="text-[10px] text-slate-400 mt-0.5 truncate">{buddy.email}</p>
+                                                    </div>
+                                                    <button onClick={() => handleSendRequest(buddy)} className="w-10 h-10 rounded-xl bg-brand-600 text-white flex items-center justify-center shadow-lg active:scale-90 transition-transform">
+                                                        <i className="fa-solid fa-user-plus text-xs"></i>
+                                                    </button>
+                                                </div>
+                                            ))}
                                         </div>
-                                        <div className="flex-1 min-w-0">
-                                            <div className="flex justify-between items-start">
-                                                <h4 className="text-white font-black truncate">{buddy.name}, {buddy.age}</h4>
-                                                <span className="text-[10px] bg-brand-500/10 text-brand-400 px-2 py-0.5 rounded-full font-bold">{(buddy.distance / 1000).toFixed(1)}km away</span>
+                                    )}
+
+                                    {/* Nearby Discover */}
+                                    <div className="space-y-4">
+                                        <h3 className="text-xs font-black text-slate-500 uppercase tracking-widest px-2">People Nearby</h3>
+                                        {nearby.length === 0 ? (
+                                            <div className="text-center py-10 text-slate-600">
+                                                <i className="fa-solid fa-location-crosshairs text-4xl mb-4 opacity-30"></i>
+                                                <p className="text-sm">No one active nearby at the moment.</p>
                                             </div>
-                                            <p className="text-[10px] text-slate-500 uppercase font-black tracking-widest mt-1"><i className="fa-solid fa-bolt mr-1"></i> {buddy.pace} Pace • {buddy.preferred_time}</p>
-                                            <p className="text-xs text-slate-400 mt-2 line-clamp-1 italic">"{buddy.bio || "Just looking for a walking buddy!"}"</p>
-                                        </div>
-                                        <button onClick={() => handleSendRequest(buddy)} className="w-10 h-10 rounded-xl bg-brand-600 text-white flex items-center justify-center shadow-lg active:scale-90 transition-transform">
-                                            <i className="fa-solid fa-paper-plane text-xs"></i>
-                                        </button>
+                                        ) : (
+                                            nearby.map(buddy => (
+                                                <div key={buddy.id} className="bg-slate-800/40 border border-slate-700 rounded-2xl p-4 flex gap-4 items-center group hover:bg-slate-800/60 transition-all">
+                                                    <div className="relative">
+                                                        <img src={buddy.avatar || 'https://www.gravatar.com/avatar?d=mp'} className="w-16 h-16 rounded-2xl border-2 border-slate-700 object-cover" />
+                                                        {buddy.is_verified && <i className="fa-solid fa-circle-check absolute -top-1 -right-1 text-blue-500 bg-white rounded-full text-xs"></i>}
+                                                    </div>
+                                                    <div className="flex-1 min-w-0">
+                                                        <div className="flex justify-between items-start">
+                                                            <h4 className="text-white font-black truncate">{buddy.name}, {buddy.age}</h4>
+                                                            <span className="text-[10px] bg-brand-500/10 text-brand-400 px-2 py-0.5 rounded-full font-bold">{(buddy.distance / 1000).toFixed(1)}km away</span>
+                                                        </div>
+                                                        <p className="text-[10px] text-slate-500 uppercase font-black tracking-widest mt-1"><i className="fa-solid fa-bolt mr-1"></i> {buddy.pace} Pace • {buddy.preferred_time}</p>
+                                                        <p className="text-xs text-slate-400 mt-2 line-clamp-1 italic">"{buddy.bio || "Just looking for a walking buddy!"}"</p>
+                                                    </div>
+                                                    <button onClick={() => handleSendRequest(buddy)} className="w-10 h-10 rounded-xl bg-brand-600 text-white flex items-center justify-center shadow-lg active:scale-90 transition-transform">
+                                                        <i className="fa-solid fa-paper-plane text-xs"></i>
+                                                    </button>
+                                                </div>
+                                            ))
+                                        )}
                                     </div>
-                                ))
+                                </>
                             )}
                         </div>
                     )}

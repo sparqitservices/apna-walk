@@ -1,3 +1,4 @@
+
 import React from 'react';
 
 interface RadialProgressProps {
@@ -63,7 +64,7 @@ export const RadialProgress: React.FC<RadialProgressProps> = ({
       </svg>
       
       {/* Inner Content */}
-      <div className="flex flex-col items-center justify-center z-10 text-center pointer-events-none">
+      <div className={`flex flex-col items-center justify-center z-10 text-center pointer-events-none ${!isActive ? 'animate-breathing' : ''}`}>
         
         {/* Trophy Icon on Goal Met */}
         {isGoalMet && (
@@ -81,7 +82,7 @@ export const RadialProgress: React.FC<RadialProgressProps> = ({
             {isGoalMet ? 'Goal Met!' : label}
         </span>
         <span className="text-dark-muted text-xs mt-1">Goal: {total.toLocaleString()}</span>
-        <div className={`mt-2 text-xs transition-all ${!isActive ? 'animate-breathing text-brand-400 font-bold' : 'text-dark-muted'}`}>
+        <div className={`mt-2 text-xs transition-all ${!isActive ? 'text-brand-400 font-bold' : 'text-dark-muted'}`}>
             {subLabel}
         </div>
       </div>

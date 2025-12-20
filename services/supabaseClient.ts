@@ -2,16 +2,28 @@
 import { createClient } from '@supabase/supabase-js';
 
 // Support both Vite (import.meta.env) and standard Node-style (process.env)
-const supabaseUrl = (import.meta as any).env?.VITE_SUPABASE_URL || "";
-const supabaseAnonKey = (import.meta as any).env?.VITE_SUPABASE_ANON_KEY || "";
+const getEnv = (key: string) => {
+  try {
+    // @ts-ignore
+    return import.meta.env?.[key] || process.env?.[key] || "";
+  } catch {
+    return "";
+  }
+};
 
-// If keys are missing, we export a mock-ish client or handle it in services
-// but createClient requires strings. We provide empty strings to avoid crash on import.
-export const supabase = createClient(
-  supabaseUrl, 
-  supabaseAnonKey
-);
+const supabaseUrl = getEnv('VITE_SUPABASE_URL');
+const supabaseAnonKey = getEnv('VITE_SUPABASE_ANON_KEY');
+
+/**
+ * Supabase createClient throws an error if the URL is empty or invalid.
+ * To allow the app to load and function in 'Guest Mode' even without credentials,
+ * we use placeholder strings if the environment variables are missing.
+ */
+const effectiveUrl = supabaseUrl || "https://placeholder-project.supabase.co";
+const effectiveKey = supabaseAnonKey || "placeholder-anon-key";
+
+export const supabase = createClient(effectiveUrl, effectiveKey);
 
 if (!supabaseUrl || !supabaseAnonKey) {
-  console.warn("⚠️ Supabase credentials missing. Cloud features (Login, Social, Leaderboards) will be disabled. Use 'Guest Mode' to test the app UI.");
+  console.warn("⚠️ Supabase credentials (VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY) are missing. Cloud-based features like Login, Social Hub, and Leaderboards are disabled. Please use 'Guest Mode' to explore the application UI.");
 }

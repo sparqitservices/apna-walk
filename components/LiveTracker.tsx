@@ -92,7 +92,7 @@ export const LiveTracker: React.FC<LiveTrackerProps> = ({ isOpen, onClose, profi
             setRoute(prev => {
                 if (prev.length > 0) {
                     const d = calculateDistance(prev[prev.length - 1], newPoint);
-                    if (d > 2) { // 2m threshold
+                    if (d > 2) { // 2m threshold for higher accuracy
                         setStats(s => ({
                             ...s,
                             distance: s.distance + d,
@@ -112,9 +112,7 @@ export const LiveTracker: React.FC<LiveTrackerProps> = ({ isOpen, onClose, profi
                 markerRef.current.setLatLng([newPoint.lat, newPoint.lng]);
                 polylineRef.current.addLatLng([newPoint.lat, newPoint.lng]);
             }
-// Fix: Removed 'distanceFilter' as it is not a property of PositionOptions in the standard Geolocation API.
-// Manual distance threshold is already handled in the callback above with `if (d > 2)`.
-        }, (err) => console.error(err), { enableHighAccuracy: true });
+        }, (err) => console.error(err), { enableHighAccuracy: true, maximumAge: 0, timeout: 3000 });
     };
 
     const stopTracking = async () => {

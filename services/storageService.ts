@@ -1,3 +1,4 @@
+
 import { DailyHistory, UserSettings, Badge, WalkSession, UserProfile, WeeklyPlan, HydrationLog, AdminUserView } from '../types';
 import { supabase } from './supabaseClient';
 
@@ -19,7 +20,7 @@ export const saveHistory = (steps: number, session?: WalkSession) => {
   const existingIndex = history.findIndex(h => h.date === today);
   
   if (existingIndex >= 0) {
-    history[existingIndex].steps += steps;
+    if (steps > 0) history[existingIndex].steps += steps;
     if (session) {
       if (!history[existingIndex].sessions) {
         history[existingIndex].sessions = [];
@@ -29,12 +30,11 @@ export const saveHistory = (steps: number, session?: WalkSession) => {
   } else {
     history.push({ 
       date: today, 
-      steps,
+      steps: steps > 0 ? steps : 0,
       sessions: session ? [session] : []
     });
   }
 
-  // Keep last 30 days for better analysis
   if (history.length > 30) {
     history = history.slice(history.length - 30);
   }
@@ -78,7 +78,6 @@ export const getBadges = (): Badge[] => {
 
 export const addBadge = (badge: Badge): Badge[] => {
     const current = getBadges();
-    // Prevent duplicates by ID or Title
     if (current.some(b => b.id === badge.id || b.title === badge.title)) {
         return current;
     }
@@ -108,19 +107,15 @@ export const getActivePlan = (): WeeklyPlan | null => {
   return p ? JSON.parse(p) : null;
 };
 
-// --- Hydration Methods ---
-
 export const getHydration = (): HydrationLog => {
     const today = new Date().toISOString().split('T')[0];
     const stored = localStorage.getItem(KEYS.HYDRATION);
     if (stored) {
         const log: HydrationLog = JSON.parse(stored);
-        // Reset if date changed
         if (log.date === today) {
             return log;
         }
     }
-    // Return default for today
     return { date: today, currentMl: 0, goalMl: 2500 };
 };
 
@@ -128,7 +123,77 @@ export const saveHydration = (log: HydrationLog) => {
     localStorage.setItem(KEYS.HYDRATION, JSON.stringify(log));
 };
 
-// --- CLOUD SYNC METHODS (SUPABASE) ---
+// --- CLOUD SYNC METHODS ---
+
+export const syncSettingsToCloud = async (userId: string, settings: UserSettings) => {
+    try {
+        const { error } = await supabase
+            .from('profiles')
+            .update({ settings: settings })
+            .eq('id', userId);
+        if (error) console.error("Cloud Settings Sync Error:", error);
+    } catch (e) { console.error(e); }
+};
+
+export const fetchUserSettingsFromCloud = async (userId: string): Promise<UserSettings | null> => {
+    try {
+        const { data, error } = await supabase
+            .from('profiles')
+            .select('settings')
+            .eq('id', userId)
+            .single();
+        if (error) return null;
+        return data?.settings as UserSettings || null;
+    } catch (e) { return null; }
+};
+
+export const fetchHistoryFromCloud = async (userId: string): Promise<DailyHistory[]> => {
+    try {
+        const { data: logs, error: logsError } = await supabase
+            .from('daily_logs')
+            .select('*')
+            .eq('user_id', userId)
+            .order('date', { ascending: true });
+        
+        if (logsError) throw logsError;
+
+        const { data: sessions, error: sessError } = await supabase
+            .from('walking_sessions')
+            .select('*')
+            .eq('user_id', userId);
+
+        if (sessError) throw sessError;
+
+        const history: DailyHistory[] = logs.map((log: any) => {
+            const dateStr = log.date;
+            const daySessions = sessions
+                .filter((s: any) => {
+                   const sDate = new Date(s.start_time).toISOString().split('T')[0];
+                   return sDate === dateStr;
+                })
+                .map((s: any) => ({
+                    id: s.id,
+                    startTime: s.start_time,
+                    steps: s.steps,
+                    durationSeconds: s.duration_seconds,
+                    distanceMeters: s.distance_meters,
+                    calories: Math.round(s.steps * 0.04),
+                    route: s.route_data ? JSON.parse(s.route_data) : undefined
+                }));
+
+            return {
+                date: dateStr,
+                steps: log.steps,
+                sessions: daySessions
+            };
+        });
+
+        return history;
+    } catch (e) {
+        console.error("Cloud History Fetch Error:", e);
+        return [];
+    }
+};
 
 export const syncDailyStatsToCloud = async (userId: string, date: string, steps: number, calories: number, distance: number) => {
     try {
@@ -144,9 +209,7 @@ export const syncDailyStatsToCloud = async (userId: string, date: string, steps:
             }, { onConflict: 'user_id, date' });
             
         if (error) console.error("Sync Error (Daily Stats):", error);
-    } catch (e) {
-        console.error("Sync Exception:", e);
-    }
+    } catch (e) { console.error("Sync Exception:", e); }
 };
 
 export const syncSessionToCloud = async (userId: string, session: WalkSession) => {
@@ -165,9 +228,7 @@ export const syncSessionToCloud = async (userId: string, session: WalkSession) =
             });
             
         if (error) console.error("Sync Error (Session):", error);
-    } catch (e) {
-        console.error("Sync Exception:", e);
-    }
+    } catch (e) { console.error("Sync Exception:", e); }
 };
 
 export const syncLocationToCloud = async (userId: string, locationName: string) => {
@@ -181,23 +242,19 @@ export const syncLocationToCloud = async (userId: string, locationName: string) 
             .eq('id', userId);
             
         if (error) console.error("Sync Error (Location):", error);
-    } catch (e) {
-        console.error("Sync Exception:", e);
-    }
+    } catch (e) { console.error("Sync Exception:", e); }
 };
 
 // --- ADMIN FETCH METHODS ---
 
 export const fetchAllUsersAdmin = async (): Promise<AdminUserView[]> => {
     try {
-        // 1. Get all profiles
         const { data: profiles, error: profileError } = await supabase
             .from('profiles')
             .select('*');
             
         if (profileError) throw profileError;
 
-        // 2. Get today's stats for everyone
         const today = new Date().toISOString().split('T')[0];
         const { data: dailyLogs, error: logsError } = await supabase
             .from('daily_logs')
@@ -206,7 +263,6 @@ export const fetchAllUsersAdmin = async (): Promise<AdminUserView[]> => {
 
         if (logsError) throw logsError;
 
-        // Merge data
         return profiles.map((p: any) => {
              const todayLog = dailyLogs?.find((l: any) => l.user_id === p.id);
              return {
@@ -242,7 +298,7 @@ export const fetchUserSessionsAdmin = async (userId: string): Promise<WalkSessio
             steps: s.steps,
             durationSeconds: s.duration_seconds,
             distanceMeters: s.distance_meters,
-            calories: Math.round(s.steps * 0.04), // approx
+            calories: Math.round(s.steps * 0.04),
             route: s.route_data ? JSON.parse(s.route_data) : undefined
         }));
     } catch (e) {

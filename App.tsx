@@ -37,9 +37,10 @@ import { VisualShareModal } from './components/VisualShareModal';
 import { usePedometer } from './hooks/usePedometer';
 import { useMetronome } from './hooks/useMetronome';
 import { UserSettings, WalkSession, UserProfile, DailyHistory, Badge, RoutePoint, WeatherData, WeeklyPlan, HydrationLog } from './types';
-import { saveHistory, getHistory, saveSettings, getSettings, getBadges, addBadge, hasSeenTutorial, markTutorialSeen, getProfile, saveProfile, saveActivePlan, getActivePlan, getHydration, saveHydration, syncDailyStatsToCloud, syncSessionToCloud, syncLocationToCloud } from './services/storageService';
+import { saveHistory, getHistory, saveSettings, getSettings, getBadges, addBadge, hasSeenTutorial, markTutorialSeen, getProfile, saveProfile, saveActivePlan, getActivePlan, getHydration, saveHydration, syncDailyStatsToCloud, syncSessionToCloud, syncLocationToCloud, syncSettingsToCloud, fetchUserSettingsFromCloud, fetchHistoryFromCloud } from './services/storageService';
 import { generateBadges, getHydrationTip } from './services/geminiService';
 import { fetchTotalPendingCount } from './services/socialService';
+import { fetchPendingBuddyCount } from './services/buddyService';
 import { getWeather } from './services/weatherService';
 import { updateMetadata } from './services/seoService';
 import { scheduleReminders, requestNotificationPermission } from './services/notificationService';
@@ -128,6 +129,7 @@ const App: React.FC = () => {
   const [showParkFinder, setShowParkFinder] = useState(false);
   const [showLiveTracker, setShowLiveTracker] = useState(false);
   const [totalPendingSocial, setTotalPendingSocial] = useState(0);
+  const [totalPendingBuddies, setTotalPendingBuddies] = useState(0);
   const [legalDoc, setLegalDoc] = useState<DocType>(null);
   const [currentSession, setCurrentSession] = useState<WalkSession | null>(null);
   const [selectedStat, setSelectedStat] = useState<'calories' | 'distance' | 'time' | null>(null);
@@ -161,7 +163,6 @@ const App: React.FC = () => {
   const lastBreathCheckRef = useRef<number>(Date.now());
   const syncTimeoutRef = useRef<any>(null);
 
-  // SEO Update Logic
   useEffect(() => {
     if (dailySteps > 0) {
       updateMetadata(
@@ -194,10 +195,22 @@ const App: React.FC = () => {
 
     supabase.auth.getSession().then(({ data: { session } }) => {
         if (session && session.user) {
-            syncProfile(session.user).then(p => {
+            syncProfile(session.user).then(async (p) => {
                 const fullProfile = { ...p, id: session.user.id };
                 setProfile(fullProfile);
                 saveProfile(fullProfile);
+                
+                // Cloud Sync Load
+                const cloudSettings = await fetchUserSettingsFromCloud(session.user.id);
+                if (cloudSettings) {
+                    setSettings(cloudSettings);
+                    saveSettings(cloudSettings);
+                }
+                const cloudHistory = await fetchHistoryFromCloud(session.user.id);
+                if (cloudHistory.length > 0) {
+                    setHistory(cloudHistory);
+                    localStorage.setItem('strideai_history', JSON.stringify(cloudHistory));
+                }
             });
         }
         setAuthLoading(false);
@@ -230,12 +243,13 @@ const App: React.FC = () => {
     if (profile.isLoggedIn && !profile.isGuest && profile.id) {
         const updatePending = () => {
             fetchTotalPendingCount(profile.id!).then(setTotalPendingSocial);
+            fetchPendingBuddyCount(profile.id!).then(setTotalPendingBuddies);
         };
         updatePending();
         const interval = setInterval(updatePending, 30000);
         return () => clearInterval(interval);
     }
-  }, [profile.isLoggedIn, profile.isGuest, profile.id, showSocialHub]);
+  }, [profile.isLoggedIn, profile.isGuest, profile.id, showSocialHub, showBuddyFinder]);
 
   useEffect(() => {
       if (!profile.isLoggedIn || profile.isGuest || !profile.id) return;
@@ -249,19 +263,6 @@ const App: React.FC = () => {
       return () => { if (syncTimeoutRef.current) clearTimeout(syncTimeoutRef.current); };
   }, [dailySteps, profile.id, profile.isLoggedIn, profile.isGuest]);
   
-  useEffect(() => {
-      const handleOnline = () => {
-          if (profile.isLoggedIn && !profile.isGuest && profile.id && dailySteps > 0) {
-              const today = new Date().toISOString().split('T')[0];
-              const dist = (dailySteps * settings.strideLengthCm) / 100;
-              const cal = Math.round((dailySteps * 0.04) * (settings.weightKg / 70));
-              syncDailyStatsToCloud(profile.id, today, dailySteps, cal, dist);
-          }
-      };
-      window.addEventListener('online', handleOnline);
-      return () => window.removeEventListener('online', handleOnline);
-  }, [profile, dailySteps]);
-
   const fetchLocalWeather = async (lat: number, lng: number) => {
     setWeatherLoading(true);
     const data = await getWeather(lat, lng);
@@ -367,7 +368,7 @@ const App: React.FC = () => {
         else if (sessionSort === 'steps') return b.session.steps - a.session.steps;
         return b.session.startTime - a.session.startTime;
     });
-    return { chartData, bestDay, longestSession, displaySessions: filteredSessions.slice(0, 10) };
+    return { chartData, bestDay, longestSession, displaySessions: filteredSessions };
   }, [history, historyRange, sessionSort, historyFilter]);
 
   useEffect(() => {
@@ -377,15 +378,21 @@ const App: React.FC = () => {
           watchIdRef.current = navigator.geolocation.watchPosition(
               (position) => {
                   if (position.coords.accuracy > 30) return;
-                  const newPoint = { lat: position.coords.latitude, lng: position.coords.longitude, timestamp: Date.now() };
+                  const newPoint = { 
+                      lat: position.coords.latitude, 
+                      lng: position.coords.longitude, 
+                      timestamp: Date.now() 
+                  };
                   setRoute(prev => {
                       if (prev.length === 0) return [newPoint];
-                      if (calcDistance(prev[prev.length - 1].lat, prev[prev.length - 1].lng, newPoint.lat, newPoint.lng) > 3) return [...prev, newPoint];
+                      if (calcDistance(prev[prev.length - 1].lat, prev[prev.length - 1].lng, newPoint.lat, newPoint.lng) > 2) {
+                          return [...prev, newPoint];
+                      }
                       return prev;
                   });
               },
               () => setGpsError(true),
-              { enableHighAccuracy: true, maximumAge: 0, timeout: 5000 }
+              { enableHighAccuracy: true, maximumAge: 0, timeout: 3000 }
           );
       } else setGpsError(true);
     } else {
@@ -421,8 +428,8 @@ const App: React.FC = () => {
         const spm = duration > 0 ? (finalSteps / (duration / 60)) : 0;
         let sessionType: WalkSession['type'] = 'Normal Walk';
         if (duration > 2700) sessionType = 'Long Walk';
-        else if (spm > 120) sessionType = 'Power Walk';
-        else if (spm > 100) sessionType = 'Brisk Walk';
+        else if (spm > 135) sessionType = 'Power Walk';
+        else if (spm > 110) sessionType = 'Brisk Walk';
 
         const sessionData: WalkSession = { id: `sess-${Date.now()}`, startTime: Date.now() - (duration * 1000), steps: finalSteps, distanceMeters: (finalSteps * settings.strideLengthCm) / 100, calories: Math.round((finalSteps * 0.04) * (settings.weightKg / 70)), durationSeconds: duration, route: route, type: sessionType };
         setCurrentSession(sessionData);
@@ -456,7 +463,15 @@ const App: React.FC = () => {
   const closeTutorial = () => { setShowTutorial(false); markTutorialSeen(); };
   const handleGuest = () => { const newProfile = { name: 'Guest', email: '', isLoggedIn: true, isGuest: true }; setProfile(newProfile); saveProfile(newProfile); checkTutorial(); };
   const handleLogout = async () => { if(!profile.isGuest) await signOut(); setProfile({ name: '', email: '', isLoggedIn: false, isGuest: false }); saveProfile({ name: '', email: '', isLoggedIn: false, isGuest: false }); setShowSettings(false); };
-  const handleSaveData = (newSettings: UserSettings, newProfile: UserProfile) => { setSettings(newSettings); saveSettings(newSettings); setProfile(newProfile); saveProfile(newProfile); };
+  const handleSaveData = (newSettings: UserSettings, newProfile: UserProfile) => { 
+      setSettings(newSettings); 
+      saveSettings(newSettings); 
+      setProfile(newProfile); 
+      saveProfile(newProfile); 
+      if (newProfile.id && !newProfile.isGuest) {
+          syncSettingsToCloud(newProfile.id, newSettings);
+      }
+  };
   const handleSavePlan = (plan: WeeklyPlan) => { setActivePlan(plan); saveActivePlan(plan); };
   const handleRemovePlan = () => { setActivePlan(null); saveActivePlan(null); };
   const handleHydrationUpdate = (newLog: HydrationLog) => { setHydration(newLog); saveHydration(newLog); lastWaterCheckRef.current = Date.now(); };
@@ -465,15 +480,6 @@ const App: React.FC = () => {
   const handleShare = async () => { const text = `I just walked ${dailySteps} steps with ApnaWalk!`; if (navigator.share) { try { await navigator.share({ title: 'ApnaWalk', text, url: window.location.href }); } catch (err) {} } else setShowShareModal(true); };
   const handleQuoteShare = (quote: {text: string, author: string}) => setVisualShare({ isOpen: true, type: 'quote', data: quote });
   const handleStatsShare = (session: WalkSession) => setVisualShare({ isOpen: true, type: 'stats', data: session });
-
-  const getTypeColor = (type?: string) => {
-      switch(type) {
-          case 'Power Walk': return 'text-orange-400 bg-orange-500/10 border-orange-500/30';
-          case 'Brisk Walk': return 'text-brand-400 bg-brand-500/10 border-brand-500/30';
-          case 'Long Walk': return 'text-purple-400 bg-purple-500/10 border-purple-500/30';
-          default: return 'text-blue-400 bg-blue-500/10 border-blue-500/30';
-      }
-  };
 
   if (authLoading) return <div className="min-h-screen bg-dark-bg flex items-center justify-center"><div className="w-12 h-12 border-4 border-brand-500 border-t-transparent rounded-full animate-spin"></div></div>;
   if (!profile.isLoggedIn) return <><LoginScreen onLogin={() => {}} onGuest={handleGuest} onShowLegal={(type) => setLegalDoc(type)} /><LegalModal isOpen={!!legalDoc} type={legalDoc} onClose={() => setLegalDoc(null)} /></>;
@@ -511,7 +517,14 @@ const App: React.FC = () => {
         {!motionPermissionGranted && !profile.isGuest && <div className="w-full bg-brand-500/10 border border-brand-500/30 text-brand-600 p-3 rounded-lg text-sm mb-4 text-center cursor-pointer" onClick={() => activateDailyTracking()}><i className="fa-solid fa-person-walking mr-2"></i>Tap here to enable step counting</div>}
 
         <div className="flex flex-col items-center justify-center mb-8">
-            <RadialProgress current={isTrackingSession ? sessionSteps : dailySteps} total={settings.stepGoal} label={isTrackingSession ? "Workout Steps" : "Today's Steps"} subLabel={isTrackingSession ? "Workout Active" : "Auto-Recording"} isActive={isTrackingSession} onClick={handleToggleTracking} />
+            <RadialProgress 
+              current={isTrackingSession ? sessionSteps : dailySteps} 
+              total={settings.stepGoal} 
+              label={isTrackingSession ? "Workout Steps" : "Today's Steps"} 
+              subLabel={isTrackingSession ? "Workout Active" : "Tap to Start Workout"} 
+              isActive={isTrackingSession} 
+              onClick={handleToggleTracking} 
+            />
             <StatsGrid calories={displayCalories} distance={displayDistance} duration={duration} onStatClick={setSelectedStat} />
             <div className="w-full max-w-md space-y-4">
                 <div className="grid grid-cols-4 gap-3">
@@ -540,6 +553,7 @@ const App: React.FC = () => {
                         <button onClick={() => setShowBuddyFinder(true)} className="bg-gradient-to-r from-apna-navy to-slate-900 border border-slate-700 p-4 rounded-3xl flex flex-col justify-center items-start shadow-xl hover:border-blue-500/50 transition-all group h-32 relative overflow-hidden">
                             <div className="w-8 h-8 rounded-xl bg-blue-900/30 flex items-center justify-center text-blue-400 group-hover:scale-110 group-hover:bg-blue-500 group-hover:text-white transition-all mb-3 shadow-inner relative z-10"><i className="fa-solid fa-people-arrows"></i></div>
                             <div className="text-white font-black text-[11px] uppercase tracking-tighter relative z-10">Buddy</div>
+                            {totalPendingBuddies > 0 && <div className="absolute top-2 right-2 bg-red-500 text-white text-[10px] font-black w-5 h-5 rounded-full flex items-center justify-center border-2 border-slate-900 shadow-lg animate-bounce z-20">{totalPendingBuddies}</div>}
                         </button>
                         <button onClick={() => setShowParkFinder(true)} className="bg-gradient-to-r from-apna-navy to-slate-900 border border-slate-700 p-4 rounded-3xl flex flex-col justify-center items-start shadow-xl hover:border-emerald-500/50 transition-all group h-32 relative overflow-hidden">
                             <div className="w-8 h-8 rounded-xl bg-emerald-900/30 flex items-center justify-center text-emerald-400 group-hover:scale-110 group-hover:bg-emerald-500 group-hover:text-white transition-all mb-3 shadow-inner relative z-10"><i className="fa-solid fa-tree"></i></div>
@@ -562,6 +576,7 @@ const App: React.FC = () => {
             <DailyQuote onShare={handleQuoteShare} />
             {dailySteps > 0 && <button onClick={handleShare} className="w-full md:w-auto mx-auto flex items-center justify-center gap-2 text-sm font-bold text-brand-500 bg-brand-500/10 px-8 py-4 rounded-full hover:bg-brand-500/20 transition-all border border-brand-500/20 shadow-lg"><i className="fa-solid fa-share-nodes"></i> Share Progress</button>}
             <Achievements totalSteps={totalLifetimeSteps} earnedBadges={earnedBadges} />
+            
             <div className="bg-dark-card p-6 rounded-3xl border border-dark-border shadow-xl">
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
                     <h3 className="font-black text-xl text-white tracking-tighter italic">Activity History</h3>
@@ -577,7 +592,75 @@ const App: React.FC = () => {
                         </div>
                     </div>
                 </div>
-                <div className="h-48 w-full mb-6"><ResponsiveContainer width="100%" height="100%"><BarChart data={analytics.chartData}><XAxis dataKey="date" tickFormatter={(val) => val.substring(5)} axisLine={false} tickLine={false} tick={{ fill: '#475569', fontSize: 10, fontWeight: 'bold' }} dy={10} /><Tooltip cursor={{ fill: 'rgba(255,255,255,0.05)' }} contentStyle={{ backgroundColor: 'var(--card-color)', border: '1px solid var(--border-color)', borderRadius: '16px', color: 'var(--text-color)', fontWeight: 'bold' }} /><Bar dataKey="steps" radius={[6, 6, 6, 6]}>{analytics.chartData.map((entry, index) => (<Cell key={`cell-${index}`} fill={entry.steps >= settings.stepGoal ? '#4CAF50' : '#374151'} />))}</Bar></BarChart></ResponsiveContainer></div>
+
+                <div className="h-48 w-full mb-8">
+                    <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={analytics.chartData}>
+                            <XAxis dataKey="date" tickFormatter={(val) => val.substring(5)} axisLine={false} tickLine={false} tick={{ fill: '#475569', fontSize: 10, fontWeight: 'bold' }} dy={10} />
+                            <Tooltip cursor={{ fill: 'rgba(255,255,255,0.05)' }} contentStyle={{ backgroundColor: 'var(--card-color)', border: '1px solid var(--border-color)', borderRadius: '16px', color: 'var(--text-color)', fontWeight: 'bold' }} />
+                            <Bar dataKey="steps" radius={[6, 6, 6, 6]}>
+                                {analytics.chartData.map((entry, index) => (<Cell key={`cell-${index}`} fill={entry.steps >= settings.stepGoal ? '#4CAF50' : '#374151'} />))}
+                            </Bar>
+                        </BarChart>
+                    </ResponsiveContainer>
+                </div>
+
+                <div className="space-y-4">
+                    <div className="flex justify-between items-center px-1">
+                        <h4 className="text-[10px] font-black uppercase text-slate-500 tracking-widest">Recent Sessions</h4>
+                        <div className="flex gap-2">
+                            <select 
+                                value={sessionSort} 
+                                onChange={(e) => setSessionSort(e.target.value as any)}
+                                className="bg-transparent text-[10px] font-bold text-brand-500 uppercase outline-none cursor-pointer"
+                            >
+                                <option value="recent">By Date</option>
+                                <option value="steps">By Steps</option>
+                                <option value="longest">By Distance</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div className="grid gap-3 max-h-[320px] overflow-y-auto no-scrollbar">
+                        {analytics.displaySessions.length > 0 ? analytics.displaySessions.map(({ date, session }, idx) => (
+                            <div key={session.id || idx} className="bg-slate-800/30 border border-slate-700/50 p-4 rounded-2xl flex justify-between items-center group hover:bg-slate-800/50 transition-all">
+                                <div className="flex items-center gap-4">
+                                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-lg ${
+                                        session.type === 'Power Walk' ? 'bg-orange-500/10 text-orange-500' :
+                                        session.type === 'Brisk Walk' ? 'bg-brand-500/10 text-brand-500' :
+                                        session.type === 'Long Walk' ? 'bg-blue-500/10 text-blue-500' : 'bg-slate-700/30 text-slate-400'
+                                    }`}>
+                                        <i className={`fa-solid ${session.type === 'Long Walk' ? 'fa-route' : 'fa-person-walking'}`}></i>
+                                    </div>
+                                    <div>
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-white font-bold text-sm">{session.steps.toLocaleString()} Steps</span>
+                                            <span className={`text-[8px] font-black uppercase px-1.5 py-0.5 rounded border ${
+                                                session.type === 'Power Walk' ? 'border-orange-500/30 text-orange-400' :
+                                                session.type === 'Brisk Walk' ? 'border-brand-500/30 text-brand-400' :
+                                                session.type === 'Long Walk' ? 'border-blue-500/30 text-blue-400' : 'border-slate-700 text-slate-500'
+                                            }`}>{session.type || 'Normal Walk'}</span>
+                                        </div>
+                                        <div className="text-[10px] text-slate-500 font-medium mt-0.5">
+                                            {new Date(session.startTime).toLocaleDateString()} • {Math.floor(session.durationSeconds / 60)} min • {(session.distanceMeters / 1000).toFixed(2)} km
+                                        </div>
+                                    </div>
+                                </div>
+                                <button 
+                                    onClick={() => handleStatsShare(session)}
+                                    className="w-8 h-8 rounded-full bg-slate-700/50 text-slate-500 flex items-center justify-center opacity-0 group-hover:opacity-100 hover:text-brand-400 hover:bg-slate-700 transition-all"
+                                >
+                                    <i className="fa-solid fa-share-nodes text-xs"></i>
+                                </button>
+                            </div>
+                        )) : (
+                            <div className="text-center py-10 opacity-30">
+                                <i className="fa-solid fa-shoe-prints text-3xl mb-2"></i>
+                                <p className="text-xs font-bold uppercase tracking-widest">No matching sessions</p>
+                            </div>
+                        )}
+                    </div>
+                </div>
             </div>
         </div>
         

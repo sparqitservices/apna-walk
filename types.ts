@@ -55,46 +55,17 @@ export interface UserProfile {
   interests?: string[];
   is_looking_for_buddy?: boolean;
   is_verified?: boolean;
+  public_key?: string;
 }
 
-// --- Park Finder Types ---
-
-export interface Park {
-  id: string;
-  name: string;
-  address: string;
-  city?: string;
-  coordinates: {
-    lat: number;
-    lng: number;
-  };
-  google_place_id?: string;
-  facilities: {
-    trail: boolean;
-    bench: boolean;
-    washroom: boolean;
-    water: boolean;
-    lighting: boolean;
-    parking?: boolean;
-  };
-  rating_avg: number;
-  review_count?: number;
-  photo_url?: string;
-  distance?: number; // In meters, from user
-  visitor_count?: number; // Active in last hour
-}
-
-export interface ParkReview {
-  id: string;
-  park_id: string;
-  user_id: string;
-  rating: number;
-  review_text: string;
-  created_at: string;
-  profile?: {
-    full_name: string;
-    avatar_url: string;
-  };
+export interface DuelConfig {
+  target_steps: number;
+  status: 'pending' | 'active' | 'finished' | 'declined';
+  start_steps_sender: number;
+  start_steps_receiver: number;
+  winner_id?: string;
+  current_steps_sender?: number;
+  current_steps_receiver?: number;
 }
 
 export interface BuddyRequest {
@@ -116,6 +87,9 @@ export interface BuddyMessage {
   receiver_id: string;
   content: string;
   is_read: boolean;
+  is_encrypted?: boolean;
+  audio_url?: string;
+  duel_config?: DuelConfig;
   created_at: string;
 }
 
@@ -247,6 +221,10 @@ export interface GroupMember {
   }
 }
 
+export interface GroupMemberStats extends GroupMember {
+  today_steps: number;
+}
+
 export interface GroupPost {
   id: string;
   user_id: string;
@@ -278,4 +256,45 @@ export interface ChallengeParticipant {
     full_name: string;
     avatar_url: string;
   }
+}
+
+/**
+ * Interface representing a park or green space.
+ */
+export interface Park {
+  id: string;
+  name: string;
+  address: string;
+  coordinates: {
+    lat: number;
+    lng: number;
+  };
+  photo_url?: string;
+  rating_avg: number;
+  facilities: {
+    washroom?: boolean;
+    trail?: boolean;
+    water?: boolean;
+    lighting?: boolean;
+    bench?: boolean;
+    [key: string]: boolean | undefined;
+  };
+  visitor_count?: number;
+  distance?: number;
+}
+
+/**
+ * Interface representing a user review for a park.
+ */
+export interface ParkReview {
+  id: string;
+  park_id: string;
+  user_id: string;
+  rating: number;
+  review_text: string;
+  created_at: string;
+  profile?: {
+    full_name: string;
+    avatar_url: string;
+  };
 }

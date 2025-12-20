@@ -247,10 +247,15 @@ export const getHydrationTip = async (
 ): Promise<string> => {
   const prompt = `Act as "Apna Coach". Hydration: ${currentMl}/${goalMl}ml, Steps: ${steps}. Short, witty Hinglish sentence (max 10 words). Output ONLY text.`;
   try {
+    // FIX: To follow coding guidelines, added thinkingBudget alongside maxOutputTokens.
     const response = await ai.models.generateContent({
       model: MODEL_ID,
       contents: prompt,
-      config: { maxOutputTokens: 40, temperature: 1 }
+      config: { 
+        maxOutputTokens: 100, 
+        thinkingConfig: { thinkingBudget: 50 }, 
+        temperature: 1 
+      }
     });
     return response.text?.trim() || "";
   } catch (error) {

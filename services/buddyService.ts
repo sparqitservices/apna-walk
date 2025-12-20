@@ -1,6 +1,6 @@
 
 import { supabase } from './supabaseClient';
-import { NearbyBuddy, BuddyRequest, BuddyMessage, UserProfile } from '../types';
+import { NearbyBuddy, BuddyRequest, BuddyMessage, UserProfile, DuelConfig } from '../types';
 
 export const updateBuddyPreferences = async (userId: string, prefs: Partial<UserProfile>) => {
     const { error } = await supabase
@@ -11,7 +11,6 @@ export const updateBuddyPreferences = async (userId: string, prefs: Partial<User
 };
 
 export const updateLocation = async (userId: string, lat: number, lng: number) => {
-    // PostGIS point format: 'POINT(long lat)'
     const point = `POINT(${lng} ${lat})`;
     const { error } = await supabase
         .from('profiles')
@@ -32,11 +31,51 @@ export const findNearbyBuddies = async (lat: number, lng: number, radiusMeters: 
     return data || [];
 };
 
+export const searchUsers = async (query: string, currentUserId: string): Promise<UserProfile[]> => {
+    if (!query || query.length < 3) return [];
+    
+    const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .neq('id', currentUserId)
+        .or(`full_name.ilike.%${query}%,email.ilike.%${query}%`)
+        .limit(10);
+    
+    if (error) throw error;
+    
+    return (data || []).map(p => ({
+        id: p.id,
+        name: p.full_name,
+        email: p.email,
+        avatar: p.avatar_url,
+        isLoggedIn: true,
+        is_verified: p.is_verified,
+        bio: p.bio,
+        pace: p.pace,
+        preferred_time: p.preferred_time,
+        public_key: p.public_key
+    }));
+};
+
 export const sendBuddyRequest = async (senderId: string, receiverId: string, message: string) => {
     const { error } = await supabase
         .from('buddy_requests')
         .insert([{ sender_id: senderId, receiver_id: receiverId, message, status: 'pending' }]);
-    if (error) throw error;
+    if (error) {
+        if (error.code === '23505') throw new Error("Request already sent!");
+        throw error;
+    }
+};
+
+export const fetchPendingBuddyCount = async (userId: string): Promise<number> => {
+    const { count, error } = await supabase
+        .from('buddy_requests')
+        .select('*', { count: 'exact', head: true })
+        .eq('receiver_id', userId)
+        .eq('status', 'pending');
+    
+    if (error) return 0;
+    return count || 0;
 };
 
 export const fetchMyBuddyRequests = async (userId: string): Promise<BuddyRequest[]> => {
@@ -58,7 +97,6 @@ export const respondToRequest = async (requestId: string, status: 'accepted' | '
     if (requestError) throw requestError;
 
     if (status === 'accepted') {
-        // Add to buddies table
         const { error: buddyError } = await supabase
             .from('buddies')
             .insert([{ user1_id: senderId, user2_id: receiverId }]);
@@ -67,7 +105,6 @@ export const respondToRequest = async (requestId: string, status: 'accepted' | '
 };
 
 export const fetchMyBuddies = async (userId: string): Promise<UserProfile[]> => {
-    // Complex query to get profile of the "other" person in the buddies table
     const { data: b1, error: e1 } = await supabase
         .from('buddies')
         .select('other:profiles!buddies_user2_id_fkey(*)')
@@ -80,17 +117,94 @@ export const fetchMyBuddies = async (userId: string): Promise<UserProfile[]> => 
 
     if (e1 || e2) throw (e1 || e2);
     
-    const list1 = b1?.map((b: any) => b.other) || [];
-    const list2 = b2?.map((b: any) => b.other) || [];
+    const list1 = b1?.map((b: any) => ({
+        id: b.other.id,
+        name: b.other.full_name,
+        email: b.other.email,
+        avatar: b.other.avatar_url,
+        isLoggedIn: true,
+        public_key: b.other.public_key
+    })) || [];
+
+    const list2 = b2?.map((b: any) => ({
+        id: b.other.id,
+        name: b.other.full_name,
+        email: b.other.email,
+        avatar: b.other.avatar_url,
+        isLoggedIn: true,
+        public_key: b.other.public_key
+    })) || [];
     
     return [...list1, ...list2];
 };
 
-export const sendMessage = async (senderId: string, receiverId: string, content: string) => {
+export const sendMessage = async (senderId: string, receiverId: string, content: string, isEncrypted = false, audioUrl?: string) => {
     const { error } = await supabase
         .from('buddy_messages')
-        .insert([{ sender_id: senderId, receiver_id: receiverId, content }]);
+        .insert([{ 
+            sender_id: senderId, 
+            receiver_id: receiverId, 
+            content, 
+            is_encrypted: isEncrypted,
+            audio_url: audioUrl
+        }]);
     if (error) throw error;
+};
+
+export const sendDuel = async (senderId: string, receiverId: string, targetSteps: number, currentDailySteps: number) => {
+    const duelConfig: DuelConfig = {
+        target_steps: targetSteps,
+        status: 'pending',
+        start_steps_sender: currentDailySteps,
+        start_steps_receiver: 0 // Will be set on acceptance
+    };
+
+    const { error } = await supabase
+        .from('buddy_messages')
+        .insert([{ 
+            sender_id: senderId, 
+            receiver_id: receiverId, 
+            content: `Muqabla: ${targetSteps} Steps Challenge!`,
+            duel_config: duelConfig
+        }]);
+    if (error) throw error;
+};
+
+export const respondToDuel = async (messageId: string, status: 'active' | 'declined', receiverStartSteps?: number) => {
+    // 1. Fetch current duel config
+    const { data } = await supabase.from('buddy_messages').select('duel_config').eq('id', messageId).single();
+    if (!data) return;
+
+    const newConfig = { 
+        ...data.duel_config, 
+        status,
+        start_steps_receiver: receiverStartSteps || 0
+    };
+
+    const { error } = await supabase
+        .from('buddy_messages')
+        .update({ duel_config: newConfig })
+        .eq('id', messageId);
+    
+    if (error) throw error;
+};
+
+export const uploadVoiceNote = async (blob: Blob, userId: string) => {
+    const fileName = `voice_${userId}_${Date.now()}.wav`;
+    const { data, error } = await supabase.storage
+        .from('chat_attachments')
+        .upload(fileName, blob);
+        
+    if (error) {
+        console.warn("Storage upload failed, using local blob URL for demo");
+        return URL.createObjectURL(blob);
+    }
+    
+    const { data: { publicUrl } } = supabase.storage
+        .from('chat_attachments')
+        .getPublicUrl(fileName);
+        
+    return publicUrl;
 };
 
 export const fetchMessages = async (userId: string, buddyId: string): Promise<BuddyMessage[]> => {
@@ -105,17 +219,53 @@ export const fetchMessages = async (userId: string, buddyId: string): Promise<Bu
 
 export const subscribeToMessages = (userId: string, buddyId: string, onMessage: (msg: BuddyMessage) => void) => {
     return supabase
-        .channel('buddy_chat')
+        .channel(`chat_${userId}_${buddyId}`)
         .on('postgres_changes', { 
-            event: 'INSERT', 
+            event: '*', 
             schema: 'public', 
-            table: 'buddy_messages',
-            filter: `receiver_id=eq.${userId}` 
+            table: 'buddy_messages'
         }, payload => {
-            const msg = payload.new as BuddyMessage;
-            if (msg.sender_id === buddyId) {
+            if (payload.eventType === 'INSERT') {
+                const msg = payload.new as BuddyMessage;
+                if (msg.sender_id === buddyId || msg.sender_id === userId) {
+                    onMessage(msg);
+                }
+            } else if (payload.eventType === 'UPDATE') {
+                const msg = payload.new as BuddyMessage;
                 onMessage(msg);
             }
         })
         .subscribe();
+};
+
+export const createSyncChannel = (userId: string, buddyId: string, onEvent: (event: string, payload: any) => void) => {
+    const channel = supabase.channel(`sync_${buddyId}`);
+    
+    channel.on('broadcast', { event: 'typing' }, (payload) => {
+        if (payload.payload.senderId === buddyId) {
+            onEvent('typing', payload.payload.isTyping);
+        }
+    }).on('broadcast', { event: 'duel_progress' }, (payload) => {
+        if (payload.payload.senderId === buddyId) {
+            onEvent('duel_progress', payload.payload);
+        }
+    }).subscribe();
+
+    return {
+        sendTyping: (isTyping: boolean) => {
+            channel.send({
+                type: 'broadcast',
+                event: 'typing',
+                payload: { senderId: userId, isTyping }
+            });
+        },
+        sendDuelProgress: (steps: number, duelId: string) => {
+            channel.send({
+                type: 'broadcast',
+                event: 'duel_progress',
+                payload: { senderId: userId, steps, duelId }
+            });
+        },
+        unsubscribe: () => channel.unsubscribe()
+    };
 };
