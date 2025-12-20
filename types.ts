@@ -39,14 +39,13 @@ export interface SavedWalk {
 
 export interface UserProfile {
   name: string;
-  username?: string; // New: Unique short ID
+  username?: string; 
   email: string;
   isLoggedIn: boolean;
   isGuest?: boolean;
   avatar?: string; 
   id?: string; 
   role?: 'user' | 'admin';
-  // Buddy Preferences
   bio?: string;
   age?: number;
   gender?: string;
@@ -55,7 +54,7 @@ export interface UserProfile {
   distance_preference?: '1-3km' | '3-5km' | '5km+';
   interests?: string[];
   is_looking_for_buddy?: boolean;
-  is_ghost_mode?: boolean; // New: Privacy toggle
+  is_ghost_mode?: boolean; 
   is_verified?: boolean;
   public_key?: string;
 }
@@ -78,7 +77,7 @@ export interface BuddyRequest {
   message?: string;
   created_at: string;
   sender_profile?: {
-    username: string; // Use username instead of name
+    username: string; 
     avatar_url: string;
   };
 }
@@ -186,7 +185,7 @@ export interface FitnessEvent {
 // --- Admin Types ---
 export interface AdminUserView {
   id: string;
-  username: string; // Updated
+  username: string; 
   full_name: string;
   email: string;
   avatar_url?: string;
@@ -219,7 +218,7 @@ export interface GroupMember {
   status: 'active' | 'pending';
   joined_at: string;
   profile?: {
-    username: string; // Use username
+    username: string; 
     avatar_url: string;
   }
 }
@@ -234,7 +233,7 @@ export interface GroupPost {
   content: string;
   created_at: string;
   profile?: {
-    username: string; // Use username
+    username: string; 
     avatar_url: string;
   }
 }
@@ -256,17 +255,18 @@ export interface ChallengeParticipant {
   current_steps: number;
   rank?: number;
   profile?: {
-    username: string; // Use username
+    username: string; 
     avatar_url: string;
   }
 }
 
 /**
- * Interface representing a park or green space.
+ * Interface representing a park or fitness space.
  */
 export interface Park {
   id: string;
   name: string;
+  category: 'park' | 'gym' | 'shop' | 'health';
   address: string;
   coordinates: {
     lat: number;
@@ -280,6 +280,7 @@ export interface Park {
     water?: boolean;
     lighting?: boolean;
     bench?: boolean;
+    equipment?: boolean;
     [key: string]: boolean | undefined;
   };
   visitor_count?: number;
@@ -297,7 +298,7 @@ export interface ParkReview {
   review_text: string;
   created_at: string;
   profile?: {
-    username: string; // Use username
+    username: string; 
     avatar_url: string;
   };
 }
