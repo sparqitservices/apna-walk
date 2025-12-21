@@ -1,3 +1,4 @@
+
 import React, { useEffect, useRef } from 'react';
 import { RoutePoint } from '../types';
 
@@ -18,32 +19,31 @@ export const RouteMap: React.FC<RouteMapProps> = ({ route, className = "h-64 w-f
 
     // Cleanup existing map if any
     if (mapInstanceRef.current) {
-      mapInstanceRef.current.remove();
+      try {
+        mapInstanceRef.current.remove();
+      } catch (e) {
+        console.warn("Leaflet cleanup error", e);
+      }
       mapInstanceRef.current = null;
     }
 
     // Initialize map
-    // Start centered on the first point
     const startPoint = route[0];
     const map = L.map(mapContainerRef.current, {
         zoomControl: false,
-        attributionControl: false // Keep clean UI, though attribution is recommended
+        attributionControl: false 
     }).setView([startPoint.lat, startPoint.lng], 16);
 
     mapInstanceRef.current = map;
 
-    // Dark Mode Tile Layer (CartoDB Dark Matter)
-    // This provides a sleek, high-contrast dark map suitable for the app's dark theme.
     L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
       maxZoom: 20,
       subdomains: 'abcd',
       attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
     }).addTo(map);
 
-    // Convert route to Leaflet latLng array
     const latLngs = route.map(p => [p.lat, p.lng]);
 
-    // Draw Polyline (Brand Color - roughly Emerald-500 #10b981)
     const polyline = L.polyline(latLngs, {
       color: '#10b981',
       weight: 4,
@@ -51,7 +51,6 @@ export const RouteMap: React.FC<RouteMapProps> = ({ route, className = "h-64 w-f
       lineJoin: 'round'
     }).addTo(map);
 
-    // Add Start Marker
     const startIcon = L.divIcon({
       className: 'bg-transparent',
       html: '<div class="w-3 h-3 bg-white rounded-full border-2 border-brand-500 shadow-[0_0_10px_#10b981]"></div>',
@@ -59,7 +58,6 @@ export const RouteMap: React.FC<RouteMapProps> = ({ route, className = "h-64 w-f
     });
     L.marker(latLngs[0], { icon: startIcon }).addTo(map);
 
-    // Add End Marker
     const endIcon = L.divIcon({
       className: 'bg-transparent',
       html: '<div class="w-4 h-4 bg-brand-500 rounded-full border-2 border-white shadow-lg animate-pulse"></div>',
@@ -67,12 +65,14 @@ export const RouteMap: React.FC<RouteMapProps> = ({ route, className = "h-64 w-f
     });
     L.marker(latLngs[latLngs.length - 1], { icon: endIcon }).addTo(map);
 
-    // Fit bounds to show whole route
     map.fitBounds(polyline.getBounds(), { padding: [30, 30] });
 
     return () => {
-      if (mapInstanceRef.current) {
-        mapInstanceRef.current.remove();
+      if (mapInstanceRef.current && mapContainerRef.current) {
+        try {
+          mapInstanceRef.current.remove();
+        } catch (e) {}
+        mapInstanceRef.current = null;
       }
     };
   }, [route]);

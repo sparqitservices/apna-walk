@@ -1,6 +1,6 @@
 
 import { useState, useEffect, useRef } from 'react';
-import { RoutePoint, WalkSession, UserSettings, UserProfile } from '../types';
+import { RoutePoint, WalkSession, UserSettings } from '../types';
 import { calculateDistance } from '../services/trackingService';
 
 export const useAutoTracker = (
@@ -11,26 +11,31 @@ export const useAutoTracker = (
 ) => {
     const [isAutoRecording, setIsAutoRecording] = useState(false);
     const [currentRoute, setCurrentRoute] = useState<RoutePoint[]>([]);
-    const [sessionStats, setSessionStats] = useState({ distance: 0, startTime: 0, stepsAtStart: 0 });
     
     const watchIdRef = useRef<number | null>(null);
     const lastStepCountRef = useRef(dailySteps);
     const inactivityTimerRef = useRef<number | null>(null);
+    const sessionDataRef = useRef({ distance: 0, startTime: 0, stepsAtStart: 0 });
 
     // Monitor for sustained rhythm to trigger auto-start
     useEffect(() => {
-        if (!isLoggedIn || isAutoRecording) return;
+        if (!isLoggedIn) return;
 
-        // If user took more than 25 steps in a short burst, fire up GPS
-        if (dailySteps - lastStepCountRef.current > 25) {
-            startAutoSession();
-        }
+        const checkInterval = setInterval(() => {
+            const stepsTaken = dailySteps - lastStepCountRef.current;
+            
+            if (!isAutoRecording && stepsTaken > 20) {
+                startAutoSession();
+            }
+            
+            // Only update the "baseline" if we aren't recording, 
+            // otherwise the baseline would move with the recording
+            if (!isAutoRecording) {
+                lastStepCountRef.current = dailySteps;
+            }
+        }, 15000); // Check every 15 seconds
 
-        const interval = setInterval(() => {
-            lastStepCountRef.current = dailySteps;
-        }, 30000); // Check more frequently
-
-        return () => clearInterval(interval);
+        return () => clearInterval(checkInterval);
     }, [dailySteps, isLoggedIn, isAutoRecording]);
 
     const startAutoSession = () => {
@@ -38,7 +43,7 @@ export const useAutoTracker = (
         
         setIsAutoRecording(true);
         const startTime = Date.now();
-        setSessionStats({ distance: 0, startTime, stepsAtStart: dailySteps });
+        sessionDataRef.current = { distance: 0, startTime, stepsAtStart: dailySteps };
         setCurrentRoute([]);
 
         watchIdRef.current = navigator.geolocation.watchPosition((pos) => {
@@ -51,10 +56,13 @@ export const useAutoTracker = (
 
             setCurrentRoute(prev => {
                 if (prev.length > 0) {
-                    const d = calculateDistance(prev[prev.length - 1], newPoint);
-                    if (d > 3) { // 3m sensitivity
-                        setSessionStats(s => ({ ...s, distance: s.distance + d }));
-                        return [...prev, newPoint];
+                    const lastPoint = prev[prev.length - 1];
+                    const d = calculateDistance(lastPoint, newPoint);
+                    if (d > 5) { // 5m sensitivity to avoid GPS jitter
+                        sessionDataRef.current.distance += d;
+                        // Limit route array size to prevent memory lag on home screen
+                        const newRoute = [...prev, newPoint];
+                        return newRoute.slice(-100); 
                     }
                     return prev;
                 }
@@ -62,17 +70,20 @@ export const useAutoTracker = (
             });
 
             resetInactivityTimer();
-        }, null, {
+        }, (err) => {
+            console.warn("AutoTracker GPS warning:", err);
+        }, {
             enableHighAccuracy: true,
-            maximumAge: 0
+            maximumAge: 10000,
+            timeout: 20000
         });
     };
 
     const resetInactivityTimer = () => {
-        if (inactivityTimerRef.current) clearTimeout(inactivityTimerRef.current);
+        if (inactivityTimerRef.current) window.clearTimeout(inactivityTimerRef.current);
         inactivityTimerRef.current = window.setTimeout(() => {
             stopAutoSession();
-        }, 180000); // 3 minutes of stillness stops recording
+        }, 120000); // 2 minutes of inactivity stops recording
     };
 
     const stopAutoSession = () => {
@@ -81,26 +92,28 @@ export const useAutoTracker = (
             watchIdRef.current = null;
         }
 
-        if (currentRoute.length > 8) { // Minimum 8 points for a valid journey segment
-            const duration = Math.round((Date.now() - sessionStats.startTime) / 1000);
-            const steps = dailySteps - sessionStats.stepsAtStart;
+        const finalDist = sessionDataRef.current.distance;
+        if (finalDist > 50) { // Only save if they walked at least 50m
+            const duration = Math.round((Date.now() - sessionDataRef.current.startTime) / 1000);
+            const steps = dailySteps - sessionDataRef.current.stepsAtStart;
             
             const session: WalkSession = {
                 id: `auto-${Date.now()}`,
-                startTime: sessionStats.startTime,
+                startTime: sessionDataRef.current.startTime,
                 endTime: Date.now(),
-                steps: Math.max(steps, Math.round(sessionStats.distance / (settings.strideLengthCm / 100))),
-                distanceMeters: sessionStats.distance,
+                steps: Math.max(steps, Math.round(finalDist / (settings.strideLengthCm / 100))),
+                distanceMeters: finalDist,
                 calories: Math.round(0.04 * steps * (settings.weightKg / 70)),
                 durationSeconds: duration,
-                route: currentRoute,
-                avgSpeed: (sessionStats.distance / duration) * 3.6
+                route: [...currentRoute],
+                avgSpeed: (finalDist / duration) * 3.6
             };
             onSessionEnd(session);
         }
 
         setIsAutoRecording(false);
         setCurrentRoute([]);
+        lastStepCountRef.current = dailySteps; // Reset baseline
     };
 
     return { isAutoRecording, autoRoute: currentRoute };

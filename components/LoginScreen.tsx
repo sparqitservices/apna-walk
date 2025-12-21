@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { ApnaWalkLogo } from './ApnaWalkLogo';
 import { signInWithGoogle, signInWithGoogleOneTap } from '../services/authService';
@@ -20,39 +21,40 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onGuest, onSh
 
     const initializeOneTap = () => {
       if (typeof google !== 'undefined' && google.accounts && google.accounts.id) {
-        google.accounts.id.initialize({
-          client_id: "680287114674-8b6g3id67v9sq6o47is6n9m2v991j2sh.apps.googleusercontent.com", 
-          callback: async (response: any) => {
-            if (!isMounted) return;
-            setIsLoading(true);
-            try {
-              await signInWithGoogleOneTap(response.credential);
-              // State sync is handled by onAuthStateChange in App.tsx
-            } catch (err: any) {
-              console.error("One Tap Login Failed", err);
-              if (isMounted) {
-                setErrorMsg("Automatic detection failed. Use the button.");
-                setIsLoading(false);
+        try {
+          google.accounts.id.initialize({
+            client_id: "680287114674-8b6g3id67v9sq6o47is6n9m2v991j2sh.apps.googleusercontent.com", 
+            callback: async (response: any) => {
+              if (!isMounted) return;
+              setIsLoading(true);
+              try {
+                await signInWithGoogleOneTap(response.credential);
+              } catch (err: any) {
+                console.error("One Tap Login Failed", err);
+                if (isMounted) {
+                  setErrorMsg("Automatic detection failed. Use the button.");
+                  setIsLoading(false);
+                }
               }
-            }
-          },
-          auto_select: false, // MANDATORY: This prevents the app from logging in without a user tap
-          itp_support: true,
-          cancel_on_tap_outside: true,
-        });
+            },
+            auto_select: false,
+            itp_support: true,
+            use_fedcm_for_prompt: true, // Explicitly enable FedCM
+            cancel_on_tap_outside: true,
+          });
 
-        // Trigger the prompt
-        google.accounts.id.prompt((notification: any) => {
-          if (notification.isNotDisplayed()) {
-            console.log("One Tap skipped:", notification.getNotDisplayedReason());
-          } else if (notification.isSkippedMoment()) {
-            console.log("One Tap moment skipped:", notification.getSkippedReason());
-          }
-        });
+          google.accounts.id.prompt((notification: any) => {
+            if (notification.isNotDisplayed()) {
+              console.log("One Tap skipped:", notification.getNotDisplayedReason());
+            }
+          });
+        } catch (e) {
+          console.warn("GSI initialization error", e);
+        }
       }
     };
 
-    const timer = setTimeout(initializeOneTap, 1200);
+    const timer = setTimeout(initializeOneTap, 1500);
     return () => {
       isMounted = false;
       clearTimeout(timer);
@@ -73,18 +75,15 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onGuest, onSh
 
   return (
     <div className="min-h-screen bg-dark-bg flex flex-col items-center justify-center p-6 relative overflow-hidden transition-colors duration-500">
-      {/* Background Ambience */}
       <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-brand-500/10 via-dark-bg to-dark-bg z-0"></div>
       
       <div className="w-full max-w-md relative z-10 flex flex-col items-center">
         
-        {/* Logo Section */}
         <div className="mb-12 animate-fade-in scale-110">
            <ApnaWalkLogo size={48} />
            <p className="text-dark-muted text-xs font-medium tracking-widest uppercase mt-2 text-center">Walk Towards Fitness</p>
         </div>
 
-        {/* Auth Buttons */}
         <div className="w-full space-y-4 animate-message-pop" style={{ animationDelay: '0.2s' }}>
           
           {errorMsg && (
@@ -93,7 +92,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onGuest, onSh
               </div>
           )}
 
-          {/* Google Button */}
           <button 
             onClick={handleGoogleLogin}
             disabled={isLoading}
@@ -118,7 +116,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onGuest, onSh
             </div>
           </div>
 
-          {/* Guest Button */}
           <button 
             onClick={onGuest}
             className="w-full bg-slate-200/50 dark:bg-slate-800/50 hover:bg-slate-300 dark:hover:bg-slate-800 text-dark-text font-medium py-4 rounded-xl border border-dark-border transition-all active:scale-95 flex items-center justify-center gap-2"
@@ -128,7 +125,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onGuest, onSh
 
         </div>
 
-        {/* Footer */}
         <div className="mt-12 text-center space-y-4 animate-fade-in" style={{ animationDelay: '0.5s' }}>
              <p className="text-xs text-dark-muted">
                 By continuing, you agree to our <a href="/terms-conditions" className="text-brand-500 hover:underline">Terms</a> & <a href="/privacy-policy" className="text-brand-500 hover:underline">Privacy Policy</a>.

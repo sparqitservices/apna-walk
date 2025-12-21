@@ -62,28 +62,23 @@ export const usePedometer = (sensitivity: number = 3) => {
 
     // 4. Threshold & Peak Detection
     const now = Date.now();
-    // Dynamic threshold based on sensitivity (1-5 range)
     const dynamicThreshold = 1.4 - ((sensitivity - 3) * 0.15);
 
-    // Reset buffer if user stopped moving
     if (now - lastStepTimeRef.current > MAX_STEP_DELAY) {
         stepBufferRef.current = 0;
     }
 
-    // Step detected if signal is falling from a peak above threshold
     if (lastSmoothMagRef.current > dynamicThreshold && smoothMag < lastSmoothMagRef.current) {
         if (now - lastStepTimeRef.current > MIN_STEP_DELAY) {
             stepBufferRef.current += 1;
             lastStepTimeRef.current = now;
 
-            // Only update UI if we are in a walking rhythm
             if (stepBufferRef.current >= CONSECUTIVE_STEPS_REQUIRED) {
-                // If this is exactly the required count, add the whole buffer at once
                 const inc = stepBufferRef.current === CONSECUTIVE_STEPS_REQUIRED ? CONSECUTIVE_STEPS_REQUIRED : 1;
                 
                 setDailySteps(prev => prev + inc);
                 if (isTrackingSession) setSessionSteps(prev => prev + inc);
-                setLastStepTimestamp(now); // Trigger UI ripple
+                setLastStepTimestamp(now); 
             }
         }
     }
@@ -91,32 +86,33 @@ export const usePedometer = (sensitivity: number = 3) => {
     lastSmoothMagRef.current = smoothMag;
   }, [sensitivity, isTrackingSession]);
 
+  // Robustly manage the event listener lifecycle
+  useEffect(() => {
+    if (permissionGranted) {
+      window.addEventListener('devicemotion', handleMotion);
+      return () => window.removeEventListener('devicemotion', handleMotion);
+    }
+  }, [permissionGranted, handleMotion]);
+
   const requestPermission = async () => {
     if (typeof (DeviceMotionEvent as any).requestPermission === 'function') {
       try {
         const response = await (DeviceMotionEvent as any).requestPermission();
         if (response === 'granted') {
           setPermissionGranted(true);
-          window.addEventListener('devicemotion', handleMotion);
           return true;
         }
-        setError("Permission for motion sensors was denied.");
+        setError("Motion sensor access denied.");
         return false;
       } catch (e) {
-        setError("Could not request sensor access. Secure context (HTTPS) required.");
+        setError("Secure context (HTTPS) required for sensors.");
         return false;
       }
     } else {
-      // Non-iOS or older browsers
       setPermissionGranted(true);
-      window.addEventListener('devicemotion', handleMotion);
       return true;
     }
   };
-
-  useEffect(() => {
-     return () => window.removeEventListener('devicemotion', handleMotion);
-  }, [handleMotion]);
 
   const startSession = () => {
     setSessionSteps(0);

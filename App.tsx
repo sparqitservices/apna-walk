@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { RadialProgress } from './components/RadialProgress';
 import { StatsGrid } from './components/StatsGrid';
 import { AICoachModal } from './components/AICoachModal';
@@ -26,8 +26,7 @@ import { RhythmDetailModal } from './components/RhythmDetailModal';
 import { LiveTracker } from './components/LiveTracker';
 import { SessionDetailModal } from './components/SessionDetailModal';
 import { JourneyHubModal } from './components/JourneyHubModal';
-// Added missing import for RouteMap
-import { RouteMap } from './components/RouteMap';
+import { PathSnailTrail } from './components/PathSnailTrail';
 
 import { usePedometer } from './hooks/usePedometer';
 import { useMetronome } from './hooks/useMetronome';
@@ -46,10 +45,10 @@ const App: React.FC = () => {
     notifications: { water: true, walk: true, breath: true }
   });
 
-  const { dailySteps, sessionSteps, isTrackingSession, lastStepTimestamp, permissionGranted, requestPermission, startSession, stopSession, error: sensorError } = usePedometer(settings.sensitivity);
+  const { dailySteps, sessionSteps, isTrackingSession, lastStepTimestamp, requestPermission, error: sensorError } = usePedometer(settings.sensitivity);
   const { bpm, isPlaying, togglePlay, setBpm } = useMetronome(115);
 
-  // Modal States
+  // UI States
   const [showCoach, setShowCoach] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showPlanner, setShowPlanner] = useState(false);
@@ -75,7 +74,7 @@ const App: React.FC = () => {
   const [currentSession, setCurrentSession] = useState<WalkSession | null>(null);
   const [visualShare, setVisualShare] = useState<{ isOpen: boolean; type: 'stats' | 'quote'; data: any; }>({ isOpen: false, type: 'stats', data: null as any });
 
-  // Auto-Tracker Logic
+  // Auto-Tracker: Silent recording logic
   const { isAutoRecording, autoRoute } = useAutoTracker(
       profile.isLoggedIn, 
       dailySteps, 
@@ -108,8 +107,8 @@ const App: React.FC = () => {
 
   const handleStartWorkout = async () => {
     const granted = await requestPermission();
-    if (granted) { setShowLiveTracker(true); if (navigator.vibrate) navigator.vibrate(150); }
-    else { alert("Please enable permissions!"); }
+    if (granted) { setShowLiveTracker(true); }
+    else { alert("Motion sensors required!"); }
   };
 
   const handleFinishManualWorkout = (session: WalkSession) => {
@@ -125,7 +124,10 @@ const App: React.FC = () => {
     saveHydration(newLog);
   };
 
-  const todayData = fullHistory.find(h => h.date === new Date().toISOString().split('T')[0]) || { steps: 0, sessions: [] };
+  const todayData = useMemo(() => {
+    const todayStr = new Date().toISOString().split('T')[0];
+    return fullHistory.find(h => h.date === todayStr) || { steps: 0, sessions: [] };
+  }, [fullHistory]);
 
   if (!profile.isLoggedIn) {
     return <LoginScreen onLogin={() => {}} onGuest={() => setProfile({ ...profile, isLoggedIn: true, isGuest: true })} onShowLegal={() => {}} />;
@@ -141,7 +143,7 @@ const App: React.FC = () => {
                 <h1 className="text-2xl font-black italic tracking-tighter uppercase"><span className="text-brand-500">Apna</span>Walk</h1>
             </div>
             <p className="text-[9px] text-slate-500 font-black uppercase tracking-[4px] mt-1 ml-8">
-                {isAutoRecording ? <span className="text-emerald-500 animate-pulse">● Recording Life Path</span> : `System: Online • ${locality}`}
+                {isAutoRecording ? <span className="text-emerald-500 animate-pulse">● System: Tracing Path</span> : `System: Online • ${locality}`}
             </p>
         </div>
         <button onClick={() => setShowSettings(true)} className="w-12 h-12 rounded-2xl bg-slate-800 border border-slate-700 flex items-center justify-center shadow-lg active:scale-90 transition-transform">
@@ -157,63 +159,63 @@ const App: React.FC = () => {
             <div className="w-full grid grid-cols-1 gap-6 mt-8">
                 <StatsGrid calories={displayCalories} distance={displayDistance} duration={0} onStatClick={() => {}} />
                 
-                {/* --- JOURNEY TEASER CARD --- */}
+                {/* --- JOURNEY CARD (SLEEK & SAFE) --- */}
                 <div 
                   onClick={() => setShowJourneyHub(true)}
-                  className="bg-slate-800/40 border border-slate-700/50 rounded-[2.5rem] p-6 flex flex-col gap-5 hover:bg-slate-800/60 transition-all cursor-pointer group shadow-xl"
+                  className="bg-slate-800/40 border border-slate-700/50 rounded-[2.5rem] p-6 flex flex-col gap-6 hover:bg-slate-800/60 transition-all cursor-pointer group shadow-2xl relative overflow-hidden"
                 >
-                    <div className="flex justify-between items-center px-2">
+                    <div className="flex justify-between items-center relative z-10">
                         <div>
-                            <p className="text-brand-400 text-[10px] font-black uppercase tracking-[4px] mb-1">Today's Journey</p>
-                            <h4 className="text-white font-black text-xl italic tracking-tighter uppercase">{todayData.sessions?.length || 0} Path Segments</h4>
+                            <p className="text-brand-400 text-[10px] font-black uppercase tracking-[4px] mb-1">Journey Log</p>
+                            <h4 className="text-white font-black text-2xl italic tracking-tighter uppercase">{todayData.sessions?.length || 0} Path Segments</h4>
                         </div>
-                        <div className="w-10 h-10 rounded-2xl bg-brand-500/10 flex items-center justify-center text-brand-500 group-hover:rotate-12 transition-transform">
-                            <i className="fa-solid fa-map-location-dot"></i>
+                        <div className="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center text-slate-400 group-hover:text-brand-500 transition-colors">
+                            <i className="fa-solid fa-map-location-dot text-xl"></i>
                         </div>
                     </div>
-                    <div className="w-full h-24 bg-slate-900 rounded-[1.5rem] overflow-hidden relative border border-slate-700/50">
-                        {autoRoute.length > 0 ? (
-                            <LivePathPreview route={autoRoute} />
+
+                    <div className="w-full h-20 bg-slate-900/60 rounded-2xl flex items-center justify-center border border-white/5 relative z-10">
+                        {autoRoute.length > 1 ? (
+                            <PathSnailTrail route={autoRoute} className="h-16 w-full opacity-60" />
                         ) : (
-                            <div className="h-full w-full flex items-center justify-center opacity-20">
-                                <i className="fa-solid fa-satellite-dish text-2xl animate-pulse"></i>
+                            <div className="flex items-center gap-3 opacity-20">
+                                <i className="fa-solid fa-satellite-dish animate-pulse"></i>
+                                <span className="text-[10px] font-black uppercase tracking-widest">Awaiting Movement</span>
                             </div>
                         )}
-                        <div className="absolute inset-0 bg-gradient-to-r from-slate-900 via-transparent to-transparent"></div>
-                        <div className="absolute top-1/2 left-6 -translate-y-1/2">
-                             <p className="text-[10px] font-black uppercase tracking-[3px] text-white/50">Browse History</p>
+                    </div>
+
+                    <div className="flex justify-between items-center pt-2 relative z-10">
+                        <span className="text-[9px] text-slate-500 font-bold uppercase tracking-[3px]">Tap to browse history</span>
+                        <div className="flex items-center gap-2 text-brand-500">
+                             <span className="text-[10px] font-black uppercase tracking-widest">Full Access</span>
+                             <i className="fa-solid fa-chevron-right text-xs"></i>
                         </div>
                     </div>
                 </div>
             </div>
         </section>
 
-        {/* --- PRIMARY TOOLS GRID --- */}
-        <section>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                <ToolCard icon="fa-calendar-day" label="AI Plan" color="bg-slate-800/40" iconColor="text-brand-400" onClick={() => setShowPlanner(true)} />
-                <ToolCard icon="fa-users-line" label="Social" color="bg-slate-800/40" iconColor="text-orange-400" onClick={() => setShowSocial(true)} />
-                <ToolCard icon="fa-people-arrows" label="Buddy" color="bg-slate-800/40" iconColor="text-blue-400" onClick={() => setShowBuddy(true)} />
-                <ToolCard icon="fa-map-location-dot" label="Parks" color="bg-slate-800/40" iconColor="text-emerald-400" onClick={() => setShowParks(true)} />
-            </div>
+        {/* --- TOOLS --- */}
+        <section className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <ToolCard icon="fa-calendar-day" label="AI Plan" color="bg-slate-800/40" iconColor="text-brand-400" onClick={() => setShowPlanner(true)} />
+            <ToolCard icon="fa-users-line" label="Social" color="bg-slate-800/40" iconColor="text-orange-400" onClick={() => setShowSocial(true)} />
+            <ToolCard icon="fa-people-arrows" label="Buddy" color="bg-slate-800/40" iconColor="text-blue-400" onClick={() => setShowBuddy(true)} />
+            <ToolCard icon="fa-map-location-dot" label="Parks" color="bg-slate-800/40" iconColor="text-emerald-400" onClick={() => setShowParks(true)} />
         </section>
 
-        {/* --- HEALTH SUITE --- */}
+        {/* --- HEALTH & PERFORMANCE --- */}
         <section className="space-y-4">
             <HydrationCard data={hydration} recommendation={hydrationTip} onClick={() => setShowHydration(true)} onQuickAdd={() => handleHydrationUpdate({...hydration, currentMl: hydration.currentMl + 250})} />
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <BreathExerciseCard onClick={() => setShowBreath(true)} />
                 <SleepCard onClick={() => setShowSleep(true)} />
             </div>
-        </section>
-
-        {/* --- PERFORMANCE --- */}
-        <section className="space-y-4">
             <RhythmGuide bpm={bpm} isPlaying={isPlaying} togglePlay={togglePlay} setBpm={setBpm} onClick={() => setShowRhythmDetail(true)} />
             <VirtualTrekCard totalLifetimeSteps={dailySteps} />
         </section>
 
-        {/* --- INSIGHTS --- */}
+        {/* --- FOOTER CONTENT --- */}
         <section className="space-y-8 pb-10">
             <WeatherCard weather={weather} loading={weatherLoading} onClick={() => setShowWeatherDetail(true)} />
             <DailyQuote onShare={(q) => setVisualShare({ isOpen: true, type: 'quote', data: q })} />
@@ -221,12 +223,13 @@ const App: React.FC = () => {
         </section>
       </main>
 
+      {/* --- FLOATING COACH --- */}
       <button onClick={() => setShowCoach(true)} className="fixed bottom-8 right-8 w-20 h-20 bg-gradient-to-tr from-brand-600 to-emerald-400 rounded-[2rem] shadow-[0_25px_60px_rgba(76,175,80,0.4)] flex flex-col items-center justify-center text-white z-50 hover:scale-110 active:scale-90 transition-all border-2 border-white/10 group">
         <i className="fa-solid fa-robot text-2xl group-hover:animate-bounce"></i>
         <span className="text-[8px] font-black uppercase tracking-widest mt-1">Coach</span>
       </button>
 
-      {/* --- MODALS --- */}
+      {/* --- MODAL LAYER --- */}
       <JourneyHubModal isOpen={showJourneyHub} onClose={() => setShowJourneyHub(false)} history={fullHistory} onViewSegment={(s) => setSelectedForensicSession(s)} />
       <SessionDetailModal session={selectedForensicSession} onClose={() => setSelectedForensicSession(null)} onShare={(s) => setVisualShare({ isOpen: true, type: 'stats', data: s })} />
       <LiveTracker isOpen={showLiveTracker} onClose={() => setShowLiveTracker(false)} profile={profile} settings={settings} onFinish={handleFinishManualWorkout} />
@@ -245,12 +248,6 @@ const App: React.FC = () => {
     </div>
   );
 };
-
-const LivePathPreview = ({ route }: { route: any[] }) => (
-    <div className="w-full h-full opacity-40 grayscale contrast-125">
-        <RouteMap route={route} className="h-full w-full" />
-    </div>
-);
 
 const ToolCard = ({ icon, label, color, iconColor, onClick }: { icon: string, label: string, color: string, iconColor: string, onClick: () => void }) => (
     <button onClick={onClick} className={`${color} p-6 rounded-[2rem] border border-white/5 shadow-xl flex flex-col items-center justify-center gap-4 transition-all hover:scale-[1.03] active:scale-95 group backdrop-blur-sm`}>
