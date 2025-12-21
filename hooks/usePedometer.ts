@@ -3,48 +3,38 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 
 // ALGORITHM SETTINGS
 const LPF_ALPHA = 0.8; 
-const MIN_STEP_DELAY = 300; // Minimum ms between steps
+const MIN_STEP_DELAY = 250; // Minimum ms between steps (max ~4 steps/sec)
 const MAX_STEP_DELAY = 2000; 
 const CONSECUTIVE_STEPS_REQUIRED = 5; 
-const MAG_SMOOTH_FACTOR = 0.5; 
-const BASE_THRESHOLD = 1.1;
+const MAG_SMOOTH_FACTOR = 0.6; 
+const BASE_THRESHOLD = 1.2;
 
 export const usePedometer = (sensitivity: number = 3) => {
-  // Two Counters: Daily (Persistent) and Session (Volatile)
   const [dailySteps, setDailySteps] = useState(0);
   const [sessionSteps, setSessionSteps] = useState(0);
-  
   const [isTrackingSession, setIsTrackingSession] = useState(false);
   const [permissionGranted, setPermissionGranted] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
-  // Calibration
-  const [calibrationStatus, setCalibrationStatus] = useState<'idle' | 'walking'>('idle');
-  const isCalibratingRef = useRef(false);
-  const calibrationData = useRef<number[]>([]);
-
+  // Internal tracking refs
   const lastStepTime = useRef<number>(0);
-  const gravityRef = useRef<{x: number, y: number, z: number}>({ x: 0, y: 0, z: 0 });
+  const gravityRef = useRef({ x: 0, y: 0, z: 0 });
   const lastSmoothMag = useRef<number>(0);
-  const activityLevel = useRef<number>(0);
   const stepBuffer = useRef<number>(0); 
+  const isWalkingRef = useRef<boolean>(false);
 
-  // Initialize Daily Steps from LocalStorage on mount
+  // Load daily steps
   useEffect(() => {
       const today = new Date().toISOString().split('T')[0];
-      const savedKey = `daily_steps_${today}`;
-      const saved = localStorage.getItem(savedKey);
-      if (saved) {
-          setDailySteps(parseInt(saved, 10));
-      }
+      const saved = localStorage.getItem(`daily_steps_${today}`);
+      if (saved) setDailySteps(parseInt(saved, 10));
   }, []);
 
-  // Save Daily Steps whenever they change
+  // Persist daily steps
   useEffect(() => {
       if (dailySteps > 0) {
         const today = new Date().toISOString().split('T')[0];
-        const savedKey = `daily_steps_${today}`;
-        localStorage.setItem(savedKey, dailySteps.toString());
+        localStorage.setItem(`daily_steps_${today}`, dailySteps.toString());
       }
   }, [dailySteps]);
   
@@ -53,60 +43,52 @@ export const usePedometer = (sensitivity: number = 3) => {
     if (!accelerationIncludingGravity) return;
 
     const { x, y, z } = accelerationIncludingGravity;
-    
     const rawX = x || 0;
     const rawY = y || 0;
     const rawZ = z || 0;
 
-    // 1. Low-Pass Filter
+    // 1. Isolate Gravity (Low-Pass Filter)
     gravityRef.current.x = LPF_ALPHA * gravityRef.current.x + (1 - LPF_ALPHA) * rawX;
     gravityRef.current.y = LPF_ALPHA * gravityRef.current.y + (1 - LPF_ALPHA) * rawY;
     gravityRef.current.z = LPF_ALPHA * gravityRef.current.z + (1 - LPF_ALPHA) * rawZ;
 
-    // 2. Linear Acceleration
+    // 2. Calculate Linear Acceleration (Magnitude of movement without gravity)
     const linearX = rawX - gravityRef.current.x;
     const linearY = rawY - gravityRef.current.y;
     const linearZ = rawZ - gravityRef.current.z;
 
-    // 3. Magnitude & Smoothing
     const currentMagnitude = Math.sqrt(linearX * linearX + linearY * linearY + linearZ * linearZ);
+    
+    // 3. Smooth the signal
     const smoothMag = MAG_SMOOTH_FACTOR * lastSmoothMag.current + (1 - MAG_SMOOTH_FACTOR) * currentMagnitude;
 
-    // Activity Level
-    activityLevel.current = (0.05 * smoothMag) + (0.95 * activityLevel.current);
-
-    // Calibration
-    if (isCalibratingRef.current) {
-        if (smoothMag > 0.6) calibrationData.current.push(smoothMag);
-        lastSmoothMag.current = smoothMag;
-        return;
-    }
-
-    // Step Detection - Runs ALWAYS if permission granted
-    let dynamicThreshold = BASE_THRESHOLD - ((sensitivity - 3) * 0.15);
-    if (activityLevel.current < 0.35) dynamicThreshold += 0.45; 
-    else if (activityLevel.current > 1.2) dynamicThreshold -= 0.1;
-
+    // 4. Peak Detection Logic
     const now = Date.now();
-    if (stepBuffer.current > 0 && (now - lastStepTime.current > MAX_STEP_DELAY)) {
+    const dynamicThreshold = BASE_THRESHOLD - ((sensitivity - 3) * 0.2);
+
+    // If we've been idle too long, reset the consecutive step buffer
+    if (now - lastStepTime.current > MAX_STEP_DELAY) {
         stepBuffer.current = 0;
+        isWalkingRef.current = false;
     }
 
+    // Detect a step (Peak crossing the threshold)
     if (lastSmoothMag.current > dynamicThreshold && smoothMag < lastSmoothMag.current) {
         if (now - lastStepTime.current > MIN_STEP_DELAY) {
             stepBuffer.current += 1;
             lastStepTime.current = now;
 
+            // Only count steps if we've detected a rhythm (CONSECUTIVE_STEPS_REQUIRED)
+            // This prevents counting single accidental bumps as steps.
             if (stepBuffer.current >= CONSECUTIVE_STEPS_REQUIRED) {
                 const stepsToAdd = stepBuffer.current === CONSECUTIVE_STEPS_REQUIRED ? CONSECUTIVE_STEPS_REQUIRED : 1;
                 
-                // Update Daily Steps (Always)
                 setDailySteps(prev => prev + stepsToAdd);
-
-                // Update Session Steps (Only if session active)
                 if (isTrackingSession) {
                     setSessionSteps(prev => prev + stepsToAdd);
                 }
+                
+                if (!isWalkingRef.current) isWalkingRef.current = true;
             }
         }
     }
@@ -121,39 +103,26 @@ export const usePedometer = (sensitivity: number = 3) => {
         if (response === 'granted') {
           setPermissionGranted(true);
           return true;
-        } else {
-          setError("Motion permission denied.");
-          return false;
         }
+        setError("Motion permission denied.");
+        return false;
       } catch (e) {
-        setError("Error: " + e);
+        setError("Sensors not available on this connection.");
         return false;
       }
     } else {
       setPermissionGranted(true);
+      window.addEventListener('devicemotion', handleMotion);
       return true;
     }
   };
 
-  // Auto-start listener if permission is already granted (e.g. from previous session in same reload)
   useEffect(() => {
      if (permissionGranted) {
          window.addEventListener('devicemotion', handleMotion);
      }
      return () => window.removeEventListener('devicemotion', handleMotion);
   }, [permissionGranted, handleMotion]);
-
-  // Initial Permission Check (Best effort for non-iOS)
-  useEffect(() => {
-      if (!typeof (DeviceMotionEvent as any).requestPermission) {
-          setPermissionGranted(true);
-      }
-  }, []);
-
-  // Public methods
-  const activateDailyTracking = async () => {
-      await requestPermission();
-  };
 
   const startSession = () => {
     setSessionSteps(0);
@@ -162,39 +131,9 @@ export const usePedometer = (sensitivity: number = 3) => {
 
   const stopSession = () => {
     setIsTrackingSession(false);
-    return sessionSteps;
-  };
-
-  const calibrateSensitivity = (onComplete: (recommended: number) => void) => {
-      // Logic same as before...
-      if (!window.DeviceMotionEvent) { onComplete(3); return; }
-      requestPermission().then((granted) => {
-          if (!granted) { onComplete(3); return; }
-          isCalibratingRef.current = true;
-          calibrationData.current = [];
-          setCalibrationStatus('walking');
-          setTimeout(() => {
-              isCalibratingRef.current = false;
-              setCalibrationStatus('idle');
-              const data = calibrationData.current;
-              if (data.length < 10) { onComplete(3); return; }
-              data.sort((a, b) => b - a);
-              const topChunk = data.slice(0, Math.ceil(data.length * 0.2));
-              const avgPeak = topChunk.reduce((a, b) => a + b, 0) / topChunk.length;
-              let suggested = 3;
-              if (avgPeak > 2.2) suggested = 1;
-              else if (avgPeak > 1.8) suggested = 2;
-              else if (avgPeak > 1.2) suggested = 3;
-              else if (avgPeak > 0.9) suggested = 4;
-              else suggested = 5;
-              onComplete(suggested);
-          }, 5000);
-      });
-  };
-
-  const simulateStep = () => {
-    setDailySteps(prev => prev + 1);
-    if(isTrackingSession) setSessionSteps(prev => prev + 1);
+    const final = sessionSteps;
+    setSessionSteps(0);
+    return final;
   };
 
   return {
@@ -203,11 +142,8 @@ export const usePedometer = (sensitivity: number = 3) => {
     isTrackingSession,
     error,
     permissionGranted,
-    activateDailyTracking,
+    requestPermission,
     startSession,
-    stopSession,
-    simulateStep,
-    calibrateSensitivity,
-    calibrationStatus
+    stopSession
   };
 };

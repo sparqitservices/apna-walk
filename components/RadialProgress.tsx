@@ -21,7 +21,7 @@ export const RadialProgress: React.FC<RadialProgressProps> = ({
   onClick
 }) => {
   const percentage = Math.min((current / total) * 100, 100);
-  const strokeDasharray = 2 * Math.PI * 90; // radius 90
+  const strokeDasharray = 2 * Math.PI * 90; 
   const strokeDashoffset = strokeDasharray - (percentage / 100) * strokeDasharray;
 
   const isGoalMet = total > 0 && current >= total;
@@ -30,60 +30,56 @@ export const RadialProgress: React.FC<RadialProgressProps> = ({
   return (
     <div 
       onClick={onClick}
-      className={`relative flex items-center justify-center w-64 h-64 mx-auto my-6 ${onClick ? 'cursor-pointer active:scale-95 transition-transform' : ''}`}
+      className={`relative flex items-center justify-center w-72 h-72 mx-auto my-8 ${onClick ? 'cursor-pointer active:scale-95 transition-transform' : ''}`}
     >
+      {/* Dynamic Ripple Effect when active */}
+      {isActive && (
+          <>
+            <div className="absolute inset-0 rounded-full border-4 border-brand-500/20 animate-ping" style={{ animationDuration: '2s' }}></div>
+            <div className="absolute inset-4 rounded-full border-2 border-brand-500/10 animate-ping" style={{ animationDuration: '3s', animationDelay: '0.5s' }}></div>
+          </>
+      )}
+
       {/* Background Circle */}
-      <div className={`absolute inset-0 rounded-full border-[12px] border-dark-card ${isActive ? 'animate-pulse-slow' : ''}`}></div>
+      <div className={`absolute inset-0 rounded-full border-[14px] border-slate-800/50 shadow-inner ${isActive ? 'animate-pulse-slow' : ''}`}></div>
       
       {/* SVG Ring */}
-      <svg className="absolute inset-0 w-full h-full -rotate-90" viewBox="0 0 200 200">
-        <defs>
-          <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
-            <feGaussianBlur stdDeviation="4" result="coloredBlur" />
-            <feMerge>
-              <feMergeNode in="coloredBlur" />
-              <feMergeNode in="SourceGraphic" />
-            </feMerge>
-          </filter>
-        </defs>
+      <svg className="absolute inset-0 w-full h-full -rotate-90 filter drop-shadow-lg" viewBox="0 0 200 200">
         <circle
           cx="100"
           cy="100"
           r="90"
           fill="none"
           stroke="currentColor"
-          strokeWidth="12"
+          strokeWidth="14"
           strokeLinecap="round"
-          className={`${displayColor} transition-all duration-500 ease-out`}
+          className={`${displayColor} transition-all duration-700 ease-out`}
           style={{
             strokeDasharray,
             strokeDashoffset,
-            filter: isGoalMet ? 'url(#glow)' : 'none'
           }}
         />
       </svg>
       
       {/* Inner Content */}
-      <div className={`flex flex-col items-center justify-center z-10 text-center pointer-events-none ${!isActive ? 'animate-breathing' : ''}`}>
+      <div className={`flex flex-col items-center justify-center z-10 text-center pointer-events-none ${isActive ? 'scale-110 transition-transform' : 'animate-breathing'}`}>
         
-        {/* Trophy Icon on Goal Met */}
         {isGoalMet && (
-             <div className="absolute -top-10 animate-bounce z-20">
-                 <div className="w-12 h-12 bg-slate-800 rounded-full border-2 border-green-400 flex items-center justify-center shadow-[0_0_15px_rgba(74,222,128,0.3)]">
-                     <i className="fa-solid fa-trophy text-yellow-400 text-xl drop-shadow-sm"></i>
+             <div className="absolute -top-12 animate-bounce z-20">
+                 <div className="w-14 h-14 bg-yellow-500 rounded-full border-4 border-white flex items-center justify-center shadow-xl">
+                     <i className="fa-solid fa-trophy text-white text-2xl"></i>
                  </div>
              </div>
         )}
 
-        <span className={`text-5xl font-bold tabular-nums tracking-tight transition-colors ${isGoalMet ? 'text-green-400 drop-shadow-sm' : 'text-dark-text'}`}>
+        <span className={`text-6xl font-black tabular-nums tracking-tighter transition-colors ${isGoalMet ? 'text-green-400' : 'text-white'}`}>
           {current.toLocaleString()}
         </span>
-        <span className={`${isGoalMet ? 'text-green-400 font-bold' : 'text-brand-400 font-medium'} text-sm uppercase tracking-wider mt-2 transition-colors`}>
-            {isGoalMet ? 'Goal Met!' : label}
+        <span className={`${isGoalMet ? 'text-green-400' : 'text-brand-400'} text-[10px] font-black uppercase tracking-[4px] mt-2`}>
+            {isGoalMet ? 'Goal Smashed!' : label}
         </span>
-        <span className="text-dark-muted text-xs mt-1">Goal: {total.toLocaleString()}</span>
-        <div className={`mt-2 text-xs transition-all ${!isActive ? 'text-brand-400 font-bold' : 'text-dark-muted'}`}>
-            {subLabel}
+        <div className="mt-2 text-[10px] text-slate-500 font-bold uppercase tracking-widest">
+            Target: {total.toLocaleString()}
         </div>
       </div>
     </div>
