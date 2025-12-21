@@ -219,28 +219,16 @@ export const syncSessionToCloud = async (userId: string, session: WalkSession) =
                 id: session.id,
                 user_id: userId,
                 start_time: session.startTime,
+                // Fix: duration_seconds property access to use correct durationSeconds name from WalkSession interface
                 duration_seconds: session.durationSeconds,
                 steps: session.steps,
+                // Fix: distance_meters property access to use correct distanceMeters name from WalkSession interface
                 distance_meters: session.distanceMeters,
                 route_data: session.route ? JSON.stringify(session.route) : null,
                 created_at: new Date().toISOString()
             });
             
         if (error) console.error("Sync Error (Session):", error);
-    } catch (e) { console.error("Sync Exception:", e); }
-};
-
-export const syncLocationToCloud = async (userId: string, locationName: string) => {
-    try {
-        const { error } = await supabase
-            .from('profiles')
-            .update({ 
-                last_location: locationName,
-                last_active: new Date().toISOString()
-            })
-            .eq('id', userId);
-            
-        if (error) console.error("Sync Error (Location):", error);
     } catch (e) { console.error("Sync Exception:", e); }
 };
 
@@ -288,7 +276,7 @@ export const fetchUserSessionsAdmin = async (userId: string): Promise<WalkSessio
             .select('*')
             .eq('user_id', userId)
             .order('start_time', { ascending: false })
-            .limit(10);
+            .limit(20);
             
         if (error) throw error;
         
@@ -303,6 +291,27 @@ export const fetchUserSessionsAdmin = async (userId: string): Promise<WalkSessio
         }));
     } catch (e) {
         console.error("Admin Session Fetch Error:", e);
+        return [];
+    }
+};
+
+export const fetchUserHistoryAdmin = async (userId: string): Promise<DailyHistory[]> => {
+    try {
+        const { data, error } = await supabase
+            .from('daily_logs')
+            .select('*')
+            .eq('user_id', userId)
+            .order('date', { ascending: true })
+            .limit(30);
+            
+        if (error) throw error;
+        
+        return data.map((d: any) => ({
+            date: d.date,
+            steps: d.steps
+        }));
+    } catch (e) {
+        console.error("Admin History Fetch Error:", e);
         return [];
     }
 };

@@ -34,17 +34,40 @@ export const signInWithGoogleOneTap = async (idToken: string) => {
   return data;
 };
 
+/**
+ * Admin specific OTP login
+ */
+export const sendAdminOTP = async (email: string) => {
+    if (email !== 'apnawalk@gmail.com') {
+        throw new Error("Access Denied: Restricted to admin email only.");
+    }
+    const { error } = await supabase.auth.signInWithOtp({
+        email,
+        options: {
+            emailRedirectTo: window.location.origin + '/admin',
+        },
+    });
+    if (error) throw error;
+};
+
+export const verifyAdminOTP = async (email: string, token: string) => {
+    const { data, error } = await supabase.auth.verifyOtp({
+        email,
+        token,
+        type: 'email',
+    });
+    if (error) throw error;
+    return data;
+};
+
 export const signOut = async () => {
-  // 1. Tell Google to stop auto-selecting the account for One Tap
   if (typeof google !== 'undefined' && google.accounts && google.accounts.id) {
     google.accounts.id.disableAutoSelect();
   }
   
-  // 2. Clear Supabase session
   const { error } = await supabase.auth.signOut();
   if (error) throw error;
 
-  // 3. Clear local profile cache
   localStorage.removeItem('strideai_profile');
 };
 
@@ -55,7 +78,6 @@ const generateRandomUsername = (email: string) => {
 };
 
 export const syncProfile = async (user: any): Promise<UserProfile> => {
-    // 1. Check if profile exists in DB
     const { data: existingProfile } = await supabase
         .from('profiles')
         .select('*')
@@ -63,7 +85,6 @@ export const syncProfile = async (user: any): Promise<UserProfile> => {
         .single();
 
     if (existingProfile) {
-        // Ensure even existing users have a username if they missed it
         const finalUsername = existingProfile.username || generateRandomUsername(existingProfile.email);
         
         if (!existingProfile.username) {
@@ -87,7 +108,6 @@ export const syncProfile = async (user: any): Promise<UserProfile> => {
         };
     }
 
-    // 2. If not, create it with a unique username
     const username = generateRandomUsername(user.email);
     const newProfile = {
         id: user.id,
