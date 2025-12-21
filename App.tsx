@@ -25,9 +25,11 @@ import { RhythmGuide } from './components/RhythmGuide';
 import { RhythmDetailModal } from './components/RhythmDetailModal';
 import { LiveTracker } from './components/LiveTracker';
 import { DailyTimeline } from './components/DailyTimeline';
+import { SessionDetailModal } from './components/SessionDetailModal';
 
 import { usePedometer } from './hooks/usePedometer';
 import { useMetronome } from './hooks/useMetronome';
+import { useAutoTracker } from './hooks/useAutoTracker';
 import { UserProfile, UserSettings, WalkSession, HydrationLog, WeatherData, WeeklyPlan, DailyHistory } from './types';
 import { getProfile, saveProfile, getSettings, saveSettings, saveHistory, getHydration, saveHydration, saveActivePlan, getHistory } from './services/storageService';
 import { getWeather } from './services/weatherService';
@@ -58,6 +60,7 @@ const App: React.FC = () => {
   const [showWeatherDetail, setShowWeatherDetail] = useState(false);
   const [showRhythmDetail, setShowRhythmDetail] = useState(false);
   const [showLiveTracker, setShowLiveTracker] = useState(false);
+  const [selectedForensicSession, setSelectedForensicSession] = useState<WalkSession | null>(null);
 
   // Data States
   const [hydration, setHydration] = useState<HydrationLog>(() => getHydration());
@@ -65,22 +68,24 @@ const App: React.FC = () => {
   const [weather, setWeather] = useState<WeatherData | null>(null);
   const [weatherLoading, setWeatherLoading] = useState(false);
   const [locality, setLocality] = useState<string>("Local Sector");
-  const [todaySessions, setTodaySessions] = useState<WalkSession[]>([]);
+  const [fullHistory, setFullHistory] = useState<DailyHistory[]>(() => getHistory());
   const [currentSession, setCurrentSession] = useState<WalkSession | null>(null);
   const [visualShare, setVisualShare] = useState<{ isOpen: boolean; type: 'stats' | 'quote'; data: any; }>({ isOpen: false, type: 'stats', data: null as any });
 
-  useEffect(() => {
-    // Load today's history from storage
-    const history = getHistory();
-    const todayStr = new Date().toISOString().split('T')[0];
-    const todayLog = history.find(h => h.date === todayStr);
-    if (todayLog && todayLog.sessions) {
-        setTodaySessions(todayLog.sessions);
-    }
-  }, []);
+  // Auto-Tracker Logic
+  const { isAutoRecording } = useAutoTracker(
+      profile.isLoggedIn, 
+      dailySteps, 
+      settings, 
+      (session) => {
+          const updatedHistory = saveHistory(session.steps, session);
+          setFullHistory(updatedHistory);
+          if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
+      }
+  );
 
   useEffect(() => {
-    if (settings.enableLocation) {
+    if (settings.enableLocation && profile.isLoggedIn) {
         setWeatherLoading(true);
         navigator.geolocation.getCurrentPosition(async (pos) => {
             const data = await getWeather(pos.coords.latitude, pos.coords.longitude);
@@ -93,7 +98,7 @@ const App: React.FC = () => {
             setHydrationTip(tip);
         }, () => setWeatherLoading(false));
     }
-  }, [settings.enableLocation]);
+  }, [settings.enableLocation, profile.isLoggedIn]);
 
   const displaySteps = isTrackingSession ? sessionSteps : dailySteps;
   const displayDistance = (displaySteps * settings.strideLengthCm) / 100;
@@ -108,9 +113,9 @@ const App: React.FC = () => {
     else { alert("Please enable Motion Sensor permissions to track your movement!"); }
   };
 
-  const handleFinishWorkout = (session: WalkSession) => {
-    saveHistory(session.steps, session);
-    setTodaySessions(prev => [session, ...prev]);
+  const handleFinishManualWorkout = (session: WalkSession) => {
+    const updated = saveHistory(session.steps, session);
+    setFullHistory(updated);
     setCurrentSession(session);
     setShowLiveTracker(false);
     setShowCoach(true);
@@ -139,7 +144,9 @@ const App: React.FC = () => {
                 <i className="fa-solid fa-person-running text-brand-500 text-xl"></i>
                 <h1 className="text-2xl font-black italic tracking-tighter"><span className="text-brand-500">APNA</span>WALK</h1>
             </div>
-            <p className="text-[9px] text-slate-500 font-black uppercase tracking-[4px] mt-1 ml-8">System: Online • {locality}</p>
+            <p className="text-[9px] text-slate-500 font-black uppercase tracking-[4px] mt-1 ml-8">
+                {isAutoRecording ? <span className="text-emerald-500 animate-pulse">● Path Tracing Active</span> : `System: Online • ${locality}`}
+            </p>
         </div>
         <button onClick={() => setShowSettings(true)} className="w-12 h-12 rounded-[1.2rem] bg-slate-800 border border-slate-700 flex items-center justify-center shadow-lg active:scale-90 transition-transform">
             <i className="fa-solid fa-user-gear text-slate-400"></i>
@@ -163,11 +170,11 @@ const App: React.FC = () => {
                 
                 <button onClick={handleStartWorkout} className="w-full py-7 rounded-[2.5rem] font-black text-base tracking-[6px] uppercase shadow-[0_20px_50px_rgba(0,0,0,0.3)] bg-gradient-to-tr from-brand-700 to-brand-500 text-white shadow-brand-500/20 transition-all active:scale-95 flex items-center justify-center gap-5 border-t border-white/20">
                     <div className="w-10 h-10 rounded-2xl bg-white/20 flex items-center justify-center border border-white/10"><i className="fa-solid fa-play pl-1"></i></div>
-                    Start Tracking
+                    Manual Tracking
                 </button>
 
-                {/* --- DAILY TIMELINE CARD --- */}
-                <DailyTimeline sessions={todaySessions} onViewDetails={(s) => { setCurrentSession(s); setShowCoach(true); }} />
+                {/* --- ENHANCED DAILY TIMELINE --- */}
+                <DailyTimeline history={fullHistory} onViewDetails={(s) => setSelectedForensicSession(s)} />
             </div>
         </section>
 
@@ -218,7 +225,8 @@ const App: React.FC = () => {
       </button>
 
       {/* --- MODAL LAYER --- */}
-      <LiveTracker isOpen={showLiveTracker} onClose={() => setShowLiveTracker(false)} profile={profile} settings={settings} onFinish={handleFinishWorkout} />
+      <SessionDetailModal session={selectedForensicSession} onClose={() => setSelectedForensicSession(null)} onShare={(s) => setVisualShare({ isOpen: true, type: 'stats', data: s })} />
+      <LiveTracker isOpen={showLiveTracker} onClose={() => setShowLiveTracker(false)} profile={profile} settings={settings} onFinish={handleFinishManualWorkout} />
       <AICoachModal session={currentSession} isOpen={showCoach} onClose={() => setShowCoach(false)} isGuest={profile.isGuest!} onLoginRequest={() => {}} onShareStats={() => {}} />
       <SettingsModal isOpen={showSettings} onClose={() => setShowSettings(false)} settings={settings} profile={profile} onSave={(s, p) => { setSettings(s); saveSettings(s); setProfile(p); saveProfile(p); }} onLogout={() => setProfile({...profile, isLoggedIn: false})} onLoginRequest={() => {}} />
       <WorkoutPlannerModal isOpen={showPlanner} onClose={() => setShowPlanner(false)} onSavePlan={handleSavePlan} />
