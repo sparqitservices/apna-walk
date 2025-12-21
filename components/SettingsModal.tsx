@@ -175,6 +175,30 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                </div>
           </div>
 
+          {/* NEW: Live Tracking Privacy Section */}
+          <div className="space-y-6">
+               <SectionHeader icon="fa-location-dot" title="Live Vibe Sharing" />
+               <div className="grid grid-cols-1 gap-4">
+                   <StylishToggle 
+                        checked={!!tempProfile.share_live_location} 
+                        onChange={(val) => handleProfileChange('share_live_location', val)} 
+                        icon="fa-user-group" 
+                        label="Share with Friends" 
+                        subLabel="Direct buddies can see your live walk position" 
+                        colorClass="peer-checked:bg-emerald-500"
+                   />
+                   <StylishToggle 
+                        checked={!!tempProfile.share_fof_location} 
+                        onChange={(val) => handleProfileChange('share_fof_location', val)} 
+                        icon="fa-users-rays" 
+                        label="Squad-of-Squads" 
+                        subLabel="Friends-of-Friends can see your live marker" 
+                        colorClass="peer-checked:bg-blue-500"
+                   />
+               </div>
+               <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest text-center">Location only updates while the app is active.</p>
+          </div>
+
           {/* App Vibe Section */}
           <div className="space-y-6">
                <SectionHeader icon="fa-wand-magic-sparkles" title="App Vibe" />

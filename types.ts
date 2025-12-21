@@ -1,3 +1,4 @@
+
 export interface RoutePoint {
   lat: number;
   lng: number;
@@ -42,6 +43,23 @@ export interface UserProfile {
   // Privacy Flags
   is_stats_public?: boolean;
   is_mutuals_public?: boolean;
+  // Live Sharing Flags
+  share_live_location?: boolean;
+  share_fof_location?: boolean;
+  last_lat?: number;
+  last_lng?: number;
+  last_location_update?: string;
+}
+
+export interface LiveConnection {
+    id: string;
+    username: string;
+    avatar_url: string;
+    lat: number;
+    lng: number;
+    degree: 1 | 2; // 1 = Friend, 2 = Friend of Friend
+    bridge_username?: string; // The mutual friend's name for degree 2
+    last_active: string;
 }
 
 export interface MutualFriend {
@@ -87,10 +105,6 @@ export interface ParkReview {
     avatar_url: string;
   };
 }
-
-/** 
- * Added missing types used by services and components 
- */
 
 export interface AIInsight {
   summary: string;

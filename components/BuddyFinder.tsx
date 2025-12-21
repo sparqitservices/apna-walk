@@ -1,12 +1,14 @@
+
 import React, { useState, useEffect } from 'react';
-import { UserProfile, NearbyBuddy, BuddyRequest } from '../types';
+import { UserProfile, NearbyBuddy, BuddyRequest, LiveConnection } from '../types';
 import { 
-    findNearbyBuddies, updateBuddyPreferences, updateLocation, 
+    findNearbyBuddies, updateBuddyPreferences, updateLiveLocation, 
     sendBuddyRequest, fetchMyBuddyRequests, respondToRequest, fetchMyBuddies,
-    searchUsers 
+    searchUsers, fetchLiveConnections 
 } from '../services/buddyService';
 import { BuddyChat } from './BuddyChat';
 import { BuddyProfileModal } from './BuddyProfileModal';
+import { LiveBuddyMap } from './LiveBuddyMap';
 
 interface BuddyFinderProps {
     isOpen: boolean;
@@ -25,6 +27,11 @@ export const BuddyFinder: React.FC<BuddyFinderProps> = ({ isOpen, onClose, profi
     const [selectedBuddy, setSelectedBuddy] = useState<UserProfile | null>(null);
     const [showProfile, setShowProfile] = useState(false);
     
+    // Live Radar State
+    const [showLiveRadar, setShowLiveRadar] = useState(false);
+    const [liveConnections, setLiveConnections] = useState<LiveConnection[]>([]);
+    const [userCoords, setUserCoords] = useState<{lat: number, lng: number} | null>(null);
+
     // Preferences Form
     const [isLooking, setIsLooking] = useState(profile.is_looking_for_buddy ?? true);
     const [bio, setBio] = useState(profile.bio || '');
@@ -45,7 +52,9 @@ export const BuddyFinder: React.FC<BuddyFinderProps> = ({ isOpen, onClose, profi
                 if (navigator.geolocation) {
                     navigator.geolocation.getCurrentPosition(async (pos) => {
                         const { latitude, longitude } = pos.coords;
-                        await updateLocation(profile.id!, latitude, longitude);
+                        setUserCoords({ lat: latitude, lng: longitude });
+                        /* Fixed: updateLocation changed to updateLiveLocation */
+                        await updateLiveLocation(profile.id!, latitude, longitude);
                         const results = await findNearbyBuddies(latitude, longitude, 5000, profile.id!);
                         const scored = results.map(b => {
                             let score = 0;
@@ -71,6 +80,20 @@ export const BuddyFinder: React.FC<BuddyFinderProps> = ({ isOpen, onClose, profi
             console.error("BuddyFinder loadData Error:", e);
             setLoading(false);
         }
+    };
+
+    const handleOpenRadar = async () => {
+        if (!profile.share_live_location) {
+            alert("Please enable 'Live Sharing' in Settings first!");
+            return;
+        }
+        setLoading(true);
+        try {
+            const data = await fetchLiveConnections(profile.id!);
+            setLiveConnections(data);
+            setShowLiveRadar(true);
+        } catch (e) { alert("Radar offline."); }
+        setLoading(false);
     };
 
     const handleSearch = async () => {
@@ -184,6 +207,23 @@ export const BuddyFinder: React.FC<BuddyFinderProps> = ({ isOpen, onClose, profi
 
                         {!loading && view === 'discover' && (
                             <div className="space-y-10 animate-fade-in">
+                                {/* NEW: LIVE SQUAD RADAR BUTTON */}
+                                <button 
+                                    onClick={handleOpenRadar}
+                                    className="w-full bg-gradient-to-r from-brand-600 to-blue-600 p-6 rounded-[2.5rem] flex items-center justify-between group active:scale-[0.98] transition-all shadow-2xl border border-white/10"
+                                >
+                                    <div className="flex items-center gap-5">
+                                        <div className="w-14 h-14 bg-white/10 rounded-2xl flex items-center justify-center text-white text-2xl group-hover:scale-110 transition-transform">
+                                            <i className="fa-solid fa-satellite-dish animate-pulse"></i>
+                                        </div>
+                                        <div className="text-left">
+                                            <h4 className="text-white font-black text-xl italic uppercase tracking-tighter leading-none">Live Squad Radar</h4>
+                                            <p className="text-white/60 text-[9px] font-bold uppercase tracking-[3px] mt-2">See Friends & FoF on Map</p>
+                                        </div>
+                                    </div>
+                                    <i className="fa-solid fa-chevron-right text-white/50 group-hover:translate-x-2 transition-transform mr-4"></i>
+                                </button>
+
                                 <div className="relative group">
                                     <i className="fa-solid fa-search absolute left-6 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-brand-500 transition-colors"></i>
                                     <input 
@@ -348,6 +388,15 @@ export const BuddyFinder: React.FC<BuddyFinderProps> = ({ isOpen, onClose, profi
                 onBuddyRemoved={loadData}
                 onChatRequest={() => { setShowProfile(false); setView('chat'); }}
             />
+
+            {showLiveRadar && userCoords && (
+                <LiveBuddyMap 
+                    connections={liveConnections} 
+                    userLat={userCoords.lat} 
+                    userLng={userCoords.lng} 
+                    onClose={() => setShowLiveRadar(false)} 
+                />
+            )}
         </div>
     );
 };

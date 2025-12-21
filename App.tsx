@@ -36,6 +36,7 @@ import { getProfile, saveProfile, getSettings, saveSettings, saveHistory, getHyd
 import { getWeather } from './services/weatherService';
 import { getLocalityName } from './services/parkService';
 import { getHydrationTip } from './services/geminiService';
+import { updateLiveLocation } from './services/buddyService';
 
 const App: React.FC = () => {
   const [profile, setProfile] = useState<UserProfile>(() => getProfile() || { name: '', email: '', isLoggedIn: false, isGuest: false });
@@ -95,6 +96,24 @@ const App: React.FC = () => {
           if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
       }
   );
+
+  // Background Live Location Sync
+  useEffect(() => {
+      let interval: number;
+      if (profile.isLoggedIn && !profile.isGuest && profile.share_live_location) {
+          const syncLocation = () => {
+              navigator.geolocation.getCurrentPosition(async (pos) => {
+                  try {
+                      await updateLiveLocation(profile.id!, pos.coords.latitude, pos.coords.longitude);
+                  } catch (e) { console.warn("Live sync failed", e); }
+              }, null, { enableHighAccuracy: true });
+          };
+          
+          syncLocation();
+          interval = window.setInterval(syncLocation, 30000); // Sync every 30s
+      }
+      return () => { if (interval) clearInterval(interval); };
+  }, [profile.isLoggedIn, profile.share_live_location]);
 
   useEffect(() => {
     if (settings.enableLocation && profile.isLoggedIn) {
@@ -174,7 +193,6 @@ const App: React.FC = () => {
                 <i className="fa-solid fa-person-running text-brand-500 text-xl"></i>
                 <h1 className="text-2xl font-black italic tracking-tighter uppercase leading-none"><span className="text-brand-500">Apna</span>Walk</h1>
             </div>
-            {/* Location arranged directly below logo text - Replacing "SYSTEM: ONLINE" */}
             <div className="flex items-center gap-2 mt-1 ml-8 overflow-hidden">
                 <span className="relative flex h-2 w-2 shrink-0">
                     <span className={`${isAutoRecording ? 'animate-ping' : ''} absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75`}></span>
@@ -194,7 +212,6 @@ const App: React.FC = () => {
         
         {/* --- MAIN DASHBOARD --- */}
         <section className="flex flex-col items-center">
-            {/* Round Step Counter - Now Tap to Start/Pause */}
             <RadialProgress 
                 current={displaySteps} 
                 total={settings.stepGoal} 
@@ -208,7 +225,6 @@ const App: React.FC = () => {
             <div className="w-full grid grid-cols-1 gap-6 mt-8">
                 <StatsGrid calories={displayCalories} distance={displayDistance} duration={0} onStatClick={() => {}} />
                 
-                {/* --- START/FINISH BUTTONS (Added above Journey Log) --- */}
                 <div className="flex gap-4 w-full">
                     {!isTrackingSession ? (
                         <button 
@@ -227,7 +243,6 @@ const App: React.FC = () => {
                     )}
                 </div>
 
-                {/* --- JOURNEY CARD --- */}
                 <div 
                   onClick={() => setShowJourneyHub(true)}
                   className="bg-slate-800/40 border border-slate-700/50 rounded-[2.5rem] p-6 flex flex-col gap-6 hover:bg-slate-800/60 transition-all cursor-pointer group shadow-2xl relative overflow-hidden"

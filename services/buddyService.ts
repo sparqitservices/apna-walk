@@ -1,5 +1,6 @@
+
 import { supabase } from './supabaseClient';
-import { NearbyBuddy, BuddyRequest, BuddyMessage, UserProfile, DuelConfig, MutualFriend } from '../types';
+import { NearbyBuddy, BuddyRequest, BuddyMessage, UserProfile, DuelConfig, MutualFriend, LiveConnection } from '../types';
 
 export const updateBuddyPreferences = async (userId: string, prefs: Partial<UserProfile>) => {
     const { error } = await supabase
@@ -9,13 +10,45 @@ export const updateBuddyPreferences = async (userId: string, prefs: Partial<User
     if (error) throw error;
 };
 
-export const updateLocation = async (userId: string, lat: number, lng: number) => {
-    const point = `POINT(${lng} ${lat})`;
+/**
+ * Updates the user's actual GPS coordinates for live sharing.
+ */
+export const updateLiveLocation = async (userId: string, lat: number, lng: number) => {
     const { error } = await supabase
         .from('profiles')
-        .update({ location: point })
+        .update({ 
+            last_lat: lat, 
+            last_lng: lng,
+            last_location_update: new Date().toISOString()
+        })
         .eq('id', userId);
     if (error) throw error;
+};
+
+/**
+ * Fetches real-time locations of direct friends and 2nd-degree connections (Friends of Friends).
+ * Respects 'share_live_location' and 'share_fof_location' flags.
+ */
+export const fetchLiveConnections = async (userId: string): Promise<LiveConnection[]> => {
+    const { data, error } = await supabase.rpc('get_live_squad_radar', {
+        requesting_user_id: userId
+    });
+    
+    if (error) {
+        console.error("Radar Fetch Error:", error);
+        return [];
+    }
+    
+    return (data || []).map((c: any) => ({
+        id: c.user_id,
+        username: c.username,
+        avatar_url: c.avatar_url,
+        lat: c.lat,
+        lng: c.lng,
+        degree: c.connection_degree,
+        bridge_username: c.mutual_friend_name,
+        last_active: c.updated_at
+    }));
 };
 
 export const findNearbyBuddies = async (lat: number, lng: number, radiusMeters: number, userId: string): Promise<NearbyBuddy[]> => {
@@ -28,7 +61,6 @@ export const findNearbyBuddies = async (lat: number, lng: number, radiusMeters: 
     
     if (error) throw error;
     
-    // Privacy: STRANGERS see only username
     return (data || []).map((p: any) => ({
         ...p,
         name: "[Hidden]", 
@@ -177,7 +209,6 @@ export const respondToRequest = async (requestId: string, status: 'accepted' | '
 };
 
 export const fetchMyBuddies = async (userId: string): Promise<UserProfile[]> => {
-    // Friends: Fetch ALL data (full_name, email)
     const { data: b1, error: e1 } = await supabase
         .from('buddies')
         .select('other:profiles!buddies_user2_id_fkey(id, username, full_name, email, avatar_url, public_key, bio, pace, preferred_time, is_stats_public, is_mutuals_public)')
