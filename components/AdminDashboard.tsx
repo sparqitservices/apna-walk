@@ -501,6 +501,7 @@ export const AdminDashboard: React.FC = () => {
                                                 userSessions.map(session => {
                                                     const km = session.distanceMeters / 1000;
                                                     const paceMin = km > 0.1 ? Math.floor((session.durationSeconds / 60) / km) : 0;
+                                                    const paceSec = km > 0.1 ? Math.round(((session.durationSeconds / 60) / km - paceMin) * 60) : 0;
                                                     return (
                                                         <tr key={session.id} className="group hover:bg-slate-800/20 transition-all">
                                                             <td className="py-6 pl-4">
@@ -524,7 +525,7 @@ export const AdminDashboard: React.FC = () => {
                                                                 <span className="text-blue-500 font-black italic text-xs tabular-nums">{(session.avgSpeed || 0).toFixed(1)} <small className="text-[8px] opacity-40 uppercase">km/h</small></span>
                                                             </td>
                                                             <td className="py-6">
-                                                                <span className="text-slate-400 font-black text-xs tabular-nums">{paceMin}'{Math.round(((session.durationSeconds / 60) / (km || 1) - paceMin) * 60).toString().padStart(2, '0')}"</span>
+                                                                <span className="text-slate-400 font-black text-xs tabular-nums">{paceMin}'{paceSec.toString().padStart(2, '0')}"</span>
                                                             </td>
                                                             <td className="py-6">
                                                                 <span className="text-slate-500 font-bold text-[10px] tabular-nums">{Math.floor(session.durationSeconds / 60)}m {session.durationSeconds % 60}s</span>
