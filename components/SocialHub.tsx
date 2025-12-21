@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { UserProfile, WalkingGroup, Challenge, ChallengeParticipant, GroupPost, GroupMember, GroupMemberStats } from '../types';
 import { 
@@ -139,7 +140,6 @@ export const SocialHub: React.FC<SocialHubProps> = ({ isOpen, onClose, profile }
       } catch (e) { alert("Approval failed."); }
   };
 
-  // Fix: Added missing handleReject function to process join request declines
   const handleReject = async (m: GroupMember) => {
       try {
           await rejectMember(m.id);
@@ -262,7 +262,6 @@ export const SocialHub: React.FC<SocialHubProps> = ({ isOpen, onClose, profile }
                             <div className="absolute top-0 right-0 p-8 opacity-5 text-9xl text-brand-500 rotate-12 pointer-events-none italic font-black">SQUAD</div>
                             <div className="flex items-center justify-between relative z-10">
                                 <div>
-                                    {/* Fix: Added missing opening tag bracket for h3 */}
                                     <h3 className="text-4xl font-black text-white tracking-tighter uppercase italic">{selectedGroup.name}</h3>
                                     <div className="flex items-center gap-4 mt-2">
                                         <span className="text-xs text-brand-400 font-black uppercase tracking-[3px] flex items-center gap-1.5"><i className="fa-solid fa-map-pin"></i> {selectedGroup.location}</span>
@@ -304,7 +303,7 @@ export const SocialHub: React.FC<SocialHubProps> = ({ isOpen, onClose, profile }
                                     {selectedGroup.is_member && (
                                         <div className="bg-slate-800/40 p-5 rounded-[2rem] border border-slate-700/50 flex gap-4 shadow-inner relative group focus-within:border-brand-500/50 transition-colors">
                                             <input className="flex-1 bg-transparent text-sm text-white outline-none placeholder:text-slate-600 font-medium" placeholder="Message the squad..." value={postContent} onChange={e => setPostContent(e.target.value)} onKeyDown={e => e.key === 'Enter' && handlePost()} />
-                                            <button onClick={handlePost} className="w-12 h-12 rounded-2xl bg-brand-600 text-white flex items-center justify-center shadow-lg active:scale-90 transition-all hover:bg-brand-500"><i className="fa-solid fa-paper-plane"></i></button>
+                                            <button onClick={handlePost} className="w-12 h-12 rounded-2xl bg-brand-600 text-white flex items-center justify-center shadow-lg active:scale-90 transition-all hover:bg-brand-50"><i className="fa-solid fa-paper-plane"></i></button>
                                         </div>
                                     )}
                                     <div ref={postScrollRef} className="flex-1 space-y-4 overflow-y-auto no-scrollbar pb-10">
@@ -342,7 +341,6 @@ export const SocialHub: React.FC<SocialHubProps> = ({ isOpen, onClose, profile }
                                                     <div className={`w-10 h-10 rounded-2xl flex items-center justify-center font-black italic text-xl ${idx === 0 ? 'bg-yellow-500 text-slate-900' : idx === 1 ? 'bg-slate-400 text-slate-900' : idx === 2 ? 'bg-orange-600 text-white' : 'text-slate-600'}`}>{idx + 1}</div>
                                                     <img src={s.profile?.avatar_url || 'https://www.gravatar.com/avatar?d=mp'} className="w-14 h-14 rounded-2xl border-2 border-slate-700 object-cover" />
                                                     <div className="flex-1">
-                                                        {/* Fix: Added missing opening tag bracket for h4 */}
                                                         <h4 className="text-white font-black text-lg italic tracking-tighter">@{s.profile?.username}</h4>
                                                         <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest">{s.role}</p>
                                                     </div>
@@ -430,7 +428,6 @@ export const SocialHub: React.FC<SocialHubProps> = ({ isOpen, onClose, profile }
                                         <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black italic text-2xl ${idx === 0 ? 'bg-yellow-500 text-slate-900 shadow-[0_0_20px_rgba(234,179,8,0.4)]' : idx === 1 ? 'bg-slate-300 text-slate-900' : idx === 2 ? 'bg-orange-600 text-white' : 'text-slate-600 group-hover:text-slate-400'}`}>{idx + 1}</div>
                                         <img src={p.profile?.avatar_url || 'https://www.gravatar.com/avatar?d=mp'} className="w-16 h-16 rounded-3xl border-2 border-slate-700 object-cover shadow-lg" />
                                         <div className="flex-1">
-                                            {/* Fix: Added missing opening tag bracket for h5 */}
                                             <h5 className="text-white font-black text-xl italic tracking-tight">@{p.profile?.username}</h5>
                                             <div className="h-2 w-full bg-slate-800 rounded-full mt-3 overflow-hidden max-w-[250px] shadow-inner">
                                                 <div className="h-full bg-gradient-to-r from-orange-600 to-yellow-400" style={{ width: `${Math.min((p.current_steps / selectedChallenge.target_steps) * 100, 100)}%` }}></div>
