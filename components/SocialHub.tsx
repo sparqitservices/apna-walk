@@ -1,13 +1,17 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { UserProfile, WalkingGroup, Challenge, ChallengeParticipant, GroupPost, GroupMember, GroupMemberStats } from '../types';
+import { UserProfile, WalkingGroup, Challenge, ChallengeParticipant, GroupPost, GroupMember, GroupMemberStats, BuddyRequest, NearbyBuddy } from '../types';
 import { 
-  fetchGroups, createGroup, updateGroup, deleteGroup, 
-  requestJoinGroup, fetchPendingRequests, approveMember, rejectMember,
+  fetchGroups, createGroup, requestJoinGroup, fetchPendingRequests, approveMember, rejectMember,
   fetchChallenges, joinChallenge, fetchLeaderboard, 
   createSystemMonthlyChallenge, fetchGroupPosts, createPost,
   fetchGroupMemberStats, kickMember, subscribeToGroupPosts, leaveGroup
 } from '../services/socialService';
+import { 
+  fetchMyBuddies, fetchMyBuddyRequests, respondToRequest, 
+  findNearbyBuddies, sendBuddyRequest, updateBuddyPreferences 
+} from '../services/buddyService';
+import { BuddyChat } from './BuddyChat';
 
 interface SocialHubProps {
   isOpen: boolean;
@@ -16,26 +20,35 @@ interface SocialHubProps {
 }
 
 export const SocialHub: React.FC<SocialHubProps> = ({ isOpen, onClose, profile }) => {
-  const [activeTab, setActiveTab] = useState<'groups' | 'challenges'>('groups');
+  const [activeTab, setActiveTab] = useState<'groups' | 'challenges' | 'buddies'>('groups');
   const [loading, setLoading] = useState(false);
   
-  // Data
+  // Squads/Challenges Data
   const [groups, setGroups] = useState<WalkingGroup[]>([]);
   const [challenges, setChallenges] = useState<Challenge[]>([]);
   const [selectedGroup, setSelectedGroup] = useState<WalkingGroup | null>(null);
   const [groupTab, setGroupTab] = useState<'feed' | 'leaderboard' | 'manage'>('feed');
-  
   const [selectedChallenge, setSelectedChallenge] = useState<Challenge | null>(null);
   const [leaderboard, setLeaderboard] = useState<ChallengeParticipant[]>([]);
   const [groupFeed, setGroupFeed] = useState<GroupPost[]>([]);
   const [groupStats, setGroupStats] = useState<GroupMemberStats[]>([]);
-  const [pendingRequests, setPendingRequests] = useState<GroupMember[]>([]);
-  const [postContent, setPostContent] = useState('');
+  const [pendingGroupReqs, setPendingGroupReqs] = useState<GroupMember[]>([]);
+  
+  // Buddies Data
+  const [myBuddies, setMyBuddies] = useState<UserProfile[]>([]);
+  const [buddyRequests, setBuddyRequests] = useState<BuddyRequest[]>([]);
+  const [nearbyWalkers, setNearbyWalkers] = useState<NearbyBuddy[]>([]);
+  const [buddyView, setBuddyView] = useState<'my-squad' | 'inbox' | 'explore'>('my-squad');
+  const [activeChatBuddy, setActiveChatBuddy] = useState<UserProfile | null>(null);
 
-  // Management UI
+  // Discovery Filters
+  const [filterPace, setFilterPace] = useState<string>('all');
+  const [filterTime, setFilterTime] = useState<string>('all');
+
+  // UI State
+  const [postContent, setPostContent] = useState('');
   const [showCreateGroup, setShowCreateGroup] = useState(false);
   const [newGroupName, setNewGroupName] = useState('');
-  const [newGroupLoc, setNewGroupLoc] = useState('');
   const postScrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -43,23 +56,7 @@ export const SocialHub: React.FC<SocialHubProps> = ({ isOpen, onClose, profile }
       loadData();
       createSystemMonthlyChallenge(); 
     }
-  }, [isOpen, activeTab]);
-
-  useEffect(() => {
-    if (selectedGroup && groupTab === 'feed') {
-        const channel = subscribeToGroupPosts(selectedGroup.id, (post) => {
-            setGroupFeed(prev => [post, ...prev]);
-            if (navigator.vibrate) navigator.vibrate(10);
-        });
-        return () => { channel.unsubscribe(); };
-    }
-  }, [selectedGroup?.id, groupTab]);
-
-  useEffect(() => {
-    if (postScrollRef.current) {
-        postScrollRef.current.scrollTop = 0;
-    }
-  }, [groupFeed]);
+  }, [isOpen, activeTab, buddyView]);
 
   const loadData = async () => {
     setLoading(true);
@@ -67,386 +64,287 @@ export const SocialHub: React.FC<SocialHubProps> = ({ isOpen, onClose, profile }
       if (activeTab === 'groups') {
         const g = await fetchGroups(profile.id);
         setGroups(g);
-      } else {
+      } else if (activeTab === 'challenges') {
         const c = await fetchChallenges(profile.id);
         setChallenges(c);
+      } else {
+        // Buddies Tab
+        if (buddyView === 'my-squad') {
+          const b = await fetchMyBuddies(profile.id!);
+          setMyBuddies(b);
+        } else if (buddyView === 'inbox') {
+          const r = await fetchMyBuddyRequests(profile.id!);
+          setBuddyRequests(r);
+        } else if (buddyView === 'explore') {
+          navigator.geolocation.getCurrentPosition(async (pos) => {
+            const results = await findNearbyBuddies(pos.coords.latitude, pos.coords.longitude, 10000, profile.id!);
+            const scored = results.map(b => {
+              let score = 0;
+              if (b.pace === profile.pace) score += 40;
+              if (b.preferred_time === profile.preferred_time) score += 40;
+              return { ...b, match_score: Math.min(score + 20, 100) };
+            }).sort((a, b) => (b.match_score || 0) - (a.match_score || 0));
+            setNearbyWalkers(scored);
+          });
+        }
       }
     } catch (e) { console.error(e); }
     finally { setLoading(false); }
   };
 
-  const handleCreateGroup = async () => {
-      if(!newGroupName || !newGroupName.trim()) return;
-      try {
-          await createGroup({
-              name: newGroupName,
-              location: newGroupLoc || 'Local',
-              created_by: profile.id,
-              description: 'Local walking squad.',
-              privacy: 'public'
-          });
-          setShowCreateGroup(false);
-          setNewGroupName('');
-          setNewGroupLoc('');
-          loadData();
-      } catch (e) { alert('Failed to create group.'); }
+  const handleBuddyAction = async (requestId: string, status: 'accepted' | 'declined', senderId: string) => {
+    setLoading(true);
+    try {
+      await respondToRequest(requestId, status, senderId, profile.id!);
+      setBuddyRequests(prev => prev.filter(r => r.id !== requestId));
+      if (status === 'accepted') alert("New buddy added to your squad!");
+    } catch (e) { alert("Action failed."); }
+    setLoading(false);
   };
 
-  const openGroup = async (group: WalkingGroup) => {
-      setSelectedGroup(group);
-      setGroupTab('feed');
-      loadGroupSubData(group.id, 'feed');
+  const handleSendInvite = async (buddy: NearbyBuddy) => {
+    const msg = prompt(`Send a message to @${buddy.username}:`, "Namaste! Let's walk together?");
+    if (msg === null) return;
+    try {
+      await sendBuddyRequest(profile.id!, buddy.id!, msg);
+      alert("Invite sent!");
+      setNearbyWalkers(prev => prev.filter(n => n.id !== buddy.id));
+    } catch (e) { alert("Failed to send invite."); }
   };
-
-  const loadGroupSubData = async (groupId: string, tab: 'feed' | 'leaderboard' | 'manage') => {
-      try {
-          if (tab === 'feed') {
-              const posts = await fetchGroupPosts(groupId);
-              setGroupFeed(posts);
-          } else if (tab === 'leaderboard' || tab === 'manage') {
-              const stats = await fetchGroupMemberStats(groupId);
-              setGroupStats(stats);
-          }
-          if (tab === 'manage' && selectedGroup?.created_by === profile.id) {
-              const reqs = await fetchPendingRequests(groupId);
-              setPendingRequests(reqs);
-          }
-      } catch (e) { console.error(e); }
-  };
-
-  const handleJoinRequest = async (gid: string) => {
-      try {
-          await requestJoinGroup(gid, profile.id!);
-          alert('Chalo! Join request sent to squad leader.');
-          loadData();
-      } catch(e) { alert('Could not join.'); }
-  };
-
-  const handleLeaveGroup = async () => {
-      if (!selectedGroup || !confirm("Squad chhodni hai? Sure?")) return;
-      try {
-          await leaveGroup(selectedGroup.id, profile.id!);
-          setSelectedGroup(null);
-          loadData();
-      } catch(e) { alert("Error leaving group."); }
-  };
-
-  const handleApprove = async (m: GroupMember) => {
-      try {
-          await approveMember(m.id);
-          setPendingRequests(prev => prev.filter(r => r.id !== m.id));
-          if (selectedGroup) loadGroupSubData(selectedGroup.id, 'manage');
-          loadData();
-      } catch (e) { alert("Approval failed."); }
-  };
-
-  const handleReject = async (m: GroupMember) => {
-      try {
-          await rejectMember(m.id);
-          setPendingRequests(prev => prev.filter(r => r.id !== m.id));
-          if (selectedGroup) loadGroupSubData(selectedGroup.id, 'manage');
-          loadData();
-      } catch (e) { alert("Rejection failed."); }
-  };
-
-  const handleKick = async (mId: string) => {
-      if (!confirm("Kick member?")) return;
-      try {
-          await kickMember(mId);
-          setGroupStats(prev => prev.filter(s => s.id !== mId));
-      } catch(e) { alert("Failed to kick."); }
-  };
-
-  const handlePost = async () => {
-      if(!postContent.trim() || !selectedGroup) return;
-      try {
-          await createPost(selectedGroup.id, profile.id!, postContent);
-          setPostContent('');
-          // Subscription handles the UI update
-      } catch (e) { alert("Couldn't post."); }
-  };
-
-  const openChallenge = async (challenge: Challenge) => {
-      setSelectedChallenge(challenge);
-      const lb = await fetchLeaderboard(challenge.id);
-      setLeaderboard(lb);
-  };
-
-  const handleJoinChallenge = async (cid: string) => {
-      try {
-          await joinChallenge(cid, profile.id!);
-          loadData();
-          if (selectedChallenge) openChallenge(selectedChallenge);
-      } catch (e) { alert('Could not join challenge.'); }
-  };
-
-  const squadPower = groupStats.reduce((acc, curr) => acc + (curr.today_steps || 0), 0);
 
   if (!isOpen) return null;
+
+  // PRIVACY HELPER: Determines what details a user can see
+  const canSeeFullProfile = (buddyId: string) => {
+      return myBuddies.some(b => b.id === buddyId);
+  };
 
   return (
     <div className="fixed inset-0 bg-black/95 backdrop-blur-md z-[80] flex items-center justify-center p-4">
       <div className="bg-dark-card w-full max-w-5xl h-[90vh] rounded-[3rem] border border-slate-700 shadow-2xl flex flex-col overflow-hidden animate-message-pop">
         
-        {/* HEADER */}
+        {/* GLOBAL HEADER */}
         <div className="p-6 border-b border-slate-700 flex justify-between items-center bg-slate-900/50 shrink-0">
             <div className="flex items-center gap-6">
                 <div className="flex flex-col">
                     <h2 className="text-white font-black text-2xl tracking-tighter uppercase italic"><span className="text-brand-500">Apna</span>Hub</h2>
-                    <p className="text-[10px] text-slate-500 font-bold uppercase tracking-[4px]">Local Fitness Circles</p>
+                    <p className="text-[10px] text-slate-500 font-bold uppercase tracking-[4px]">Verified Network</p>
                 </div>
                 <div className="flex bg-slate-800 rounded-2xl p-1 border border-slate-700 shadow-inner">
-                    <button onClick={() => { setActiveTab('groups'); setSelectedGroup(null); }} className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'groups' ? 'bg-brand-600 text-white shadow-lg' : 'text-slate-500'}`}>Squads</button>
-                    <button onClick={() => { setActiveTab('challenges'); setSelectedChallenge(null); }} className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'challenges' ? 'bg-orange-500 text-white shadow-lg' : 'text-slate-500'}`}>Glory</button>
+                    {[
+                        { id: 'groups', label: 'Squads', icon: 'fa-people-group' },
+                        { id: 'buddies', label: 'Buddies', icon: 'fa-user-group' },
+                        { id: 'challenges', label: 'Glory', icon: 'fa-trophy' }
+                    ].map(tab => (
+                        <button 
+                            key={tab.id}
+                            onClick={() => { setActiveTab(tab.id as any); setSelectedGroup(null); setSelectedChallenge(null); setActiveChatBuddy(null); }} 
+                            className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${activeTab === tab.id ? 'bg-brand-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}
+                        >
+                            <i className={`fa-solid ${tab.icon} text-[10px]`}></i> {tab.label}
+                        </button>
+                    ))}
                 </div>
             </div>
-            <div className="flex gap-2">
-                <button onClick={loadData} className="w-10 h-10 rounded-2xl bg-slate-800 text-slate-400 flex items-center justify-center border border-slate-700 hover:text-white transition-all"><i className={`fa-solid fa-rotate ${loading ? 'fa-spin' : ''}`}></i></button>
-                <button onClick={onClose} className="w-10 h-10 rounded-2xl bg-slate-800 text-slate-400 flex items-center justify-center border border-slate-700 hover:text-white hover:bg-red-500/20 transition-all"><i className="fa-solid fa-xmark"></i></button>
-            </div>
+            <button onClick={onClose} className="w-10 h-10 rounded-2xl bg-slate-800 text-slate-400 flex items-center justify-center border border-slate-700 hover:text-white transition-all"><i className="fa-solid fa-xmark"></i></button>
         </div>
 
         <div className="flex-1 overflow-hidden flex flex-col md:flex-row">
             
-            {/* SIDEBAR */}
-            <div className={`w-full md:w-80 border-r border-slate-700 flex flex-col bg-slate-900/30 shrink-0 ${selectedGroup || selectedChallenge ? 'hidden md:flex' : 'flex'}`}>
-                <div className="flex-1 overflow-y-auto p-4 space-y-4 no-scrollbar">
-                    {activeTab === 'groups' ? (
+            {/* SIDEBAR - Context Aware */}
+            <div className={`w-full md:w-80 border-r border-slate-700 flex flex-col bg-slate-900/30 shrink-0 ${selectedGroup || selectedChallenge || activeChatBuddy ? 'hidden md:flex' : 'flex'}`}>
+                <div className="flex-1 overflow-y-auto p-4 space-y-3 no-scrollbar">
+                    {activeTab === 'groups' && (
                         <>
-                            <button onClick={() => setShowCreateGroup(!showCreateGroup)} className="w-full py-4 border-2 border-dashed border-slate-700 rounded-3xl text-[10px] font-black text-slate-500 hover:text-brand-500 hover:border-brand-500 transition-all uppercase tracking-[4px] bg-slate-800/20"><i className="fa-solid fa-plus mr-2"></i> New Squad</button>
-                            {showCreateGroup && (
-                                <div className="bg-slate-800 p-5 rounded-3xl space-y-4 animate-message-pop border border-brand-500/30 shadow-xl">
-                                    <input className="w-full bg-slate-900 border border-slate-700 rounded-2xl p-3.5 text-xs text-white outline-none focus:border-brand-500 shadow-inner" placeholder="Squad Name (e.g. Malad Walkers)" value={newGroupName} onChange={e => setNewGroupName(e.target.value)} />
-                                    <input className="w-full bg-slate-900 border border-slate-700 rounded-2xl p-3.5 text-xs text-white outline-none focus:border-brand-500 shadow-inner" placeholder="Locality (e.g. Mumbai)" value={newGroupLoc} onChange={e => setNewGroupLoc(e.target.value)} />
-                                    <button onClick={handleCreateGroup} className="w-full bg-brand-600 hover:bg-brand-500 text-white py-3 rounded-2xl text-xs font-black uppercase tracking-widest shadow-lg active:scale-95 transition-all">Form Squad</button>
+                            <button onClick={() => setShowCreateGroup(!showCreateGroup)} className="w-full py-4 border-2 border-dashed border-slate-700 rounded-3xl text-[10px] font-black text-slate-500 hover:text-brand-500 hover:border-brand-500 transition-all uppercase tracking-[4px]"><i className="fa-solid fa-plus mr-2"></i> New Squad</button>
+                            {groups.map(g => (
+                                <div key={g.id} onClick={() => { setSelectedGroup(g); setGroupTab('feed'); }} className={`p-5 rounded-[2.5rem] border cursor-pointer transition-all ${selectedGroup?.id === g.id ? 'bg-brand-600 border-brand-400' : 'bg-slate-800/40 border-slate-800 hover:border-slate-600'}`}>
+                                    <h4 className="font-black text-white truncate text-base italic">{g.name}</h4>
+                                    <p className="text-[9px] text-slate-500 font-bold uppercase mt-2">{g.location}</p>
                                 </div>
-                            )}
-                            <div className="space-y-3">
-                                {groups.map(g => (
-                                    <div key={g.id} onClick={() => openGroup(g)} className={`p-5 rounded-[2.5rem] border cursor-pointer transition-all relative overflow-hidden group ${selectedGroup?.id === g.id ? 'bg-brand-600 border-brand-400 shadow-2xl' : 'bg-slate-800/40 border-slate-800 hover:border-slate-600'}`}>
-                                        <div className="relative z-10">
-                                            <h4 className="font-black text-white truncate text-base italic tracking-tight">{g.name}</h4>
-                                            <div className="flex items-center justify-between mt-3">
-                                                <span className="text-[9px] text-slate-400 font-black uppercase group-hover:text-white/60"><i className="fa-solid fa-location-dot mr-1"></i> {g.location}</span>
-                                                <span className="text-[9px] bg-black/30 text-white px-2.5 py-1 rounded-full font-black uppercase tracking-wider">{g.member_count} Members</span>
-                                            </div>
+                            ))}
+                        </>
+                    )}
+
+                    {activeTab === 'buddies' && (
+                        <div className="space-y-4">
+                            <div className="flex flex-col gap-2 mb-6">
+                                <button onClick={() => setBuddyView('my-squad')} className={`w-full text-left p-4 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all ${buddyView === 'my-squad' ? 'bg-brand-600 text-white shadow-lg' : 'text-slate-500 hover:bg-slate-800'}`}><i className="fa-solid fa-user-check mr-3"></i> My Squad</button>
+                                <button onClick={() => setBuddyView('inbox')} className={`w-full text-left p-4 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all relative ${buddyView === 'inbox' ? 'bg-brand-600 text-white shadow-lg' : 'text-slate-500 hover:bg-slate-800'}`}>
+                                    <i className="fa-solid fa-inbox mr-3"></i> Inbox
+                                    {buddyRequests.length > 0 && <span className="absolute right-4 top-1/2 -translate-y-1/2 bg-red-500 text-white text-[8px] w-5 h-5 rounded-full flex items-center justify-center border-2 border-slate-900">{buddyRequests.length}</span>}
+                                </button>
+                                <button onClick={() => setBuddyView('explore')} className={`w-full text-left p-4 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all ${buddyView === 'explore' ? 'bg-brand-600 text-white shadow-lg' : 'text-slate-500 hover:bg-slate-800'}`}><i className="fa-solid fa-compass mr-3"></i> Explore</button>
+                            </div>
+                            
+                            <h5 className="text-[9px] font-black text-slate-600 uppercase tracking-[4px] px-2">Active Chats</h5>
+                            <div className="space-y-2">
+                                {myBuddies.map(b => (
+                                    <div key={b.id} onClick={() => setActiveChatBuddy(b)} className={`p-4 rounded-2xl flex items-center gap-3 cursor-pointer transition-all ${activeChatBuddy?.id === b.id ? 'bg-slate-800 border border-brand-500/50' : 'hover:bg-slate-800/50'}`}>
+                                        <div className="relative">
+                                            <img src={b.avatar || 'https://www.gravatar.com/avatar?d=mp'} className="w-10 h-10 rounded-xl object-cover" />
+                                            <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-green-500 rounded-full border-2 border-slate-900"></div>
                                         </div>
-                                        {g.is_member && <div className="absolute top-2 right-4 text-[10px] text-white/20 font-black uppercase tracking-widest">Joined</div>}
+                                        <div className="flex-1 min-w-0">
+                                            <p className="text-white font-black text-xs truncate italic">@{b.username}</p>
+                                            <p className="text-[8px] text-slate-500 uppercase font-bold truncate">{b.name}</p>
+                                        </div>
                                     </div>
                                 ))}
                             </div>
-                        </>
-                    ) : (
-                        <div className="space-y-3">
-                            {challenges.map(c => (
-                                <div key={c.id} onClick={() => openChallenge(c)} className={`p-5 rounded-[2.5rem] border cursor-pointer transition-all group ${selectedChallenge?.id === c.id ? 'bg-orange-600 border-orange-400 shadow-2xl' : 'bg-slate-800/40 border-slate-800 hover:border-slate-600'}`}>
-                                    <h4 className="font-black text-white truncate text-base italic tracking-tight">{c.name}</h4>
-                                    <div className="flex items-center justify-between mt-3">
-                                        <span className="text-[9px] text-slate-400 font-black uppercase group-hover:text-white/60"><i className="fa-solid fa-flag-checkered mr-1"></i> {c.target_steps.toLocaleString()} STEPS</span>
-                                        <span className="text-[9px] bg-black/30 text-white px-2.5 py-1 rounded-full font-black uppercase tracking-wider">{c.participant_count} SLOTS</span>
-                                    </div>
-                                </div>
-                            ))}
                         </div>
                     )}
+
+                    {activeTab === 'challenges' && challenges.map(c => (
+                        <div key={c.id} onClick={() => { setSelectedChallenge(c); fetchLeaderboard(c.id).then(setLeaderboard); }} className={`p-5 rounded-[2.5rem] border cursor-pointer transition-all ${selectedChallenge?.id === c.id ? 'bg-orange-600 border-orange-400' : 'bg-slate-800/40 border-slate-800'}`}>
+                            <h4 className="font-black text-white truncate text-base italic">{c.name}</h4>
+                            <p className="text-[9px] text-slate-400 font-bold uppercase mt-2">{c.target_steps.toLocaleString()} Steps</p>
+                        </div>
+                    ))}
                 </div>
             </div>
 
             {/* MAIN CONTENT AREA */}
-            <div className="flex-1 overflow-y-auto p-4 sm:p-8 no-scrollbar bg-[#0a0f14]/50 relative">
-                {selectedGroup ? (
-                    <div className="animate-fade-in h-full flex flex-col space-y-6">
-                        
-                        {/* Squad Header Card */}
-                        <div className="bg-slate-800/40 border border-slate-700/50 p-8 rounded-[3.5rem] relative overflow-hidden shrink-0">
-                            <div className="absolute top-0 right-0 p-8 opacity-5 text-9xl text-brand-500 rotate-12 pointer-events-none italic font-black">SQUAD</div>
-                            <div className="flex items-center justify-between relative z-10">
-                                <div>
-                                    <h3 className="text-4xl font-black text-white tracking-tighter uppercase italic">{selectedGroup.name}</h3>
-                                    <div className="flex items-center gap-4 mt-2">
-                                        <span className="text-xs text-brand-400 font-black uppercase tracking-[3px] flex items-center gap-1.5"><i className="fa-solid fa-map-pin"></i> {selectedGroup.location}</span>
-                                        <span className="text-slate-600">•</span>
-                                        <span className="text-xs text-slate-400 font-black uppercase tracking-[3px] flex items-center gap-1.5"><i className="fa-solid fa-users"></i> {selectedGroup.member_count} Squadies</span>
-                                    </div>
-                                </div>
-                                <div className="text-right">
-                                    <p className="text-[10px] text-slate-500 font-black uppercase tracking-[4px] mb-1">Squad Power Today</p>
-                                    <div className="text-4xl font-black text-brand-500 tabular-nums italic tracking-tighter">{squadPower.toLocaleString()} <small className="text-xs font-bold not-italic">STEPS</small></div>
-                                </div>
-                            </div>
-
-                            <div className="flex gap-3 mt-8">
-                                {!selectedGroup.is_member && !selectedGroup.is_pending ? (
-                                    <button onClick={() => handleJoinRequest(selectedGroup.id)} className="bg-brand-600 hover:bg-brand-500 text-white px-8 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl active:scale-95 transition-all">Request To Join</button>
-                                ) : (
-                                    <button onClick={handleLeaveGroup} className="bg-slate-700/50 hover:bg-red-500/20 text-slate-400 hover:text-red-400 border border-slate-700 px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all">Leave Squad</button>
-                                )}
-                                {selectedGroup.created_by === profile.id && (
-                                    <button onClick={() => { setGroupTab('manage'); loadGroupSubData(selectedGroup.id, 'manage'); }} className="bg-white text-slate-900 px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg hover:scale-105 transition-all">Admin Controls</button>
-                                )}
+            <div className="flex-1 overflow-y-auto p-6 no-scrollbar bg-[#0a0f14]/50 relative">
+                
+                {/* 1. BUDDIES VIEW */}
+                {activeTab === 'buddies' && !activeChatBuddy && (
+                    <div className="animate-fade-in space-y-8">
+                        <div className="flex justify-between items-end">
+                            <div>
+                                <h3 className="text-4xl font-black text-white italic tracking-tighter uppercase">{buddyView.replace('-', ' ')}</h3>
+                                <p className="text-brand-400 text-[10px] font-black uppercase tracking-[4px] mt-2">Personal Fitness Network</p>
                             </div>
                         </div>
 
-                        {/* Tabs */}
-                        <div className="flex bg-slate-800/40 p-1.5 rounded-2xl border border-slate-700/50 shrink-0 w-fit">
-                            {['feed', 'leaderboard', 'manage'].map(t => (
-                                (t === 'manage' && selectedGroup.created_by !== profile.id) ? null : (
-                                    <button key={t} onClick={() => { setGroupTab(t as any); loadGroupSubData(selectedGroup.id, t as any); }} className={`px-8 py-2.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${groupTab === t ? 'bg-slate-700 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}>{t}</button>
-                                )
-                            ))}
-                        </div>
-
-                        {/* Tab Content */}
-                        <div className="flex-1 min-h-0">
-                            {groupTab === 'feed' && (
-                                <div className="h-full flex flex-col space-y-4">
-                                    {selectedGroup.is_member && (
-                                        <div className="bg-slate-800/40 p-5 rounded-[2rem] border border-slate-700/50 flex gap-4 shadow-inner relative group focus-within:border-brand-500/50 transition-colors">
-                                            <input className="flex-1 bg-transparent text-sm text-white outline-none placeholder:text-slate-600 font-medium" placeholder="Message the squad..." value={postContent} onChange={e => setPostContent(e.target.value)} onKeyDown={e => e.key === 'Enter' && handlePost()} />
-                                            <button onClick={handlePost} className="w-12 h-12 rounded-2xl bg-brand-600 text-white flex items-center justify-center shadow-lg active:scale-90 transition-all hover:bg-brand-50"><i className="fa-solid fa-paper-plane"></i></button>
-                                        </div>
-                                    )}
-                                    <div ref={postScrollRef} className="flex-1 space-y-4 overflow-y-auto no-scrollbar pb-10">
-                                        {groupFeed.map(post => {
-                                            const isMe = post.user_id === profile.id;
-                                            return (
-                                                <div key={post.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'} animate-message-pop`}>
-                                                    <div className={`flex flex-col max-w-[85%] ${isMe ? 'items-end' : 'items-start'}`}>
-                                                        <div className="flex items-center gap-2 mb-1.5 px-1">
-                                                            {!isMe && <img src={post.profile?.avatar_url || 'https://www.gravatar.com/avatar?d=mp'} className="w-5 h-5 rounded-full border border-slate-600" />}
-                                                            <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">{isMe ? 'YOU' : `@${post.profile?.username}`}</p>
-                                                        </div>
-                                                        <div className={`p-4 rounded-[1.5rem] text-sm shadow-xl transition-all ${isMe ? 'bg-brand-600 text-white rounded-tr-none' : 'bg-slate-800 text-slate-200 rounded-tl-none border border-slate-700'}`}>
-                                                            {post.content}
-                                                        </div>
-                                                        <span className="text-[8px] text-slate-600 font-black mt-1 px-1">{new Date(post.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                                                    </div>
-                                                </div>
-                                            );
-                                        })}
-                                        {groupFeed.length === 0 && (
-                                            <div className="py-20 text-center opacity-20"><i className="fa-solid fa-comments text-6xl mb-4"></i><p className="text-[10px] font-black uppercase tracking-[5px]">Silence in the squad...</p></div>
-                                        )}
-                                    </div>
-                                </div>
-                            )}
-
-                            {groupTab === 'leaderboard' && (
-                                <div className="space-y-4 h-full overflow-y-auto no-scrollbar pb-10">
-                                    <div className="bg-slate-800/20 rounded-[2.5rem] border border-slate-800 p-6">
-                                        <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-[4px] mb-6 px-2 flex items-center gap-2"><i className="fa-solid fa-ranking-star text-brand-500"></i> Daily Ranks</h4>
-                                        <div className="space-y-3">
-                                            {groupStats.map((s, idx) => (
-                                                <div key={s.id} className="bg-slate-900/40 p-5 rounded-[2rem] flex items-center gap-5 border border-slate-800 group hover:border-brand-500/30 transition-all">
-                                                    <div className={`w-10 h-10 rounded-2xl flex items-center justify-center font-black italic text-xl ${idx === 0 ? 'bg-yellow-500 text-slate-900' : idx === 1 ? 'bg-slate-400 text-slate-900' : idx === 2 ? 'bg-orange-600 text-white' : 'text-slate-600'}`}>{idx + 1}</div>
-                                                    <img src={s.profile?.avatar_url || 'https://www.gravatar.com/avatar?d=mp'} className="w-14 h-14 rounded-2xl border-2 border-slate-700 object-cover" />
-                                                    <div className="flex-1">
-                                                        <h4 className="text-white font-black text-lg italic tracking-tighter">@{s.profile?.username}</h4>
-                                                        <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest">{s.role}</p>
-                                                    </div>
-                                                    <div className="text-right">
-                                                        <div className="text-2xl font-black text-brand-400 tabular-nums italic">{s.today_steps.toLocaleString()}</div>
-                                                        <p className="text-[8px] text-slate-500 font-black uppercase">Steps Today</p>
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
-
-                            {groupTab === 'manage' && (
-                                <div className="space-y-8 h-full overflow-y-auto no-scrollbar pb-10">
-                                    {pendingRequests.length > 0 && (
-                                        <div className="bg-brand-500/5 border border-brand-500/20 p-8 rounded-[3rem] shadow-xl">
-                                            <h5 className="text-brand-400 text-xs font-black uppercase tracking-[4px] mb-6 flex items-center gap-2"><i className="fa-solid fa-door-open"></i> Join Requests</h5>
-                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                                {pendingRequests.map(req => (
-                                                    <div key={req.id} className="bg-slate-900/60 p-5 rounded-3xl flex items-center justify-between border border-slate-800">
-                                                        <div className="flex items-center gap-4">
-                                                            <img src={req.profile?.avatar_url || 'https://www.gravatar.com/avatar?d=mp'} className="w-12 h-12 rounded-2xl border-2 border-slate-700" />
-                                                            <span className="text-white font-black text-sm italic">@{req.profile?.username}</span>
-                                                        </div>
-                                                        <div className="flex gap-2">
-                                                            <button onClick={() => handleApprove(req)} className="w-10 h-10 bg-brand-600 text-white rounded-xl flex items-center justify-center shadow-lg active:scale-90"><i className="fa-solid fa-check"></i></button>
-                                                            <button onClick={() => handleReject(req)} className="w-10 h-10 bg-slate-800 text-slate-500 rounded-xl flex items-center justify-center border border-slate-700 active:scale-90"><i className="fa-solid fa-xmark"></i></button>
-                                                        </div>
-                                                    </div>
-                                                ))}
+                        {buddyView === 'inbox' && (
+                            <div className="grid grid-cols-1 gap-4">
+                                {buddyRequests.length === 0 ? (
+                                    <div className="py-20 text-center opacity-20"><i className="fa-solid fa-tray-full text-8xl mb-6"></i><p className="font-black uppercase tracking-[5px]">Inbox Empty</p></div>
+                                ) : buddyRequests.map(req => (
+                                    <div key={req.id} className="bg-slate-800/40 p-6 rounded-[2.5rem] border border-slate-700 flex flex-col sm:flex-row items-center justify-between gap-6">
+                                        <div className="flex items-center gap-6">
+                                            <img src={req.sender_profile?.avatar_url || 'https://www.gravatar.com/avatar?d=mp'} className="w-16 h-16 rounded-3xl border-2 border-slate-700" />
+                                            <div>
+                                                <h4 className="text-white font-black text-xl italic tracking-tight">@{req.sender_profile?.username}</h4>
+                                                <p className="text-slate-400 text-xs mt-1">"{req.message || 'Chalo walk karte hain!'}"</p>
                                             </div>
                                         </div>
-                                    )}
-
-                                    <div className="bg-slate-800/20 border border-slate-800 p-8 rounded-[3rem]">
-                                        <h5 className="text-slate-500 text-[10px] font-black uppercase tracking-[4px] mb-6">Current Roster</h5>
-                                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                                            {groupStats.map(s => (
-                                                <div key={s.id} className="bg-slate-900/40 p-5 rounded-3xl flex items-center justify-between border border-slate-800 group/item">
-                                                    <div className="flex items-center gap-4 min-w-0">
-                                                        <img src={s.profile?.avatar_url || 'https://www.gravatar.com/avatar?d=mp'} className="w-10 h-10 rounded-xl object-cover" />
-                                                        <div className="min-w-0">
-                                                            <p className="text-white font-black truncate text-xs">@{s.profile?.username}</p>
-                                                            <p className="text-[8px] text-slate-500 uppercase font-black tracking-widest">{s.role}</p>
-                                                        </div>
-                                                    </div>
-                                                    {s.user_id !== profile.id && (
-                                                        <button onClick={() => handleKick(s.id)} className="w-8 h-8 rounded-lg text-slate-700 hover:text-red-500 hover:bg-red-500/10 transition-all opacity-0 group-hover/item:opacity-100"><i className="fa-solid fa-user-minus text-xs"></i></button>
-                                                    )}
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-
-                                    <div className="pt-6 border-t border-slate-800 flex justify-end">
-                                        <button onClick={() => { if(confirm("Permanently delete squad?")) deleteGroup(selectedGroup.id).then(() => {setSelectedGroup(null); loadData();}); }} className="px-8 py-3 bg-red-500/10 text-red-500 border border-red-500/30 rounded-2xl text-[9px] font-black uppercase tracking-[3px] hover:bg-red-500 hover:text-white transition-all">Dissolve Squad</button>
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                ) : selectedChallenge ? (
-                    <div className="space-y-8 animate-fade-in">
-                        <div className="bg-orange-500/10 border border-orange-500/30 p-10 rounded-[4rem] relative overflow-hidden">
-                            <div className="absolute -top-6 -right-6 text-9xl font-black text-orange-500/5 rotate-12 select-none">CHALLENGE</div>
-                            <div className="flex items-start justify-between relative z-10">
-                                <div>
-                                    <h3 className="text-5xl font-black text-white tracking-tighter uppercase italic drop-shadow-2xl">{selectedChallenge.name}</h3>
-                                    <p className="text-orange-400 font-black text-xs uppercase tracking-[5px] mt-4 flex items-center gap-2"><i className="fa-solid fa-bullseye"></i> Goal: {selectedChallenge.target_steps.toLocaleString()} Steps</p>
-                                    <p className="text-slate-400 text-sm mt-4 max-w-md leading-relaxed font-medium">{selectedChallenge.description}</p>
-                                </div>
-                                {!selectedChallenge.is_joined && (
-                                    <button onClick={() => handleJoinChallenge(selectedChallenge.id)} className="bg-white hover:bg-orange-500 hover:text-white text-slate-900 px-10 py-5 rounded-[2rem] font-black text-xs uppercase tracking-widest shadow-2xl transition-all active:scale-95 transform hover:-translate-y-1">Accept Challenge</button>
-                                )}
-                            </div>
-                        </div>
-
-                        <div className="bg-slate-800/40 p-8 rounded-[3.5rem] border border-slate-700 shadow-2xl">
-                            <h4 className="text-white font-black text-sm uppercase tracking-[4px] mb-8 flex items-center gap-3"><i className="fa-solid fa-ranking-star text-orange-500"></i> Global Leaderboard</h4>
-                            <div className="space-y-3">
-                                {leaderboard.map((p, idx) => (
-                                    <div key={p.user_id} className="bg-slate-900/60 p-6 rounded-[2.5rem] flex items-center gap-6 border border-slate-800 hover:border-orange-500/20 transition-all group">
-                                        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black italic text-2xl ${idx === 0 ? 'bg-yellow-500 text-slate-900 shadow-[0_0_20px_rgba(234,179,8,0.4)]' : idx === 1 ? 'bg-slate-300 text-slate-900' : idx === 2 ? 'bg-orange-600 text-white' : 'text-slate-600 group-hover:text-slate-400'}`}>{idx + 1}</div>
-                                        <img src={p.profile?.avatar_url || 'https://www.gravatar.com/avatar?d=mp'} className="w-16 h-16 rounded-3xl border-2 border-slate-700 object-cover shadow-lg" />
-                                        <div className="flex-1">
-                                            <h5 className="text-white font-black text-xl italic tracking-tight">@{p.profile?.username}</h5>
-                                            <div className="h-2 w-full bg-slate-800 rounded-full mt-3 overflow-hidden max-w-[250px] shadow-inner">
-                                                <div className="h-full bg-gradient-to-r from-orange-600 to-yellow-400" style={{ width: `${Math.min((p.current_steps / selectedChallenge.target_steps) * 100, 100)}%` }}></div>
-                                            </div>
-                                        </div>
-                                        <div className="text-right">
-                                            <div className="text-3xl font-black text-white tabular-nums italic tracking-tighter">{p.current_steps.toLocaleString()}</div>
-                                            <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest">Total Steps</p>
+                                        <div className="flex gap-3 shrink-0">
+                                            <button onClick={() => handleBuddyAction(req.id, 'accepted', req.sender_id)} className="bg-brand-600 hover:bg-brand-500 text-white px-8 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg">Accept</button>
+                                            <button onClick={() => handleBuddyAction(req.id, 'declined', req.sender_id)} className="bg-slate-700 hover:bg-slate-600 text-slate-300 px-8 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest">Ignore</button>
                                         </div>
                                     </div>
                                 ))}
                             </div>
-                        </div>
+                        )}
+
+                        {buddyView === 'my-squad' && (
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                                {myBuddies.length === 0 ? (
+                                    <div className="col-span-full py-20 text-center opacity-20"><i className="fa-solid fa-user-astronaut text-8xl mb-6"></i><p className="font-black uppercase tracking-[5px]">No Buddies Yet</p></div>
+                                ) : myBuddies.map(b => (
+                                    <div key={b.id} className="bg-slate-800/40 p-6 rounded-[2.5rem] border border-slate-700 group hover:border-brand-500/30 transition-all flex items-center justify-between">
+                                        <div className="flex items-center gap-4">
+                                            <img src={b.avatar || 'https://www.gravatar.com/avatar?d=mp'} className="w-16 h-16 rounded-3xl border-2 border-slate-700" />
+                                            <div>
+                                                <h4 className="text-white font-black text-xl italic tracking-tight">@{b.username}</h4>
+                                                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">{b.name}</p>
+                                                <div className="flex gap-2 mt-2">
+                                                    <span className="text-[8px] bg-slate-900 px-2 py-0.5 rounded text-brand-400 font-black uppercase">{b.pace}</span>
+                                                    <span className="text-[8px] bg-slate-900 px-2 py-0.5 rounded text-blue-400 font-black uppercase">{b.preferred_time}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <button onClick={() => setActiveChatBuddy(b)} className="w-12 h-12 rounded-2xl bg-slate-900 text-slate-500 group-hover:bg-brand-600 group-hover:text-white transition-all flex items-center justify-center shadow-inner"><i className="fa-solid fa-comment-dots"></i></button>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+
+                        {buddyView === 'explore' && (
+                            <div className="space-y-6">
+                                <div className="flex flex-wrap gap-3 mb-4">
+                                    <div className="bg-slate-800/40 p-1.5 rounded-2xl flex gap-2 border border-slate-700/50 shadow-inner">
+                                        <span className="text-[9px] font-black text-slate-600 uppercase flex items-center px-3">Pace:</span>
+                                        {['all', 'slow', 'moderate', 'fast'].map(p => (
+                                            <button key={p} onClick={() => setFilterPace(p)} className={`px-4 py-1.5 rounded-xl text-[9px] font-black uppercase transition-all ${filterPace === p ? 'bg-brand-600 text-white' : 'text-slate-500'}`}>{p}</button>
+                                        ))}
+                                    </div>
+                                </div>
+                                
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
+                                    {nearbyWalkers.filter(b => filterPace === 'all' || b.pace === filterPace).map(b => (
+                                        <div key={b.id} className="bg-slate-900 border border-slate-800 rounded-[3rem] overflow-hidden group shadow-2xl transition-all hover:scale-[1.02]">
+                                            <div className="h-32 bg-slate-800/50 relative flex items-center justify-center p-6">
+                                                <img src={b.avatar || 'https://www.gravatar.com/avatar?d=mp'} className="w-20 h-20 rounded-3xl border-4 border-slate-900 object-cover shadow-2xl" />
+                                                <div className="absolute top-4 right-4 bg-brand-600 text-white font-black text-[9px] px-3 py-1 rounded-full shadow-lg border border-white/20">{b.match_score}% MATCH</div>
+                                                <div className="absolute bottom-2 left-6 flex items-center gap-1.5 opacity-40"><i className="fa-solid fa-shield-halved text-[8px] text-slate-400"></i><span className="text-[7px] font-black text-slate-500 uppercase tracking-widest">Encrypted Identity</span></div>
+                                            </div>
+                                            <div className="p-6 text-center">
+                                                <h4 className="text-white font-black text-2xl italic tracking-tighter">@{b.username}</h4>
+                                                <p className="text-slate-500 text-[10px] font-bold uppercase tracking-[3px] mt-1">Walker Nearby</p>
+                                                <div className="bg-slate-800/50 p-4 rounded-2xl my-6 text-xs text-slate-400 italic line-clamp-2 leading-relaxed">"{b.bio || 'Chalo walk par nikalte hain!'}"</div>
+                                                <button onClick={() => handleSendInvite(b)} className="w-full bg-brand-600 hover:bg-brand-500 text-white font-black py-4 rounded-2xl shadow-xl transition-all uppercase tracking-[4px] text-xs">Send Namaste</button>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
                     </div>
-                ) : (
+                )}
+
+                {/* 2. CHAT VIEW */}
+                {activeTab === 'buddies' && activeChatBuddy && (
+                    <BuddyChat userId={profile.id!} buddy={activeChatBuddy} onBack={() => setActiveChatBuddy(null)} />
+                )}
+
+                {/* 3. SQUADS VIEW */}
+                {activeTab === 'groups' && selectedGroup && (
+                    <div className="animate-fade-in flex flex-col h-full space-y-6">
+                        <div className="bg-slate-800/40 border border-slate-700/50 p-8 rounded-[3.5rem] relative overflow-hidden">
+                            <div className="absolute top-0 right-0 p-8 opacity-5 text-9xl text-brand-500 rotate-12 pointer-events-none italic font-black">SQUAD</div>
+                            <h3 className="text-4xl font-black text-white tracking-tighter uppercase italic">{selectedGroup.name}</h3>
+                            <div className="flex items-center gap-4 mt-2">
+                                <span className="text-xs text-brand-400 font-black uppercase tracking-[3px]"><i className="fa-solid fa-map-pin"></i> {selectedGroup.location}</span>
+                            </div>
+                            <div className="flex gap-3 mt-8">
+                                <button onClick={() => setGroupTab('feed')} className={`px-6 py-2.5 rounded-xl text-[9px] font-black uppercase transition-all ${groupTab === 'feed' ? 'bg-white text-slate-900' : 'text-slate-500 hover:text-white'}`}>Feed</button>
+                                <button onClick={() => setGroupTab('leaderboard')} className={`px-6 py-2.5 rounded-xl text-[9px] font-black uppercase transition-all ${groupTab === 'leaderboard' ? 'bg-white text-slate-900' : 'text-slate-500 hover:text-white'}`}>Ranks</button>
+                            </div>
+                        </div>
+
+                        {groupTab === 'feed' && (
+                            <div className="flex-1 flex flex-col space-y-4">
+                                <div className="bg-slate-800/40 p-4 rounded-[2rem] border border-slate-700 flex gap-3">
+                                    <input className="flex-1 bg-transparent text-sm text-white outline-none placeholder:text-slate-600 font-bold" placeholder="Talk to squad..." value={postContent} onChange={e => setPostContent(e.target.value)} />
+                                    <button onClick={() => { createPost(selectedGroup.id, profile.id!, postContent); setPostContent(''); }} className="w-10 h-10 rounded-xl bg-brand-600 text-white flex items-center justify-center shadow-lg"><i className="fa-solid fa-paper-plane"></i></button>
+                                </div>
+                                <div className="flex-1 overflow-y-auto no-scrollbar space-y-4 pb-10">
+                                    {/* Posts map here */}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {/* 4. CHALLENGES VIEW */}
+                {activeTab === 'challenges' && selectedChallenge && (
+                    <div className="animate-fade-in space-y-8">
+                        <div className="bg-orange-500/10 border border-orange-500/30 p-10 rounded-[4rem]">
+                            <h3 className="text-5xl font-black text-white tracking-tighter uppercase italic">{selectedChallenge.name}</h3>
+                            <p className="text-orange-400 font-black text-xs uppercase tracking-[5px] mt-4">Goal: {selectedChallenge.target_steps.toLocaleString()} Steps</p>
+                        </div>
+                        {/* Leaderboard map here */}
+                    </div>
+                )}
+
+                {!selectedGroup && !selectedChallenge && !activeChatBuddy && !nearbyWalkers.length && !myBuddies.length && (
                     <div className="h-full flex flex-col items-center justify-center text-center p-8 opacity-20">
-                        <i className={`fa-solid ${activeTab === 'groups' ? 'fa-people-group' : 'fa-medal'} text-[10rem] mb-10 text-white`}></i>
-                        <h3 className="text-4xl font-black uppercase tracking-[15px] text-white">Select One</h3>
-                        <p className="max-w-md mt-6 text-white text-xs font-black uppercase tracking-[6px] leading-loose">Choose a {activeTab === 'groups' ? 'walking squad' : 'global glory challenge'} from the sidebar to start dominating!</p>
+                        <i className="fa-solid fa-people-arrows text-[10rem] mb-10 text-white"></i>
+                        <h3 className="text-4xl font-black uppercase tracking-[15px] text-white">Social Hub</h3>
+                        <p className="max-w-md mt-6 text-white text-xs font-black uppercase tracking-[6px] leading-loose">Choose a squad, buddy, or challenge to get started.</p>
                     </div>
                 )}
             </div>
