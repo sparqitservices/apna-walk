@@ -26,6 +26,7 @@ export const AdminDashboard: React.FC = () => {
   const [otp, setOtp] = useState('');
   const [otpSent, setOtpSent] = useState(false);
   const [authError, setAuthError] = useState('');
+  const [rawError, setRawError] = useState<string | null>(null);
   const [resendTimer, setResendTimer] = useState(0);
 
   const refreshIntervalRef = useRef<number | null>(null);
@@ -65,13 +66,21 @@ export const AdminDashboard: React.FC = () => {
   const handleSendOTP = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     setAuthError('');
+    setRawError(null);
     setLoading(true);
     try {
         await sendAdminOTP(email);
         setOtpSent(true);
         setResendTimer(60);
     } catch (err: any) {
-        setAuthError(err.message || "Failed to send OTP. Supabase rate limit might be active (max 3/hr).");
+        console.error("Full Auth Error Object:", err);
+        setRawError(JSON.stringify(err, null, 2));
+        
+        if (err.message?.includes("rate limit")) {
+            setAuthError("Rate limit: Supabase only allows 3 emails per hour on the free tier.");
+        } else {
+            setAuthError(err.message || "Failed to send OTP. Check Supabase Dashboard -> Auth -> Providers -> Email OTP.");
+        }
     } finally {
         setLoading(false);
     }
@@ -80,12 +89,14 @@ export const AdminDashboard: React.FC = () => {
   const handleVerifyOTP = async (e: React.FormEvent) => {
     e.preventDefault();
     setAuthError('');
+    setRawError(null);
     setLoading(true);
     try {
         await verifyAdminOTP(email, otp);
         setIsAuthorized(true);
         loadUsers();
     } catch (err: any) {
+        setRawError(JSON.stringify(err, null, 2));
         setAuthError("Invalid code. Check your email or try again.");
     } finally {
         setLoading(false);
@@ -127,6 +138,7 @@ export const AdminDashboard: React.FC = () => {
       setIsAuthorized(false);
       setOtpSent(false);
       setOtp('');
+      setRawError(null);
   };
 
   const exportCSV = () => {
@@ -182,9 +194,17 @@ export const AdminDashboard: React.FC = () => {
                 </div>
 
                 {authError && (
-                    <div className="mb-6 p-4 bg-red-500/10 border border-red-500/30 rounded-2xl text-red-400 text-xs font-bold flex items-start gap-3">
-                        <i className="fa-solid fa-circle-exclamation mt-0.5"></i>
-                        <span>{authError}</span>
+                    <div className="mb-6 p-4 bg-red-500/10 border border-red-500/30 rounded-2xl text-red-400 text-xs font-bold flex flex-col gap-2">
+                        <div className="flex items-start gap-3">
+                            <i className="fa-solid fa-circle-exclamation mt-0.5"></i>
+                            <span>{authError}</span>
+                        </div>
+                        {rawError && (
+                            <details className="mt-2 opacity-50">
+                                <summary className="cursor-pointer text-[9px] uppercase tracking-widest font-black">Raw Error Log</summary>
+                                <pre className="mt-2 p-2 bg-black/40 rounded-lg text-[8px] font-mono whitespace-pre-wrap overflow-x-auto">{rawError}</pre>
+                            </details>
+                        )}
                     </div>
                 )}
 
@@ -207,6 +227,7 @@ export const AdminDashboard: React.FC = () => {
                         >
                             {loading ? <i className="fa-solid fa-circle-notch fa-spin"></i> : "Generate OTP"}
                         </button>
+                        <p className="text-[9px] text-slate-500 text-center mt-4 uppercase tracking-widest leading-relaxed">Ensure 'Email OTP' is enabled in your Supabase Auth Settings.</p>
                     </form>
                 ) : (
                     <form onSubmit={handleVerifyOTP} className="space-y-6">
@@ -223,7 +244,10 @@ export const AdminDashboard: React.FC = () => {
                             />
                             <div className="mt-4 flex flex-col items-center gap-2">
                                 <p className="text-[10px] text-slate-400 text-center font-bold">Code sent to <u>{email}</u></p>
-                                <p className="text-[9px] text-slate-600 text-center italic">Tip: Check your Spam folder if it doesn't arrive in 2 minutes.</p>
+                                <div className="bg-orange-500/10 border border-orange-500/30 p-3 rounded-xl mt-2">
+                                    <p className="text-[9px] text-orange-400 text-center font-black uppercase tracking-wider">Warning: Check Spam Folder</p>
+                                    <p className="text-[8px] text-slate-500 text-center mt-1">Supabase automated emails are often blocked by Gmail filters.</p>
+                                </div>
                             </div>
                         </div>
                         <button 
