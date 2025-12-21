@@ -1,6 +1,8 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { UserProfile, RoutePoint, WalkSession, UserSettings } from '../types';
 import { calculateDistance, saveWalkToCloud } from '../services/trackingService';
+import { getLocalityName } from '../services/parkService';
 
 declare const L: any;
 
@@ -17,6 +19,7 @@ export const LiveTracker: React.FC<LiveTrackerProps> = ({ isOpen, onClose, profi
     const [isPaused, setIsPaused] = useState(false);
     const [followUser, setFollowUser] = useState(true);
     const [mapStyle, setMapStyle] = useState<'dark' | 'terrain'>('dark');
+    const [currentRoad, setCurrentRoad] = useState<string>("Locating Road...");
     const [route, setRoute] = useState<RoutePoint[]>([]);
     const [stats, setStats] = useState({
         distance: 0,
@@ -39,7 +42,8 @@ export const LiveTracker: React.FC<LiveTrackerProps> = ({ isOpen, onClose, profi
             setTimeout(initMap, 200);
         }
         return () => {
-            stopTracking();
+            if (watchIdRef.current) navigator.geolocation.clearWatch(watchIdRef.current);
+            if (timerRef.current) clearInterval(timerRef.current);
             if (leafletMap.current) {
                 leafletMap.current.remove();
                 leafletMap.current = null;
@@ -61,7 +65,7 @@ export const LiveTracker: React.FC<LiveTrackerProps> = ({ isOpen, onClose, profi
 
     const initMap = () => {
         if (!mapRef.current) return;
-        navigator.geolocation.getCurrentPosition((pos) => {
+        navigator.geolocation.getCurrentPosition(async (pos) => {
             const { latitude, longitude } = pos.coords;
             const map = L.map(mapRef.current!, { zoomControl: false }).setView([latitude, longitude], 17);
             
@@ -88,6 +92,9 @@ export const LiveTracker: React.FC<LiveTrackerProps> = ({ isOpen, onClose, profi
                 opacity: 0.8,
                 lineJoin: 'round'
             }).addTo(map);
+
+            const loc = await getLocalityName(latitude, longitude);
+            setCurrentRoad(loc.locality);
         });
     };
 
@@ -149,7 +156,7 @@ export const LiveTracker: React.FC<LiveTrackerProps> = ({ isOpen, onClose, profi
         if (timerRef.current) clearInterval(timerRef.current);
         setIsTracking(false);
 
-        if (route.length > 5) {
+        if (route.length > 2) {
             const finalSession: WalkSession = {
                 id: `gps-${Date.now()}`,
                 startTime: route[0].timestamp,
@@ -168,6 +175,8 @@ export const LiveTracker: React.FC<LiveTrackerProps> = ({ isOpen, onClose, profi
                 } catch (e) { console.error("Cloud save failed", e); }
             }
             onFinish(finalSession);
+        } else {
+            onClose();
         }
     };
 
@@ -177,90 +186,65 @@ export const LiveTracker: React.FC<LiveTrackerProps> = ({ isOpen, onClose, profi
         <div className="fixed inset-0 bg-dark-bg z-[100] flex flex-col overflow-hidden">
             <div ref={mapRef} className="absolute inset-0 z-0" />
 
-            {/* Enhanced Map Controls */}
-            <div className="absolute top-6 left-6 right-6 flex justify-between items-start z-10 pointer-events-none">
-                <button 
-                    onClick={onClose}
-                    className="w-12 h-12 rounded-2xl bg-dark-card/90 backdrop-blur-xl border border-slate-700 text-white flex items-center justify-center shadow-2xl pointer-events-auto active:scale-90 transition-all"
-                >
-                    <i className="fa-solid fa-chevron-left"></i>
-                </button>
-                
-                <div className="flex flex-col gap-3 pointer-events-auto">
+            {/* Header Overlay */}
+            <div className="absolute top-6 left-6 right-6 flex flex-col gap-4 z-10 pointer-events-none">
+                <div className="flex justify-between items-center">
                     <button 
-                        onClick={() => setFollowUser(!followUser)}
-                        className={`w-12 h-12 rounded-2xl backdrop-blur-xl border flex items-center justify-center shadow-2xl transition-all ${followUser ? 'bg-brand-600 border-brand-400 text-white' : 'bg-dark-card/90 border-slate-700 text-slate-400'}`}
-                        title="Toggle Follow Mode"
+                        onClick={onClose}
+                        className="w-12 h-12 rounded-2xl bg-dark-card/90 backdrop-blur-xl border border-slate-700 text-white flex items-center justify-center shadow-2xl pointer-events-auto active:scale-90 transition-all"
                     >
-                        <i className={`fa-solid ${followUser ? 'fa-location-crosshairs' : 'fa-crosshairs'}`}></i>
+                        <i className="fa-solid fa-chevron-left"></i>
                     </button>
-                    <button 
-                        onClick={() => updateMapStyle(mapStyle === 'dark' ? 'terrain' : 'dark')}
-                        className="w-12 h-12 rounded-2xl bg-dark-card/90 backdrop-blur-xl border border-slate-700 text-white flex items-center justify-center shadow-2xl transition-all"
-                        title="Toggle Map Style"
-                    >
-                        <i className={`fa-solid ${mapStyle === 'dark' ? 'fa-mountain-sun' : 'fa-moon'}`}></i>
-                    </button>
+                    
+                    <div className="bg-slate-900/80 backdrop-blur-xl border border-white/10 px-6 py-3 rounded-2xl shadow-2xl flex items-center gap-3">
+                         <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
+                         <span className="text-white text-[10px] font-black uppercase tracking-[3px] truncate max-w-[150px]">{currentRoad}</span>
+                    </div>
+
+                    <div className="flex flex-col gap-3 pointer-events-auto">
+                        <button 
+                            onClick={() => setFollowUser(!followUser)}
+                            className={`w-12 h-12 rounded-2xl backdrop-blur-xl border flex items-center justify-center shadow-2xl transition-all ${followUser ? 'bg-brand-600 border-brand-400 text-white' : 'bg-dark-card/90 border-slate-700 text-slate-400'}`}
+                        >
+                            <i className="fa-solid fa-location-crosshairs"></i>
+                        </button>
+                    </div>
                 </div>
             </div>
 
-            {/* Tracking Status Badge */}
-            {isTracking && (
-                <div className="absolute top-6 left-1/2 -translate-x-1/2 z-10">
-                    <div className="bg-brand-600/90 backdrop-blur-xl border border-brand-400 px-4 py-2 rounded-full shadow-2xl flex items-center gap-3">
-                        <div className="w-2 h-2 rounded-full bg-white animate-pulse"></div>
-                        <span className="text-white text-[10px] font-black uppercase tracking-[3px]">Live Tracking</span>
-                    </div>
-                </div>
-            )}
-
-            {/* Re-designed Stats UI */}
+            {/* Stats Viewport */}
             <div className="mt-auto relative z-10 p-6 sm:p-10">
-                <div className="bg-dark-card/95 backdrop-blur-2xl border border-slate-700/50 rounded-[3rem] shadow-[0_0_50px_rgba(0,0,0,0.5)] p-8 animate-message-pop">
+                <div className="bg-[#0a0f14]/90 backdrop-blur-3xl border border-white/10 rounded-[3.5rem] shadow-[0_40px_100px_rgba(0,0,0,0.8)] p-8 animate-message-pop">
                     
-                    <div className="grid grid-cols-2 gap-10 mb-8 border-b border-slate-800/50 pb-8">
+                    <div className="grid grid-cols-2 gap-10 mb-8 border-b border-white/5 pb-8">
                         <div className="flex flex-col items-center">
-                            <p className="text-slate-500 text-[9px] font-black uppercase tracking-[4px] mb-2">Distance</p>
+                            <p className="text-slate-500 text-[9px] font-black uppercase tracking-[4px] mb-2">Total Road Distance</p>
                             <div className="flex items-baseline gap-1">
                                 <span className="text-5xl font-black text-white italic tracking-tighter">{(stats.distance / 1000).toFixed(2)}</span>
                                 <span className="text-xs font-black text-brand-500 uppercase">km</span>
                             </div>
                         </div>
                         <div className="flex flex-col items-center">
-                            <p className="text-slate-500 text-[9px] font-black uppercase tracking-[4px] mb-2">Active Time</p>
+                            <p className="text-slate-500 text-[9px] font-black uppercase tracking-[4px] mb-2">Pulse Duration</p>
                             <div className="text-5xl font-black text-white tabular-nums tracking-tighter italic">
                                 {Math.floor(stats.duration / 60)}:{(stats.duration % 60).toString().padStart(2, '0')}
                             </div>
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-3 gap-6 mb-10">
-                        <div className="bg-slate-800/40 p-3 rounded-2xl border border-slate-700/50 text-center">
-                            <p className="text-[8px] text-slate-500 font-black uppercase tracking-widest mb-1">Live Speed</p>
-                            <p className="text-xl font-black text-brand-400">{stats.speed.toFixed(1)} <small className="text-[10px] opacity-50">km/h</small></p>
-                        </div>
-                        <div className="bg-slate-800/40 p-3 rounded-2xl border border-slate-700/50 text-center">
-                            <p className="text-[8px] text-slate-500 font-black uppercase tracking-widest mb-1">Avg Speed</p>
-                            <p className="text-xl font-black text-blue-400">{stats.avgSpeed.toFixed(1)}</p>
-                        </div>
-                        <div className="bg-slate-800/40 p-3 rounded-2xl border border-slate-700/50 text-center">
-                            <p className="text-[8px] text-slate-500 font-black uppercase tracking-widest mb-1">Pace</p>
-                            <p className="text-xl font-black text-orange-400">
-                                {stats.distance > 50 ? (stats.duration / (stats.distance/1000) / 60).toFixed(1) : '--'}
-                            </p>
-                        </div>
+                    <div className="grid grid-cols-3 gap-4 mb-10">
+                        <StatItem label="Steps" value={Math.round(stats.distance / (settings.strideLengthCm / 100)).toLocaleString()} unit="Walk" color="text-brand-400" />
+                        <StatItem label="Velocity" value={stats.speed.toFixed(1)} unit="km/h" color="text-blue-400" />
+                        <StatItem label="Burn" value={Math.round(0.57 * settings.weightKg * (stats.distance / 1000)).toString()} unit="kcal" color="text-orange-400" />
                     </div>
 
                     <div className="flex gap-4">
                         {!isTracking ? (
                             <button 
                                 onClick={startTracking}
-                                className="flex-1 bg-brand-600 hover:bg-brand-500 text-white font-black py-6 rounded-3xl shadow-xl shadow-brand-900/40 active:scale-[0.98] transition-all text-lg flex items-center justify-center gap-4 group"
+                                className="flex-1 bg-gradient-to-tr from-brand-700 to-brand-500 text-white font-black py-6 rounded-3xl shadow-2xl active:scale-[0.98] transition-all text-sm uppercase tracking-[5px] flex items-center justify-center gap-4"
                             >
-                                <div className="w-8 h-8 bg-white/20 rounded-xl flex items-center justify-center transition-transform group-hover:scale-110">
-                                    <i className="fa-solid fa-play text-sm"></i>
-                                </div>
-                                START TRACKING
+                                <i className="fa-solid fa-play"></i> Start Road Session
                             </button>
                         ) : (
                             <>
@@ -272,12 +256,9 @@ export const LiveTracker: React.FC<LiveTrackerProps> = ({ isOpen, onClose, profi
                                 </button>
                                 <button 
                                     onClick={stopTracking}
-                                    className="flex-1 bg-red-600 hover:bg-red-500 text-white font-black py-6 rounded-3xl shadow-xl shadow-red-900/40 active:scale-[0.98] transition-all text-lg flex items-center justify-center gap-4 group"
+                                    className="flex-1 bg-gradient-to-tr from-red-700 to-red-500 text-white font-black py-6 rounded-3xl shadow-2xl active:scale-[0.98] transition-all text-sm uppercase tracking-[5px] flex items-center justify-center gap-4"
                                 >
-                                    <div className="w-8 h-8 bg-white/20 rounded-xl flex items-center justify-center transition-transform group-hover:scale-110">
-                                        <i className="fa-solid fa-stop text-sm"></i>
-                                    </div>
-                                    FINISH WALK
+                                    <i className="fa-solid fa-square"></i> Finish Walk
                                 </button>
                             </>
                         )}
@@ -287,3 +268,11 @@ export const LiveTracker: React.FC<LiveTrackerProps> = ({ isOpen, onClose, profi
         </div>
     );
 };
+
+const StatItem = ({ label, value, unit, color }: { label: string, value: string, unit: string, color: string }) => (
+    <div className="bg-white/5 p-4 rounded-2xl border border-white/5 text-center">
+        <p className="text-[8px] text-slate-500 font-black uppercase tracking-widest mb-1">{label}</p>
+        <p className={`text-xl font-black ${color}`}>{value}</p>
+        <p className="text-[8px] text-slate-600 font-bold uppercase tracking-widest">{unit}</p>
+    </div>
+);
