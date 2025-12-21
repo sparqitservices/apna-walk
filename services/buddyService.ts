@@ -1,5 +1,5 @@
 import { supabase } from './supabaseClient';
-import { NearbyBuddy, BuddyRequest, BuddyMessage, UserProfile, DuelConfig } from '../types';
+import { NearbyBuddy, BuddyRequest, BuddyMessage, UserProfile, DuelConfig, MutualFriend } from '../types';
 
 export const updateBuddyPreferences = async (userId: string, prefs: Partial<UserProfile>) => {
     const { error } = await supabase
@@ -34,6 +34,51 @@ export const findNearbyBuddies = async (lat: number, lng: number, radiusMeters: 
         name: "[Hidden]", 
         email: "[Hidden]" 
     })).filter((p: any) => !p.is_ghost_mode);
+};
+
+export const fetchBuddyProfile = async (buddyId: string): Promise<UserProfile> => {
+    const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', buddyId)
+        .single();
+    
+    if (error) throw error;
+    return {
+        id: data.id,
+        name: data.full_name,
+        username: data.username,
+        email: data.email,
+        avatar: data.avatar_url,
+        isLoggedIn: true,
+        bio: data.bio,
+        pace: data.pace,
+        preferred_time: data.preferred_time,
+        is_stats_public: data.is_stats_public,
+        is_mutuals_public: data.is_mutuals_public
+    };
+};
+
+export const fetchMutualFriends = async (userId: string, buddyId: string): Promise<MutualFriend[]> => {
+    try {
+        const { data, error } = await supabase.rpc('get_mutual_friends', {
+            user_a: userId,
+            user_b: buddyId
+        });
+        if (error) throw error;
+        return data || [];
+    } catch (e) {
+        console.error("Mutual friends fetch error:", e);
+        return [];
+    }
+};
+
+export const removeBuddy = async (userId: string, buddyId: string) => {
+    const { error } = await supabase
+        .from('buddies')
+        .delete()
+        .or(`and(user1_id.eq.${userId},user2_id.eq.${buddyId}),and(user1_id.eq.${buddyId},user2_id.eq.${userId})`);
+    if (error) throw error;
 };
 
 export const searchUsers = async (query: string, currentUserId: string): Promise<UserProfile[]> => {
@@ -135,12 +180,12 @@ export const fetchMyBuddies = async (userId: string): Promise<UserProfile[]> => 
     // Friends: Fetch ALL data (full_name, email)
     const { data: b1, error: e1 } = await supabase
         .from('buddies')
-        .select('other:profiles!buddies_user2_id_fkey(id, username, full_name, email, avatar_url, public_key)')
+        .select('other:profiles!buddies_user2_id_fkey(id, username, full_name, email, avatar_url, public_key, bio, pace, preferred_time, is_stats_public, is_mutuals_public)')
         .eq('user1_id', userId);
     
     const { data: b2, error: e2 } = await supabase
         .from('buddies')
-        .select('other:profiles!buddies_user1_id_fkey(id, username, full_name, email, avatar_url, public_key)')
+        .select('other:profiles!buddies_user1_id_fkey(id, username, full_name, email, avatar_url, public_key, bio, pace, preferred_time, is_stats_public, is_mutuals_public)')
         .eq('user2_id', userId);
 
     if (e1 || e2) throw (e1 || e2);
@@ -148,21 +193,31 @@ export const fetchMyBuddies = async (userId: string): Promise<UserProfile[]> => 
     const list1 = b1?.map((b: any) => ({
         id: b.other.id,
         username: b.other.username,
-        name: b.other.full_name, // Real name visible to buddies
-        email: b.other.email,     // Email visible to buddies
+        name: b.other.full_name, 
+        email: b.other.email,     
         avatar: b.other.avatar_url,
         isLoggedIn: true,
-        public_key: b.other.public_key
+        public_key: b.other.public_key,
+        bio: b.other.bio,
+        pace: b.other.pace,
+        preferred_time: b.other.preferred_time,
+        is_stats_public: b.other.is_stats_public,
+        is_mutuals_public: b.other.is_mutuals_public
     })) || [];
 
     const list2 = b2?.map((b: any) => ({
         id: b.other.id,
         username: b.other.username,
-        name: b.other.full_name, // Real name visible to buddies
-        email: b.other.email,     // Email visible to buddies
+        name: b.other.full_name, 
+        email: b.other.email,     
         avatar: b.other.avatar_url,
         isLoggedIn: true,
-        public_key: b.other.public_key
+        public_key: b.other.public_key,
+        bio: b.other.bio,
+        pace: b.other.pace,
+        preferred_time: b.other.preferred_time,
+        is_stats_public: b.other.is_stats_public,
+        is_mutuals_public: b.other.is_mutuals_public
     })) || [];
     
     return [...list1, ...list2];

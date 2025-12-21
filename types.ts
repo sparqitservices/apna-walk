@@ -39,6 +39,15 @@ export interface UserProfile {
   is_ghost_mode?: boolean; 
   is_verified?: boolean;
   public_key?: string;
+  // Privacy Flags
+  is_stats_public?: boolean;
+  is_mutuals_public?: boolean;
+}
+
+export interface MutualFriend {
+  id: string;
+  username: string;
+  avatar_url?: string;
 }
 
 export interface Park {

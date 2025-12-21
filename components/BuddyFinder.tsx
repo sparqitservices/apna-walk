@@ -6,6 +6,7 @@ import {
     searchUsers 
 } from '../services/buddyService';
 import { BuddyChat } from './BuddyChat';
+import { BuddyProfileModal } from './BuddyProfileModal';
 
 interface BuddyFinderProps {
     isOpen: boolean;
@@ -22,6 +23,7 @@ export const BuddyFinder: React.FC<BuddyFinderProps> = ({ isOpen, onClose, profi
     const [requests, setRequests] = useState<BuddyRequest[]>([]);
     const [buddies, setBuddies] = useState<UserProfile[]>([]);
     const [selectedBuddy, setSelectedBuddy] = useState<UserProfile | null>(null);
+    const [showProfile, setShowProfile] = useState(false);
     
     // Preferences Form
     const [isLooking, setIsLooking] = useState(profile.is_looking_for_buddy ?? true);
@@ -116,6 +118,11 @@ export const BuddyFinder: React.FC<BuddyFinderProps> = ({ isOpen, onClose, profi
             setView('discover');
         } catch (e) { alert("Update failed."); }
         setLoading(false);
+    };
+
+    const openBuddyProfile = (buddy: UserProfile) => {
+        setSelectedBuddy(buddy);
+        setShowProfile(true);
     };
 
     const getMatchGradient = (score?: number) => {
@@ -264,7 +271,7 @@ export const BuddyFinder: React.FC<BuddyFinderProps> = ({ isOpen, onClose, profi
                                     <div className="col-span-full py-40 text-center opacity-20"><i className="fa-solid fa-user-astronaut text-8xl mb-6 text-white"></i><p className="font-black text-xl uppercase tracking-[8px] text-white">No Squad Yet</p></div>
                                 ) : (
                                     buddies.map(buddy => (
-                                        <div key={buddy.id} onClick={() => { setSelectedBuddy(buddy); setView('chat'); }} className="bg-slate-800/40 border border-slate-700 rounded-[2.5rem] p-6 flex items-center gap-6 cursor-pointer hover:bg-slate-800 transition-all">
+                                        <div key={buddy.id} onClick={() => openBuddyProfile(buddy)} className="bg-slate-800/40 border border-slate-700 rounded-[2.5rem] p-6 flex items-center gap-6 cursor-pointer hover:bg-slate-800 transition-all group">
                                             <div className="relative">
                                                 <div className="w-20 h-20 rounded-2xl bg-brand-500 overflow-hidden shadow-2xl border-4 border-slate-800">
                                                     <img src={buddy.avatar || 'https://www.gravatar.com/avatar?d=mp'} className="w-full h-full object-cover" />
@@ -272,11 +279,11 @@ export const BuddyFinder: React.FC<BuddyFinderProps> = ({ isOpen, onClose, profi
                                                 <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-green-500 border-4 border-slate-900 rounded-full animate-pulse"></div>
                                             </div>
                                             <div className="flex-1 min-w-0">
-                                                <h4 className="text-white font-black text-xl italic tracking-tighter">@{buddy.username}</h4>
-                                                <span className="text-[10px] text-brand-500 font-black uppercase tracking-widest">Online Squad</span>
+                                                <h4 className="text-white font-black text-xl italic tracking-tighter group-hover:text-brand-400 transition-colors">@{buddy.username}</h4>
+                                                <span className="text-[10px] text-slate-500 font-black uppercase tracking-widest">{buddy.name}</span>
                                             </div>
-                                            <div className="w-12 h-12 rounded-2xl bg-slate-900 text-brand-500 flex items-center justify-center">
-                                                <i className="fa-solid fa-comment-dots text-xl"></i>
+                                            <div className="w-12 h-12 rounded-2xl bg-slate-900 text-slate-600 group-hover:text-brand-500 transition-colors flex items-center justify-center">
+                                                <i className="fa-solid fa-chevron-right text-xl"></i>
                                             </div>
                                         </div>
                                     ))
@@ -332,6 +339,15 @@ export const BuddyFinder: React.FC<BuddyFinderProps> = ({ isOpen, onClose, profi
                     </div>
                 </div>
             </div>
+
+            <BuddyProfileModal 
+                isOpen={showProfile} 
+                onClose={() => setShowProfile(false)} 
+                currentUserId={profile.id!} 
+                buddy={selectedBuddy!} 
+                onBuddyRemoved={loadData}
+                onChatRequest={() => { setShowProfile(false); setView('chat'); }}
+            />
         </div>
     );
 };

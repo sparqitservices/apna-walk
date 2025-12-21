@@ -173,6 +173,37 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                </div>
           </div>
 
+          {/* Privacy Section */}
+          <div className="space-y-6">
+               <SectionHeader icon="fa-shield-halved" title="Privacy Vault" />
+               <div className="grid grid-cols-1 gap-4">
+                   <StylishToggle 
+                        checked={!!tempProfile.is_stats_public} 
+                        onChange={(val) => handleProfileChange('is_stats_public', val)} 
+                        icon="fa-chart-simple" 
+                        label="Public Stats" 
+                        subLabel="Allow squad members to see your achievements" 
+                        colorClass="peer-checked:bg-brand-500" 
+                   />
+                   <StylishToggle 
+                        checked={!!tempProfile.is_mutuals_public} 
+                        onChange={(val) => handleProfileChange('is_mutuals_public', val)} 
+                        icon="fa-people-arrows" 
+                        label="Discovery" 
+                        subLabel="Show mutual connections on your profile" 
+                        colorClass="peer-checked:bg-blue-500" 
+                   />
+                   <StylishToggle 
+                        checked={!!tempProfile.is_ghost_mode} 
+                        onChange={(val) => handleProfileChange('is_ghost_mode', val)} 
+                        icon="fa-ghost" 
+                        label="Ghost Mode" 
+                        subLabel="Hide from nearby discovery scans entirely" 
+                        colorClass="peer-checked:bg-slate-600" 
+                   />
+               </div>
+          </div>
+
           {/* Goals Section */}
           <div className="space-y-6">
                <SectionHeader icon="fa-bullseye" title="Target Dhanda (Goals)" />
@@ -231,46 +262,15 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                </div>
           </div>
 
-          {/* Apna Nudges (Notifications) */}
-          <div className="space-y-6">
-               <SectionHeader icon="fa-bell" title="Apna Nudges" />
-               <div className="grid grid-cols-1 gap-4">
-                   <StylishToggle 
-                        checked={!!tempSettings.notifications?.water} 
-                        onChange={(val) => handleNotificationToggle('water', val)} 
-                        icon="fa-glass-water" 
-                        label="Fuel Check" 
-                        subLabel="Desi reminders to drink water every 3h" 
-                        colorClass="peer-checked:bg-blue-500" 
-                   />
-                   <StylishToggle 
-                        checked={!!tempSettings.notifications?.walk} 
-                        onChange={(val) => handleNotificationToggle('walk', val)} 
-                        icon="fa-person-walking" 
-                        label="Arre Boss, Utho!" 
-                        subLabel="Get nudged if you don't move for an hour" 
-                        colorClass="peer-checked:bg-brand-500" 
-                   />
-                   <StylishToggle 
-                        checked={!!tempSettings.notifications?.breath} 
-                        onChange={(val) => handleNotificationToggle('breath', val)} 
-                        icon="fa-medal" 
-                        label="Milestone Victory" 
-                        subLabel="Loud celebrations when you hit targets" 
-                        colorClass="peer-checked:bg-orange-500" 
-                   />
-               </div>
-           </div>
-
-           {/* Account Actions */}
-           <div className="pt-6">
-                <button 
-                    onClick={() => { if(confirm("Are you sure? Local data will remain but you'll be signed out.")) onLogout(); }}
-                    className="w-full py-4 bg-red-500/10 border border-red-500/20 text-red-500 rounded-3xl text-xs font-black uppercase tracking-[4px] hover:bg-red-500 hover:text-white transition-all active:scale-[0.98]"
-                >
-                    <i className="fa-solid fa-arrow-right-from-bracket mr-2"></i> Logout Account
-                </button>
-           </div>
+          {/* Account Actions */}
+          <div className="pt-6">
+               <button 
+                   onClick={() => { if(confirm("Are you sure? Local data will remain but you'll be signed out.")) onLogout(); }}
+                   className="w-full py-4 bg-red-500/10 border border-red-500/20 text-red-500 rounded-3xl text-xs font-black uppercase tracking-[4px] hover:bg-red-500 hover:text-white transition-all active:scale-[0.98]"
+               >
+                   <i className="fa-solid fa-arrow-right-from-bracket mr-2"></i> Logout Account
+               </button>
+          </div>
 
         </div>
         
