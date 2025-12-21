@@ -1,4 +1,3 @@
-
 import { supabase } from './supabaseClient';
 import { WalkingGroup, Challenge, GroupMember, GroupPost, ChallengeParticipant, GroupMemberStats } from '../types';
 
@@ -83,6 +82,14 @@ export const deleteGroup = async (groupId: string) => {
     if (error) throw error;
 };
 
+export const leaveGroup = async (groupId: string, userId: string) => {
+    const { error } = await supabase
+        .from('group_members')
+        .delete()
+        .match({ group_id: groupId, user_id: userId });
+    if (error) throw error;
+};
+
 export const requestJoinGroup = async (groupId: string, userId: string) => {
     const { error } = await supabase
         .from('group_members')
@@ -109,7 +116,6 @@ export const requestJoinGroup = async (groupId: string, userId: string) => {
 
 export const fetchTotalPendingCount = async (userId: string): Promise<number> => {
     try {
-        // 1. Get IDs of groups owned by this user
         const { data: myGroups, error: groupsError } = await supabase
             .from('walking_groups')
             .select('id')
@@ -118,8 +124,6 @@ export const fetchTotalPendingCount = async (userId: string): Promise<number> =>
         if (groupsError || !myGroups || myGroups.length === 0) return 0;
         
         const groupIds = myGroups.map(g => g.id);
-        
-        // 2. Count pending members in those groups
         const { count, error: countError } = await supabase
             .from('group_members')
             .select('id', { count: 'exact', head: true })
@@ -135,17 +139,13 @@ export const fetchTotalPendingCount = async (userId: string): Promise<number> =>
 };
 
 export const fetchPendingRequests = async (groupId: string): Promise<GroupMember[]> => {
-    // FIX: Switched full_name to username to match types and improve privacy
     const { data, error } = await supabase
         .from('group_members')
         .select('*, profile:profiles(username, avatar_url)')
         .eq('group_id', groupId)
         .eq('status', 'pending');
     if (error) throw error;
-    return data.map((m: any) => ({
-        ...m,
-        profile: m.profile
-    }));
+    return data;
 };
 
 export const approveMember = async (memberRecordId: string) => {
@@ -153,11 +153,7 @@ export const approveMember = async (memberRecordId: string) => {
         .from('group_members')
         .update({ status: 'active' })
         .eq('id', memberRecordId);
-    
-    if (error) {
-        console.error("Supabase Error in approveMember:", error);
-        throw error;
-    }
+    if (error) throw error;
 };
 
 export const rejectMember = async (memberRecordId: string) => {
@@ -177,24 +173,17 @@ export const kickMember = async (memberRecordId: string) => {
 };
 
 export const fetchGroupMembers = async (groupId: string): Promise<GroupMember[]> => {
-    // FIX: Switched full_name to username to match types and improve privacy
     const { data, error } = await supabase
         .from('group_members')
         .select('*, profile:profiles(username, avatar_url)')
         .eq('group_id', groupId)
         .eq('status', 'active');
     if (error) throw error;
-    return data.map((m: any) => ({
-        ...m,
-        profile: m.profile
-    }));
+    return data;
 };
 
 export const fetchGroupMemberStats = async (groupId: string): Promise<GroupMemberStats[]> => {
     const today = new Date().toISOString().split('T')[0];
-    
-    // 1. Fetch active members
-    // FIX: Switched full_name to username to match types and improve privacy
     const { data: members, error: mError } = await supabase
         .from('group_members')
         .select('*, profile:profiles(username, avatar_url)')
@@ -203,8 +192,9 @@ export const fetchGroupMemberStats = async (groupId: string): Promise<GroupMembe
         
     if (mError) throw mError;
     
-    // 2. Fetch today's steps for these members
     const userIds = members.map((m: any) => m.user_id);
+    if (userIds.length === 0) return [];
+
     const { data: logs, error: lError } = await supabase
         .from('daily_logs')
         .select('user_id, steps')
@@ -223,17 +213,14 @@ export const fetchGroupMemberStats = async (groupId: string): Promise<GroupMembe
 };
 
 export const fetchGroupPosts = async (groupId: string): Promise<GroupPost[]> => {
-    // FIX: Switched full_name to username to match types and improve privacy
     const { data, error } = await supabase
         .from('group_posts')
         .select('*, profile:profiles(username, avatar_url)')
         .eq('group_id', groupId)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .limit(50);
     if (error) throw error;
-    return data.map((p: any) => ({
-        ...p,
-        profile: p.profile
-    }));
+    return data;
 };
 
 export const createPost = async (groupId: string, userId: string, content: string) => {
@@ -241,6 +228,29 @@ export const createPost = async (groupId: string, userId: string, content: strin
         .from('group_posts')
         .insert([{ group_id: groupId, user_id: userId, content }]);
     if (error) throw error;
+};
+
+export const subscribeToGroupPosts = (groupId: string, onNewPost: (post: GroupPost) => void) => {
+    return supabase
+        .channel(`group_posts_${groupId}`)
+        .on('postgres_changes', {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'group_posts',
+            filter: `group_id=eq.${groupId}`
+        }, async (payload) => {
+            const { data: profile } = await supabase
+                .from('profiles')
+                .select('username, avatar_url')
+                .eq('id', payload.new.user_id)
+                .single();
+            
+            onNewPost({
+                ...payload.new as GroupPost,
+                profile: profile as any
+            });
+        })
+        .subscribe();
 };
 
 // --- CHALLENGES ---
@@ -280,7 +290,6 @@ export const createCustomChallenge = async (challenge: Partial<Challenge>, creat
 
     if (data) {
         await joinChallenge(data.id, creatorId);
-        
         if (invitedIds.length > 0) {
             const invitations = invitedIds.map(id => ({
                 challenge_id: data.id,
@@ -289,7 +298,6 @@ export const createCustomChallenge = async (challenge: Partial<Challenge>, creat
             await supabase.from('challenge_participants').insert(invitations);
         }
     }
-    
     return data;
 };
 
@@ -300,15 +308,7 @@ export const joinChallenge = async (challengeId: string, userId: string) => {
     if (error) throw error;
 };
 
-export const inviteToChallenge = async (challengeId: string, profileId: string) => {
-    const { error } = await supabase
-        .from('challenge_participants')
-        .insert([{ challenge_id: challengeId, user_id: profileId.trim() }]);
-    if (error) throw error;
-};
-
 export const fetchLeaderboard = async (challengeId: string): Promise<ChallengeParticipant[]> => {
-    // FIX: Switched full_name to username to match types and improve privacy
     const { data, error } = await supabase
         .from('challenge_participants')
         .select('current_steps, user_id, profile:profiles(username, avatar_url)')
@@ -317,7 +317,6 @@ export const fetchLeaderboard = async (challengeId: string): Promise<ChallengePa
         .limit(50);
 
     if (error) throw error;
-    
     return data.map((row: any, index: number) => ({
         user_id: row.user_id,
         current_steps: row.current_steps,

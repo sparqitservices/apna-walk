@@ -56,6 +56,8 @@ const THEMES = {
   pink: { 50: '255 241 242', 100: '255 228 230', 400: '251 113 133', 500: '244 63 94', 600: '225 29 72', 900: '136 19 55' }
 };
 
+type ActivityType = 'All' | 'Normal Walk' | 'Brisk Walk' | 'Power Walk' | 'Long Walk' | 'Hike Trail';
+
 const App: React.FC = () => {
   const path = typeof window !== 'undefined' ? window.location.pathname : '/';
   
@@ -90,7 +92,7 @@ const App: React.FC = () => {
 
   const [history, setHistory] = useState<DailyHistory[]>([]);
   const [historyRange, setHistoryRange] = useState<'week' | 'month'>('week');
-  const [historyFilter, setHistoryFilter] = useState<'All' | 'Normal Walk' | 'Brisk Walk' | 'Power Walk' | 'Long Walk'>('All');
+  const [historyFilter, setHistoryFilter] = useState<ActivityType>('All');
   const [sessionSort, setSessionSort] = useState<'recent' | 'longest' | 'steps'>('recent');
   
   const [earnedBadges, setEarnedBadges] = useState<Badge[]>([]);
@@ -146,6 +148,19 @@ const App: React.FC = () => {
   const metronome = useMetronome();
   const [duration, setDuration] = useState(0);
   const timerRef = useRef<number | null>(null);
+
+  // Categorize Session automatically
+  const categorizeWalk = (steps: number, distMeters: number, durSeconds: number, hasGps: boolean): Exclude<ActivityType, 'All'> => {
+    const distKm = distMeters / 1000;
+    const durHours = durSeconds / 3600;
+    const speedKmh = durHours > 0 ? distKm / durHours : 0;
+
+    if (hasGps && speedKmh < 3 && distKm > 1) return 'Hike Trail';
+    if (speedKmh > 6.5) return 'Power Walk';
+    if (speedKmh > 4.8) return 'Brisk Walk';
+    if (distKm > 5) return 'Long Walk';
+    return 'Normal Walk';
+  };
 
   // NOTIFICATION HEARTBEAT
   useEffect(() => {
@@ -236,10 +251,15 @@ const App: React.FC = () => {
   }, []);
   
   const handleRefreshLocation = () => {
+    const defaultCoords = { lat: 28.6139, lng: 77.2090 }; // New Delhi
+    
     if (!navigator.geolocation) {
-        setLocation("Geo disabled");
+        setLocation("New Delhi (Default)");
+        setCoords(defaultCoords);
+        fetchLocalWeather(defaultCoords.lat, defaultCoords.lng);
         return;
     }
+
     navigator.geolocation.getCurrentPosition(
         (pos) => {
             const { latitude, longitude } = pos.coords;
@@ -250,7 +270,12 @@ const App: React.FC = () => {
             setCoords({ lat: latitude, lng: longitude });
             fetchLocalWeather(latitude, longitude);
         },
-        () => setLocation("Tap to set location"),
+        (error) => {
+            console.warn("Geolocation access denied or failed. Fallback to New Delhi.", error);
+            setLocation("New Delhi (Default)");
+            setCoords(defaultCoords);
+            fetchLocalWeather(defaultCoords.lat, defaultCoords.lng);
+        },
         { timeout: 10000, enableHighAccuracy: true }
     );
   };
@@ -318,10 +343,21 @@ const App: React.FC = () => {
   const handleStartSession = () => { if (typeof navigator.vibrate === 'function') navigator.vibrate(100); setRoute([]); startSession(); };
   const handleFinishSession = async (gpsSession?: WalkSession) => {
     if (typeof navigator.vibrate === 'function') navigator.vibrate(100);
-    if (gpsSession) { setCurrentSession(gpsSession); const newHistory = saveHistory(0, gpsSession); setHistory(newHistory); setShowCoach(true); setShowLiveTracker(false); return; }
+    if (gpsSession) { 
+        const type = categorizeWalk(gpsSession.steps, gpsSession.distanceMeters, gpsSession.durationSeconds, !!gpsSession.route?.length);
+        const finalGps = { ...gpsSession, type };
+        setCurrentSession(finalGps); 
+        const newHistory = saveHistory(0, finalGps); 
+        setHistory(newHistory); 
+        setShowCoach(true); 
+        setShowLiveTracker(false); 
+        return; 
+    }
     const finalSteps = stopSession();
     if (finalSteps > 10 || duration > 30) {
-        const sessionData: WalkSession = { id: `sess-${Date.now()}`, startTime: Date.now() - (duration * 1000), steps: finalSteps, distanceMeters: (finalSteps * settings.strideLengthCm) / 100, calories: Math.round((finalSteps * 0.04) * (settings.weightKg / 70)), durationSeconds: duration, route: route };
+        const dist = (finalSteps * settings.strideLengthCm) / 100;
+        const type = categorizeWalk(finalSteps, dist, duration, !!route.length);
+        const sessionData: WalkSession = { id: `sess-${Date.now()}`, startTime: Date.now() - (duration * 1000), steps: finalSteps, distanceMeters: dist, calories: Math.round((finalSteps * 0.04) * (settings.weightKg / 70)), durationSeconds: duration, route: route, type: type };
         setCurrentSession(sessionData);
         const newHistory = saveHistory(0, sessionData);
         setHistory(newHistory);
@@ -341,6 +377,16 @@ const App: React.FC = () => {
         <LegalModal isOpen={!!legalDoc} type={legalDoc} onClose={() => setLegalDoc(null)} />
       </>
   );
+
+  const getActivityIcon = (type: string | undefined) => {
+      switch(type) {
+          case 'Brisk Walk': return 'fa-person-walking-arrow-right';
+          case 'Power Walk': return 'fa-person-running';
+          case 'Long Walk': return 'fa-route';
+          case 'Hike Trail': return 'fa-mountain-sun';
+          default: return 'fa-person-walking';
+      }
+  };
 
   return (
     <div className="min-h-screen bg-dark-bg text-dark-text font-sans pb-24 selection:bg-brand-500/30 transition-colors duration-500 overflow-x-hidden">
@@ -446,12 +492,25 @@ const App: React.FC = () => {
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
                 <div>
                     <h3 className="font-black text-2xl text-white tracking-tighter uppercase italic">History</h3>
-                    <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1">Past 30 Days Insight</p>
+                    <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1">Activity Tracking Insights</p>
                 </div>
                 <div className="bg-slate-800 rounded-2xl p-1 flex border border-slate-700">
                     <button onClick={() => setHistoryRange('week')} className={`text-[10px] font-black px-6 py-2 rounded-xl uppercase tracking-widest transition-all ${historyRange === 'week' ? 'bg-brand-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}>Week</button>
                     <button onClick={() => setHistoryRange('month')} className={`text-[10px] font-black px-6 py-2 rounded-xl uppercase tracking-widest transition-all ${historyRange === 'month' ? 'bg-brand-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}>Month</button>
                 </div>
+            </div>
+
+            {/* Activity Type Filters */}
+            <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
+                {(['All', 'Normal Walk', 'Brisk Walk', 'Power Walk', 'Long Walk', 'Hike Trail'] as ActivityType[]).map(type => (
+                    <button
+                        key={type}
+                        onClick={() => setHistoryFilter(type)}
+                        className={`px-4 py-2 rounded-full text-[9px] font-black uppercase tracking-wider whitespace-nowrap border transition-all ${historyFilter === type ? 'bg-white text-slate-900 border-white shadow-xl' : 'bg-slate-800 text-slate-400 border-slate-700 hover:border-slate-500'}`}
+                    >
+                        {type}
+                    </button>
+                ))}
             </div>
 
             <div className="h-48 w-full bg-slate-900/50 rounded-3xl p-4 border border-slate-800/50">
@@ -467,18 +526,30 @@ const App: React.FC = () => {
             </div>
 
             <div className="grid gap-3">
-                {analytics.displaySessions.slice(0, 5).map(({ date, session }, idx) => (
-                    <div key={session.id || idx} className="bg-slate-800/20 border border-slate-800 p-5 rounded-3xl flex justify-between items-center group hover:bg-slate-800/40 transition-all">
-                        <div className="flex items-center gap-4">
-                            <div className="w-12 h-12 rounded-2xl bg-brand-500/10 flex items-center justify-center text-brand-500 text-xl border border-brand-500/20"><i className="fa-solid fa-person-walking"></i></div>
-                            <div>
-                                <span className="text-white font-black text-sm italic">{session.steps.toLocaleString()} STEPS</span>
-                                <div className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1">{new Date(session.startTime).toLocaleDateString()} • {Math.floor(session.durationSeconds / 60)} MIN</div>
+                {analytics.displaySessions.length > 0 ? (
+                    analytics.displaySessions.slice(0, 10).map(({ date, session }, idx) => (
+                        <div key={session.id || idx} className="bg-slate-800/20 border border-slate-800 p-5 rounded-3xl flex justify-between items-center group hover:bg-slate-800/40 transition-all">
+                            <div className="flex items-center gap-4">
+                                <div className="w-12 h-12 rounded-2xl bg-brand-500/10 flex items-center justify-center text-brand-500 text-xl border border-brand-500/20">
+                                    <i className={`fa-solid ${getActivityIcon(session.type)}`}></i>
+                                </div>
+                                <div>
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-white font-black text-sm italic">{session.steps.toLocaleString()} STEPS</span>
+                                        {session.type && <span className="text-[7px] bg-slate-700 text-slate-300 px-1.5 py-0.5 rounded font-black uppercase tracking-widest">{session.type}</span>}
+                                    </div>
+                                    <div className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1">{new Date(session.startTime).toLocaleDateString()} • {Math.floor(session.durationSeconds / 60)} MIN</div>
+                                </div>
                             </div>
+                            <i className="fa-solid fa-chevron-right text-slate-700 group-hover:text-brand-500 transition-colors"></i>
                         </div>
-                        <i className="fa-solid fa-chevron-right text-slate-700 group-hover:text-brand-500 transition-colors"></i>
+                    ))
+                ) : (
+                    <div className="text-center py-10 opacity-20">
+                        <i className="fa-solid fa-ghost text-4xl mb-4"></i>
+                        <p className="text-[10px] font-black uppercase tracking-widest">No activities found for this filter</p>
                     </div>
-                ))}
+                )}
             </div>
         </section>
       </main>

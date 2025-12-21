@@ -14,7 +14,7 @@ export interface WalkSession {
   calories: number;
   durationSeconds: number;
   route?: RoutePoint[];
-  type?: 'Normal Walk' | 'Brisk Walk' | 'Power Walk' | 'Long Walk';
+  type?: 'Normal Walk' | 'Brisk Walk' | 'Power Walk' | 'Long Walk' | 'Hike Trail';
   avgSpeed?: number;
   maxSpeed?: number;
 }
