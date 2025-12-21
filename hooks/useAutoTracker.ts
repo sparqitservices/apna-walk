@@ -4,7 +4,7 @@ import { RoutePoint, WalkSession, UserSettings, UserProfile } from '../types';
 import { calculateDistance } from '../services/trackingService';
 
 export const useAutoTracker = (
-    isPedometerActive: boolean, 
+    isLoggedIn: boolean, 
     dailySteps: number, 
     settings: UserSettings,
     onSessionEnd: (session: WalkSession) => void
@@ -17,21 +17,21 @@ export const useAutoTracker = (
     const lastStepCountRef = useRef(dailySteps);
     const inactivityTimerRef = useRef<number | null>(null);
 
-    // Monitor steps to trigger auto-start
+    // Monitor for sustained rhythm to trigger auto-start
     useEffect(() => {
-        if (!isPedometerActive || isAutoRecording) return;
+        if (!isLoggedIn || isAutoRecording) return;
 
-        // If user took more than 30 steps in the last 2 minutes, start recording
-        if (dailySteps - lastStepCountRef.current > 30) {
+        // If user took more than 25 steps in a short burst, fire up GPS
+        if (dailySteps - lastStepCountRef.current > 25) {
             startAutoSession();
         }
 
         const interval = setInterval(() => {
             lastStepCountRef.current = dailySteps;
-        }, 60000); // Check every minute
+        }, 30000); // Check more frequently
 
         return () => clearInterval(interval);
-    }, [dailySteps, isPedometerActive, isAutoRecording]);
+    }, [dailySteps, isLoggedIn, isAutoRecording]);
 
     const startAutoSession = () => {
         if (watchIdRef.current) return;
@@ -52,7 +52,7 @@ export const useAutoTracker = (
             setCurrentRoute(prev => {
                 if (prev.length > 0) {
                     const d = calculateDistance(prev[prev.length - 1], newPoint);
-                    if (d > 5) { // Only add if moved > 5m
+                    if (d > 3) { // 3m sensitivity
                         setSessionStats(s => ({ ...s, distance: s.distance + d }));
                         return [...prev, newPoint];
                     }
@@ -61,11 +61,10 @@ export const useAutoTracker = (
                 return [newPoint];
             });
 
-            // Reset inactivity timer on every GPS update that shows movement
             resetInactivityTimer();
-        }, (err) => console.error("AutoTrack GPS Error", err), {
+        }, null, {
             enableHighAccuracy: true,
-            maximumAge: 1000
+            maximumAge: 0
         });
     };
 
@@ -73,7 +72,7 @@ export const useAutoTracker = (
         if (inactivityTimerRef.current) clearTimeout(inactivityTimerRef.current);
         inactivityTimerRef.current = window.setTimeout(() => {
             stopAutoSession();
-        }, 300000); // 5 minutes of no movement/GPS updates stops session
+        }, 180000); // 3 minutes of stillness stops recording
     };
 
     const stopAutoSession = () => {
@@ -82,7 +81,7 @@ export const useAutoTracker = (
             watchIdRef.current = null;
         }
 
-        if (currentRoute.length > 5) {
+        if (currentRoute.length > 8) { // Minimum 8 points for a valid journey segment
             const duration = Math.round((Date.now() - sessionStats.startTime) / 1000);
             const steps = dailySteps - sessionStats.stepsAtStart;
             
@@ -90,9 +89,9 @@ export const useAutoTracker = (
                 id: `auto-${Date.now()}`,
                 startTime: sessionStats.startTime,
                 endTime: Date.now(),
-                steps: steps > 0 ? steps : Math.round(sessionStats.distance / (settings.strideLengthCm / 100)),
+                steps: Math.max(steps, Math.round(sessionStats.distance / (settings.strideLengthCm / 100))),
                 distanceMeters: sessionStats.distance,
-                calories: Math.round(0.04 * (steps || 1) * (settings.weightKg / 70)),
+                calories: Math.round(0.04 * steps * (settings.weightKg / 70)),
                 durationSeconds: duration,
                 route: currentRoute,
                 avgSpeed: (sessionStats.distance / duration) * 3.6
