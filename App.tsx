@@ -45,7 +45,17 @@ const App: React.FC = () => {
     notifications: { water: true, walk: true, breath: true }
   });
 
-  const { dailySteps, sessionSteps, isTrackingSession, lastStepTimestamp, requestPermission, error: sensorError } = usePedometer(settings.sensitivity);
+  const { 
+    dailySteps, 
+    sessionSteps, 
+    isTrackingSession, 
+    lastStepTimestamp, 
+    requestPermission, 
+    startSession, 
+    stopSession,
+    error: sensorError 
+  } = usePedometer(settings.sensitivity);
+  
   const { bpm, isPlaying, togglePlay, setBpm } = useMetronome(115);
 
   // UI States
@@ -69,7 +79,7 @@ const App: React.FC = () => {
   const [hydrationTip, setHydrationTip] = useState<string>("");
   const [weather, setWeather] = useState<WeatherData | null>(null);
   const [weatherLoading, setWeatherLoading] = useState(false);
-  const [locality, setLocality] = useState<string>("Local Sector");
+  const [locality, setLocality] = useState<string>("Detecting...");
   const [fullHistory, setFullHistory] = useState<DailyHistory[]>(() => getHistory());
   const [currentSession, setCurrentSession] = useState<WalkSession | null>(null);
   const [visualShare, setVisualShare] = useState<{ isOpen: boolean; type: 'stats' | 'quote'; data: any; }>({ isOpen: false, type: 'stats', data: null as any });
@@ -93,7 +103,8 @@ const App: React.FC = () => {
             const data = await getWeather(pos.coords.latitude, pos.coords.longitude);
             const locData = await getLocalityName(pos.coords.latitude, pos.coords.longitude);
             setWeather(data);
-            setLocality(locData.locality);
+            const locString = locData.country ? `${locData.locality}, ${locData.country}` : locData.locality;
+            setLocality(locString);
             setWeatherLoading(false);
             const tip = await getHydrationTip(hydration.currentMl, hydration.goalMl, dailySteps, data);
             setHydrationTip(tip);
@@ -105,10 +116,31 @@ const App: React.FC = () => {
   const displayDistance = (displaySteps * settings.strideLengthCm) / 100;
   const displayCalories = Math.round((displaySteps * 0.04) * (settings.weightKg / 70));
 
-  const handleStartWorkout = async () => {
-    const granted = await requestPermission();
-    if (granted) { setShowLiveTracker(true); }
-    else { alert("Motion sensors required!"); }
+  const handleToggleTracking = async () => {
+    if (isTrackingSession) {
+        const finalSteps = stopSession();
+        if (navigator.vibrate) navigator.vibrate([100, 30]);
+        const dummySession: WalkSession = {
+            id: `manual-${Date.now()}`,
+            startTime: Date.now() - 3600,
+            steps: finalSteps,
+            distanceMeters: (finalSteps * settings.strideLengthCm) / 100,
+            calories: Math.round((finalSteps * 0.04) * (settings.weightKg / 70)),
+            durationSeconds: 0 
+        };
+        const updated = saveHistory(dummySession.steps, dummySession);
+        setFullHistory(updated);
+        setCurrentSession(dummySession);
+        setShowCoach(true);
+    } else {
+        const granted = await requestPermission();
+        if (granted) {
+            startSession();
+            if (navigator.vibrate) navigator.vibrate(50);
+        } else {
+            alert("Motion sensors required!");
+        }
+    }
   };
 
   const handleFinishManualWorkout = (session: WalkSession) => {
@@ -140,11 +172,19 @@ const App: React.FC = () => {
         <div className="flex flex-col">
             <div className="flex items-center gap-2">
                 <i className="fa-solid fa-person-running text-brand-500 text-xl"></i>
-                <h1 className="text-2xl font-black italic tracking-tighter uppercase"><span className="text-brand-500">Apna</span>Walk</h1>
+                <h1 className="text-2xl font-black italic tracking-tighter uppercase leading-none"><span className="text-brand-500">Apna</span>Walk</h1>
             </div>
-            <p className="text-[9px] text-slate-500 font-black uppercase tracking-[4px] mt-1 ml-8">
-                {isAutoRecording ? <span className="text-emerald-500 animate-pulse">● System: Tracing Path</span> : `System: Online • ${locality}`}
-            </p>
+            <div className="flex items-center gap-2 mt-1 ml-8 overflow-hidden">
+                {isAutoRecording && (
+                  <span className="relative flex h-2 w-2 shrink-0">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                  </span>
+                )}
+                <p className="text-[9px] text-slate-500 font-black uppercase tracking-[2px] truncate max-w-[180px] leading-tight">
+                    {locality}
+                </p>
+            </div>
         </div>
         <button onClick={() => setShowSettings(true)} className="w-12 h-12 rounded-2xl bg-slate-800 border border-slate-700 flex items-center justify-center shadow-lg active:scale-90 transition-transform">
             <i className="fa-solid fa-user-gear text-slate-400"></i>
@@ -155,11 +195,38 @@ const App: React.FC = () => {
         
         {/* --- MAIN DASHBOARD --- */}
         <section className="flex flex-col items-center">
-            <RadialProgress current={displaySteps} total={settings.stepGoal} label="Today's Walk" subLabel="Keep moving, Guru!" lastStepTime={lastStepTimestamp} />
+            <RadialProgress 
+                current={displaySteps} 
+                total={settings.stepGoal} 
+                label={isTrackingSession ? "Session Active" : "Today's Walk"} 
+                subLabel="Keep moving, Guru!" 
+                lastStepTime={lastStepTimestamp}
+                isActive={isTrackingSession}
+                onClick={handleToggleTracking}
+            />
             <div className="w-full grid grid-cols-1 gap-6 mt-8">
                 <StatsGrid calories={displayCalories} distance={displayDistance} duration={0} onStatClick={() => {}} />
                 
-                {/* --- JOURNEY CARD (SLEEK & SAFE) --- */}
+                {/* --- SESSION CONTROL BUTTONS --- */}
+                <div className="flex gap-4 w-full">
+                    {!isTrackingSession ? (
+                        <button 
+                            onClick={handleToggleTracking}
+                            className="flex-1 bg-gradient-to-r from-brand-600 to-emerald-500 hover:from-brand-500 hover:to-emerald-400 text-white font-black py-5 rounded-[2rem] shadow-xl shadow-brand-500/20 active:scale-[0.98] transition-all text-xs uppercase tracking-[5px] flex items-center justify-center gap-3 border border-white/10"
+                        >
+                            <i className="fa-solid fa-play"></i> Start Session
+                        </button>
+                    ) : (
+                        <button 
+                            onClick={handleToggleTracking}
+                            className="flex-1 bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-500 hover:to-orange-500 text-white font-black py-5 rounded-[2rem] shadow-xl shadow-red-500/20 active:scale-[0.98] transition-all text-xs uppercase tracking-[5px] flex items-center justify-center gap-3 border border-white/10 animate-pulse-slow"
+                        >
+                            <i className="fa-solid fa-square"></i> Finish Session
+                        </button>
+                    )}
+                </div>
+
+                {/* --- JOURNEY CARD --- */}
                 <div 
                   onClick={() => setShowJourneyHub(true)}
                   className="bg-slate-800/40 border border-slate-700/50 rounded-[2.5rem] p-6 flex flex-col gap-6 hover:bg-slate-800/60 transition-all cursor-pointer group shadow-2xl relative overflow-hidden"

@@ -42,15 +42,15 @@ export const RadialProgress: React.FC<RadialProgressProps> = ({
   return (
     <div 
       onClick={onClick}
-      className={`relative flex items-center justify-center w-80 h-80 mx-auto my-6 ${onClick ? 'cursor-pointer active:scale-95 transition-transform' : ''}`}
+      className={`relative flex items-center justify-center w-80 h-80 mx-auto my-6 group ${onClick ? 'cursor-pointer active:scale-95 transition-transform' : ''}`}
     >
       {/* Background Pulse/Ripple */}
-      {ripple && (
-          <div className="absolute inset-0 rounded-full border-8 border-brand-500/20 animate-ping pointer-events-none"></div>
+      {(ripple || isActive) && (
+          <div className={`absolute inset-0 rounded-full border-8 border-brand-500/20 ${isActive ? 'animate-pulse' : 'animate-ping'} pointer-events-none`}></div>
       )}
 
       {/* Main Track */}
-      <div className={`absolute inset-0 rounded-full border-[12px] border-slate-800/40 shadow-inner ${isActive ? 'animate-pulse' : ''}`}></div>
+      <div className={`absolute inset-0 rounded-full border-[12px] border-slate-800/40 shadow-inner ${isActive ? 'border-brand-500/10' : ''}`}></div>
       
       {/* Dynamic SVG Progress */}
       <svg className="absolute inset-0 w-full h-full -rotate-90 filter drop-shadow-[0_0_15px_rgba(76,175,80,0.2)]" viewBox="0 0 200 200">
@@ -70,8 +70,16 @@ export const RadialProgress: React.FC<RadialProgressProps> = ({
         />
       </svg>
       
+      {/* Interaction Hint Overlay */}
+      <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-20">
+          <div className="bg-brand-600/80 backdrop-blur px-4 py-2 rounded-2xl text-white text-[10px] font-black uppercase tracking-widest flex items-center gap-2">
+              <i className={`fa-solid ${isActive ? 'fa-pause' : 'fa-play'}`}></i>
+              {isActive ? 'Pause Workout' : 'Start Session'}
+          </div>
+      </div>
+
       {/* Inner Information Panel */}
-      <div className={`flex flex-col items-center justify-center z-10 text-center pointer-events-none ${isActive ? 'scale-105 transition-transform' : 'animate-breathing'}`}>
+      <div className={`flex flex-col items-center justify-center z-10 text-center pointer-events-none transition-transform duration-500 ${isActive ? 'scale-110' : 'animate-breathing'}`}>
         
         {isGoalMet && (
              <div className="absolute -top-10 animate-bounce z-20">
@@ -88,10 +96,15 @@ export const RadialProgress: React.FC<RadialProgressProps> = ({
             <span className={`${isGoalMet ? 'text-emerald-400' : 'text-brand-400'} text-[11px] font-black uppercase tracking-[5px] mt-2`}>
                 {isGoalMet ? 'Goal Smashed!' : label}
             </span>
-            <div className="mt-3 py-1 px-4 bg-slate-800/60 rounded-full border border-slate-700/50">
+            <div className="mt-3 py-1 px-4 bg-slate-800/60 rounded-full border border-slate-700/50 flex flex-col items-center">
                 <span className="text-[9px] text-slate-500 font-black uppercase tracking-widest">
                     Target: {total.toLocaleString()}
                 </span>
+                {isActive && (
+                    <span className="text-[7px] text-brand-400 font-black uppercase tracking-widest mt-0.5 animate-pulse">
+                        Tracking Live
+                    </span>
+                )}
             </div>
         </div>
       </div>
