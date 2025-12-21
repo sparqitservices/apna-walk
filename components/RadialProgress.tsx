@@ -30,7 +30,7 @@ export const RadialProgress: React.FC<RadialProgressProps> = ({
   const isGoalMet = total > 0 && current >= total;
   const displayColor = isGoalMet ? "text-emerald-400" : color;
 
-  // Trigger ripple effect on every actual step
+  // Trigger ripple effect on every step
   useEffect(() => {
     if (lastStepTime > 0) {
       setRipple(true);
@@ -70,11 +70,11 @@ export const RadialProgress: React.FC<RadialProgressProps> = ({
         />
       </svg>
       
-      {/* Interaction Hint Overlay */}
+      {/* Tap Instruction Overlay (Hidden by default, shown on hover/touch) */}
       <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-20">
           <div className="bg-brand-600/80 backdrop-blur px-4 py-2 rounded-2xl text-white text-[10px] font-black uppercase tracking-widest flex items-center gap-2">
-              <i className={`fa-solid ${isActive ? 'fa-pause' : 'fa-play'}`}></i>
-              {isActive ? 'Pause Workout' : 'Start Session'}
+              <i className={`fa-solid ${isActive ? 'fa-square' : 'fa-play'}`}></i>
+              {isActive ? 'Stop Session' : 'Start Session'}
           </div>
       </div>
 

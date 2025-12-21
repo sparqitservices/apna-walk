@@ -138,7 +138,7 @@ const App: React.FC = () => {
             startSession();
             if (navigator.vibrate) navigator.vibrate(50);
         } else {
-            alert("Motion sensors required!");
+            alert("Motion sensors required to track your movement!");
         }
     }
   };
@@ -174,14 +174,13 @@ const App: React.FC = () => {
                 <i className="fa-solid fa-person-running text-brand-500 text-xl"></i>
                 <h1 className="text-2xl font-black italic tracking-tighter uppercase leading-none"><span className="text-brand-500">Apna</span>Walk</h1>
             </div>
+            {/* Location arranged directly below logo text - Replacing "SYSTEM: ONLINE" */}
             <div className="flex items-center gap-2 mt-1 ml-8 overflow-hidden">
-                {isAutoRecording && (
-                  <span className="relative flex h-2 w-2 shrink-0">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-                  </span>
-                )}
-                <p className="text-[9px] text-slate-500 font-black uppercase tracking-[2px] truncate max-w-[180px] leading-tight">
+                <span className="relative flex h-2 w-2 shrink-0">
+                    <span className={`${isAutoRecording ? 'animate-ping' : ''} absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75`}></span>
+                    <span className={`relative inline-flex rounded-full h-2 w-2 ${isAutoRecording ? 'bg-emerald-500' : 'bg-slate-700'}`}></span>
+                </span>
+                <p className="text-[10px] text-slate-500 font-black uppercase tracking-[2px] truncate max-w-[200px] leading-tight">
                     {locality}
                 </p>
             </div>
@@ -195,33 +194,35 @@ const App: React.FC = () => {
         
         {/* --- MAIN DASHBOARD --- */}
         <section className="flex flex-col items-center">
+            {/* Round Step Counter - Now Tap to Start/Pause */}
             <RadialProgress 
                 current={displaySteps} 
                 total={settings.stepGoal} 
-                label={isTrackingSession ? "Session Active" : "Today's Walk"} 
-                subLabel="Keep moving, Guru!" 
+                label={isTrackingSession ? "Session Live" : "Today's Walk"} 
+                subLabel="Tap to control" 
                 lastStepTime={lastStepTimestamp}
                 isActive={isTrackingSession}
                 onClick={handleToggleTracking}
             />
+            
             <div className="w-full grid grid-cols-1 gap-6 mt-8">
                 <StatsGrid calories={displayCalories} distance={displayDistance} duration={0} onStatClick={() => {}} />
                 
-                {/* --- SESSION CONTROL BUTTONS --- */}
+                {/* --- START/FINISH BUTTONS (Added above Journey Log) --- */}
                 <div className="flex gap-4 w-full">
                     {!isTrackingSession ? (
                         <button 
                             onClick={handleToggleTracking}
                             className="flex-1 bg-gradient-to-r from-brand-600 to-emerald-500 hover:from-brand-500 hover:to-emerald-400 text-white font-black py-5 rounded-[2rem] shadow-xl shadow-brand-500/20 active:scale-[0.98] transition-all text-xs uppercase tracking-[5px] flex items-center justify-center gap-3 border border-white/10"
                         >
-                            <i className="fa-solid fa-play"></i> Start Session
+                            <i className="fa-solid fa-play"></i> Start Walk
                         </button>
                     ) : (
                         <button 
                             onClick={handleToggleTracking}
-                            className="flex-1 bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-500 hover:to-orange-500 text-white font-black py-5 rounded-[2rem] shadow-xl shadow-red-500/20 active:scale-[0.98] transition-all text-xs uppercase tracking-[5px] flex items-center justify-center gap-3 border border-white/10 animate-pulse-slow"
+                            className="flex-1 bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-500 hover:to-orange-500 text-white font-black py-5 rounded-[2rem] shadow-xl shadow-red-500/20 active:scale-[0.98] transition-all text-xs uppercase tracking-[5px] flex items-center justify-center gap-3 border border-white/10"
                         >
-                            <i className="fa-solid fa-square"></i> Finish Session
+                            <i className="fa-solid fa-square"></i> Finish Walk
                         </button>
                     )}
                 </div>

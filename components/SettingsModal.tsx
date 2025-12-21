@@ -1,4 +1,5 @@
-import React, { useState, useRef, useEffect } from 'react';
+
+import React, { useState, useEffect } from 'react';
 import { UserSettings, UserProfile } from '../types';
 import { requestNotificationPermission } from '../services/notificationService';
 
@@ -67,9 +68,9 @@ const InputField = ({ label, icon, value, onChange, placeholder, type = "text", 
                 value={value}
                 onChange={(e) => onChange(type === 'number' ? Number(e.target.value) : e.target.value)}
                 placeholder={placeholder}
-                className="w-full bg-slate-800/40 border border-slate-700/50 rounded-2xl py-3.5 pl-11 pr-14 text-sm text-white focus:border-brand-500 outline-none transition-all placeholder:text-slate-600"
+                className="w-full bg-slate-800/40 border border-slate-700/50 rounded-2xl py-3.5 pl-11 pr-14 text-sm text-white focus:border-brand-500 outline-none transition-all placeholder:text-slate-600 font-bold"
             />
-            {suffix && <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] font-black text-slate-500 uppercase tracking-wider">{suffix}</span>}
+            {suffix && <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[9px] font-black text-slate-500 uppercase tracking-wider">{suffix}</span>}
         </div>
     </div>
 );
@@ -104,23 +105,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const handleProfileChange = (field: keyof UserProfile, value: any) => {
     setTempProfile(prev => ({ ...prev, [field]: value }));
   };
-  
-  const handleNotificationToggle = async (key: 'water' | 'walk' | 'breath', value: boolean) => {
-      if (value) {
-          const granted = await requestNotificationPermission();
-          if (!granted) {
-              alert("Please allow notifications in your browser settings for Desi Nudges.");
-              return;
-          }
-      }
-      setTempSettings(prev => ({
-          ...prev,
-          notifications: {
-              ...prev.notifications,
-              [key]: value
-          }
-      }));
-  };
 
   const handleSave = async () => {
     setIsUpdating(true);
@@ -141,11 +125,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         <div className="p-6 border-b border-white/5 flex justify-between items-center bg-slate-900/40 sticky top-0 z-20 backdrop-blur-md">
           <div className="flex items-center gap-3">
              <div className="w-12 h-12 rounded-2xl bg-brand-500/10 flex items-center justify-center text-brand-500 border border-brand-500/20 shadow-inner">
-                <i className="fa-solid fa-id-card-clip text-xl"></i>
+                <i className="fa-solid fa-user-gear text-xl"></i>
              </div>
              <div>
-                <h2 className="text-white font-black text-2xl tracking-tighter uppercase italic">Profile Hub</h2>
-                <p className="text-slate-500 text-[9px] font-black uppercase tracking-[4px]">Personalize Your Pace</p>
+                <h2 className="text-white font-black text-2xl tracking-tighter uppercase italic">Settings</h2>
+                <p className="text-slate-500 text-[9px] font-black uppercase tracking-[4px]">Customize your ApnaWalk</p>
              </div>
           </div>
           <button onClick={onClose} className="w-10 h-10 rounded-2xl bg-slate-800 text-slate-400 hover:text-white flex items-center justify-center transition-all hover:scale-110 active:scale-90 border border-slate-700 shadow-lg">
@@ -162,14 +146,69 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                    <InputField label="Full Name" icon="fa-user" value={tempProfile.name} onChange={(v) => handleProfileChange('name', v)} />
                    <InputField label="Username" icon="fa-at" value={tempProfile.username || ''} onChange={(v) => handleProfileChange('username', v)} />
                </div>
-               <div className="space-y-2">
-                   <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">About You (Bio)</label>
-                   <textarea 
-                        value={tempProfile.bio || ''} 
-                        onChange={(e) => handleProfileChange('bio', e.target.value)}
-                        placeholder="Tell the squad why you walk..."
-                        className="w-full bg-slate-800/40 border border-slate-700/50 rounded-2xl p-4 text-sm text-white focus:border-brand-500 outline-none transition-all resize-none h-24 placeholder:text-slate-600"
-                   />
+          </div>
+
+          {/* Activity Goals Section */}
+          <div className="space-y-6">
+               <SectionHeader icon="fa-bullseye" title="Activity Goals" />
+               <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+                   <InputField type="number" label="Daily Steps" icon="fa-shoe-prints" value={tempSettings.stepGoal} onChange={(v) => handleChange('stepGoal', v)} suffix="Steps" />
+                   <InputField type="number" label="Distance" icon="fa-route" value={(tempSettings.distanceGoal || 5000) / 1000} onChange={(v) => handleChange('distanceGoal', v * 1000)} suffix="KM" />
+                   <InputField type="number" label="Calories" icon="fa-fire" value={tempSettings.calorieGoal || 300} onChange={(v) => handleChange('calorieGoal', v)} suffix="KCAL" />
+               </div>
+               <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest text-center mt-2">Coach will nudge you based on these targets!</p>
+          </div>
+
+          {/* Health Metrics Section */}
+          <div className="space-y-6">
+               <SectionHeader icon="fa-heart-pulse" title="Health Metrics" />
+               <div className="grid grid-cols-2 gap-5">
+                   <InputField type="number" label="Weight" icon="fa-weight-hanging" value={tempSettings.weightKg} onChange={(v) => handleChange('weightKg', v)} suffix="KG" />
+                   <InputField type="number" label="Height" icon="fa-arrows-up-down" value={tempSettings.heightCm} onChange={(v) => handleChange('heightCm', v)} suffix="CM" />
+               </div>
+               <div className="bg-slate-800/30 p-4 rounded-2xl border border-slate-700/30 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                        <i className="fa-solid fa-ruler-horizontal text-slate-500"></i>
+                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Dynamic Stride</span>
+                    </div>
+                    <span className="text-brand-400 font-black text-sm italic">{tempSettings.strideLengthCm} CM</span>
+               </div>
+          </div>
+
+          {/* App Vibe Section */}
+          <div className="space-y-6">
+               <SectionHeader icon="fa-wand-magic-sparkles" title="App Vibe" />
+               <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
+                    <div className="space-y-3">
+                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Coach Personality</label>
+                        <div className="grid grid-cols-1 gap-2">
+                            {(['Energetic', 'Strict', 'Chill'] as const).map(vibe => (
+                                <button 
+                                    key={vibe}
+                                    onClick={() => handleChange('coachVibe', vibe)}
+                                    className={`py-3 px-4 rounded-xl text-xs font-black uppercase tracking-widest transition-all border ${tempSettings.coachVibe === vibe ? 'bg-brand-600 border-brand-400 text-white shadow-lg' : 'bg-slate-800/40 border-slate-700/50 text-slate-500 hover:text-slate-300'}`}
+                                >
+                                    {vibe}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                    <div className="space-y-3">
+                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Theme Palette</label>
+                        <div className="grid grid-cols-5 gap-3">
+                            {(['green', 'blue', 'orange', 'purple', 'pink'] as const).map(color => (
+                                <button 
+                                    key={color}
+                                    onClick={() => handleChange('theme', color)}
+                                    className={`aspect-square rounded-xl transition-all border-2 relative overflow-hidden group ${tempSettings.theme === color ? 'border-white scale-110 shadow-xl' : 'border-transparent opacity-40 hover:opacity-100'}`}
+                                    style={{ backgroundColor: color === 'green' ? '#4CAF50' : color === 'blue' ? '#2196F3' : color === 'orange' ? '#FF9800' : color === 'purple' ? '#9C27B0' : '#E91E63' }}
+                                >
+                                    {tempSettings.theme === color && <i className="fa-solid fa-check absolute inset-0 flex items-center justify-center text-white text-[10px]"></i>}
+                                </button>
+                            ))}
+                        </div>
+                        <p className="text-[9px] text-slate-600 font-bold uppercase tracking-tight text-center mt-2">Choose the hue for your journey</p>
+                    </div>
                </div>
           </div>
 
@@ -183,82 +222,15 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         icon="fa-chart-simple" 
                         label="Public Stats" 
                         subLabel="Allow squad members to see your achievements" 
-                        colorClass="peer-checked:bg-brand-500" 
-                   />
-                   <StylishToggle 
-                        checked={!!tempProfile.is_mutuals_public} 
-                        onChange={(val) => handleProfileChange('is_mutuals_public', val)} 
-                        icon="fa-people-arrows" 
-                        label="Discovery" 
-                        subLabel="Show mutual connections on your profile" 
-                        colorClass="peer-checked:bg-blue-500" 
                    />
                    <StylishToggle 
                         checked={!!tempProfile.is_ghost_mode} 
                         onChange={(val) => handleProfileChange('is_ghost_mode', val)} 
                         icon="fa-ghost" 
                         label="Ghost Mode" 
-                        subLabel="Hide from nearby discovery scans entirely" 
+                        subLabel="Hide from discovery scans entirely" 
                         colorClass="peer-checked:bg-slate-600" 
                    />
-               </div>
-          </div>
-
-          {/* Goals Section */}
-          <div className="space-y-6">
-               <SectionHeader icon="fa-bullseye" title="Target Dhanda (Goals)" />
-               <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
-                   <InputField type="number" label="Daily Steps" icon="fa-shoe-prints" value={tempSettings.stepGoal} onChange={(v) => handleChange('stepGoal', v)} suffix="Steps" />
-                   <InputField type="number" label="Distance" icon="fa-route" value={(tempSettings.distanceGoal || 5000) / 1000} onChange={(v) => handleChange('distanceGoal', v * 1000)} suffix="KM" />
-                   <InputField type="number" label="Calories" icon="fa-fire" value={tempSettings.calorieGoal || 300} onChange={(v) => handleChange('calorieGoal', v)} suffix="KCAL" />
-               </div>
-          </div>
-
-          {/* Health Metrics */}
-          <div className="space-y-6">
-               <SectionHeader icon="fa-heart-pulse" title="Body Metrics" />
-               <div className="grid grid-cols-2 gap-5">
-                   <InputField type="number" label="Weight" icon="fa-weight-hanging" value={tempSettings.weightKg} onChange={(v) => handleChange('weightKg', v)} suffix="KG" />
-                   <InputField type="number" label="Height" icon="fa-arrows-up-down" value={tempSettings.heightCm} onChange={(v) => handleChange('heightCm', v)} suffix="CM" />
-               </div>
-               <div className="bg-slate-800/30 p-4 rounded-2xl border border-slate-700/30 flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                        <i className="fa-solid fa-ruler-horizontal text-slate-500"></i>
-                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Estimated Stride</span>
-                    </div>
-                    <span className="text-white font-black text-sm italic">{tempSettings.strideLengthCm} CM</span>
-               </div>
-          </div>
-
-          {/* Personalization */}
-          <div className="space-y-6">
-               <SectionHeader icon="fa-wand-magic-sparkles" title="App Vibe" />
-               <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                    <div className="space-y-2">
-                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Coach Personality</label>
-                        <select 
-                            value={tempSettings.coachVibe} 
-                            onChange={(e) => handleChange('coachVibe', e.target.value)}
-                            className="w-full bg-slate-800/40 border border-slate-700/50 rounded-2xl py-3.5 px-4 text-sm text-white focus:border-brand-500 outline-none transition-all cursor-pointer"
-                        >
-                            <option value="Energetic">Energetic (High Voltage)</option>
-                            <option value="Strict">Strict (Ustad Vibes)</option>
-                            <option value="Chill">Chill (Friendly Dost)</option>
-                        </select>
-                    </div>
-                    <div className="space-y-2">
-                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Theme Color</label>
-                        <div className="flex gap-2.5">
-                            {(['green', 'blue', 'orange', 'purple', 'pink'] as const).map(color => (
-                                <button 
-                                    key={color}
-                                    onClick={() => handleChange('theme', color)}
-                                    className={`w-full h-11 rounded-xl transition-all border-2 ${tempSettings.theme === color ? 'border-white scale-105 shadow-lg' : 'border-transparent opacity-60'}`}
-                                    style={{ backgroundColor: color === 'green' ? '#4CAF50' : color === 'blue' ? '#2196F3' : color === 'orange' ? '#FF9800' : color === 'purple' ? '#9C27B0' : '#E91E63' }}
-                                />
-                            ))}
-                        </div>
-                    </div>
                </div>
           </div>
 
@@ -284,9 +256,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 {isUpdating ? (
                     <i className="fa-solid fa-circle-notch fa-spin"></i>
                 ) : updateSuccess ? (
-                    <><i className="fa-solid fa-check"></i> Profile Updated!</>
+                    <><i className="fa-solid fa-check"></i> Settings Updated!</>
                 ) : (
-                    <><i className="fa-solid fa-floppy-disk"></i> Update Profile</>
+                    <><i className="fa-solid fa-floppy-disk"></i> Save Changes</>
                 )}
             </button>
         </div>
