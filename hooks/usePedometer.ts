@@ -1,13 +1,12 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 
-// ALGORITHM SETTINGS
+// ALGORITHM CONSTANTS
 const LPF_ALPHA = 0.8; 
-const MIN_STEP_DELAY = 250; // Minimum ms between steps (max ~4 steps/sec)
-const MAX_STEP_DELAY = 2000; 
-const CONSECUTIVE_STEPS_REQUIRED = 5; 
-const MAG_SMOOTH_FACTOR = 0.6; 
-const BASE_THRESHOLD = 1.2;
+const MIN_STEP_DELAY = 280; // ~3.5 steps per second max
+const MAX_STEP_DELAY = 1800; // Reset rhythm if more than 1.8s between steps
+const CONSECUTIVE_STEPS_REQUIRED = 6; // Filter out accidental shakes
+const MAG_SMOOTH_FACTOR = 0.7; 
 
 export const usePedometer = (sensitivity: number = 3) => {
   const [dailySteps, setDailySteps] = useState(0);
@@ -15,27 +14,27 @@ export const usePedometer = (sensitivity: number = 3) => {
   const [isTrackingSession, setIsTrackingSession] = useState(false);
   const [permissionGranted, setPermissionGranted] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [lastStepTimestamp, setLastStepTimestamp] = useState(0); // For UI ripple
   
-  // Internal tracking refs
-  const lastStepTime = useRef<number>(0);
+  // Internal tracking refs to avoid re-renders on every sensor tick (60Hz+)
+  const lastStepTimeRef = useRef<number>(0);
   const gravityRef = useRef({ x: 0, y: 0, z: 0 });
-  const lastSmoothMag = useRef<number>(0);
-  const stepBuffer = useRef<number>(0); 
-  const isWalkingRef = useRef<boolean>(false);
+  const lastSmoothMagRef = useRef<number>(0);
+  const stepBufferRef = useRef<number>(0); 
 
-  // Load daily steps
+  // Load daily steps on mount
   useEffect(() => {
-      const today = new Date().toISOString().split('T')[0];
-      const saved = localStorage.getItem(`daily_steps_${today}`);
-      if (saved) setDailySteps(parseInt(saved, 10));
+    const today = new Date().toISOString().split('T')[0];
+    const saved = localStorage.getItem(`daily_steps_${today}`);
+    if (saved) setDailySteps(parseInt(saved, 10));
   }, []);
 
-  // Persist daily steps
+  // Save daily steps whenever they change
   useEffect(() => {
-      if (dailySteps > 0) {
-        const today = new Date().toISOString().split('T')[0];
-        localStorage.setItem(`daily_steps_${today}`, dailySteps.toString());
-      }
+    if (dailySteps > 0) {
+      const today = new Date().toISOString().split('T')[0];
+      localStorage.setItem(`daily_steps_${today}`, dailySteps.toString());
+    }
   }, [dailySteps]);
   
   const handleMotion = useCallback((event: DeviceMotionEvent) => {
@@ -52,48 +51,44 @@ export const usePedometer = (sensitivity: number = 3) => {
     gravityRef.current.y = LPF_ALPHA * gravityRef.current.y + (1 - LPF_ALPHA) * rawY;
     gravityRef.current.z = LPF_ALPHA * gravityRef.current.z + (1 - LPF_ALPHA) * rawZ;
 
-    // 2. Calculate Linear Acceleration (Magnitude of movement without gravity)
+    // 2. Calculate Linear Acceleration Magnitude (User movement)
     const linearX = rawX - gravityRef.current.x;
     const linearY = rawY - gravityRef.current.y;
     const linearZ = rawZ - gravityRef.current.z;
-
     const currentMagnitude = Math.sqrt(linearX * linearX + linearY * linearY + linearZ * linearZ);
     
-    // 3. Smooth the signal
-    const smoothMag = MAG_SMOOTH_FACTOR * lastSmoothMag.current + (1 - MAG_SMOOTH_FACTOR) * currentMagnitude;
+    // 3. Smooth the Magnitude Signal
+    const smoothMag = MAG_SMOOTH_FACTOR * lastSmoothMagRef.current + (1 - MAG_SMOOTH_FACTOR) * currentMagnitude;
 
-    // 4. Peak Detection Logic
+    // 4. Threshold & Peak Detection
     const now = Date.now();
-    const dynamicThreshold = BASE_THRESHOLD - ((sensitivity - 3) * 0.2);
+    // Dynamic threshold based on sensitivity (1-5 range)
+    const dynamicThreshold = 1.4 - ((sensitivity - 3) * 0.15);
 
-    // If we've been idle too long, reset the consecutive step buffer
-    if (now - lastStepTime.current > MAX_STEP_DELAY) {
-        stepBuffer.current = 0;
-        isWalkingRef.current = false;
+    // Reset buffer if user stopped moving
+    if (now - lastStepTimeRef.current > MAX_STEP_DELAY) {
+        stepBufferRef.current = 0;
     }
 
-    // Detect a step (Peak crossing the threshold)
-    if (lastSmoothMag.current > dynamicThreshold && smoothMag < lastSmoothMag.current) {
-        if (now - lastStepTime.current > MIN_STEP_DELAY) {
-            stepBuffer.current += 1;
-            lastStepTime.current = now;
+    // Step detected if signal is falling from a peak above threshold
+    if (lastSmoothMagRef.current > dynamicThreshold && smoothMag < lastSmoothMagRef.current) {
+        if (now - lastStepTimeRef.current > MIN_STEP_DELAY) {
+            stepBufferRef.current += 1;
+            lastStepTimeRef.current = now;
 
-            // Only count steps if we've detected a rhythm (CONSECUTIVE_STEPS_REQUIRED)
-            // This prevents counting single accidental bumps as steps.
-            if (stepBuffer.current >= CONSECUTIVE_STEPS_REQUIRED) {
-                const stepsToAdd = stepBuffer.current === CONSECUTIVE_STEPS_REQUIRED ? CONSECUTIVE_STEPS_REQUIRED : 1;
+            // Only update UI if we are in a walking rhythm
+            if (stepBufferRef.current >= CONSECUTIVE_STEPS_REQUIRED) {
+                // If this is exactly the required count, add the whole buffer at once
+                const inc = stepBufferRef.current === CONSECUTIVE_STEPS_REQUIRED ? CONSECUTIVE_STEPS_REQUIRED : 1;
                 
-                setDailySteps(prev => prev + stepsToAdd);
-                if (isTrackingSession) {
-                    setSessionSteps(prev => prev + stepsToAdd);
-                }
-                
-                if (!isWalkingRef.current) isWalkingRef.current = true;
+                setDailySteps(prev => prev + inc);
+                if (isTrackingSession) setSessionSteps(prev => prev + inc);
+                setLastStepTimestamp(now); // Trigger UI ripple
             }
         }
     }
     
-    lastSmoothMag.current = smoothMag;
+    lastSmoothMagRef.current = smoothMag;
   }, [sensitivity, isTrackingSession]);
 
   const requestPermission = async () => {
@@ -102,15 +97,17 @@ export const usePedometer = (sensitivity: number = 3) => {
         const response = await (DeviceMotionEvent as any).requestPermission();
         if (response === 'granted') {
           setPermissionGranted(true);
+          window.addEventListener('devicemotion', handleMotion);
           return true;
         }
-        setError("Motion permission denied.");
+        setError("Permission for motion sensors was denied.");
         return false;
       } catch (e) {
-        setError("Sensors not available on this connection.");
+        setError("Could not request sensor access. Secure context (HTTPS) required.");
         return false;
       }
     } else {
+      // Non-iOS or older browsers
       setPermissionGranted(true);
       window.addEventListener('devicemotion', handleMotion);
       return true;
@@ -118,11 +115,8 @@ export const usePedometer = (sensitivity: number = 3) => {
   };
 
   useEffect(() => {
-     if (permissionGranted) {
-         window.addEventListener('devicemotion', handleMotion);
-     }
      return () => window.removeEventListener('devicemotion', handleMotion);
-  }, [permissionGranted, handleMotion]);
+  }, [handleMotion]);
 
   const startSession = () => {
     setSessionSteps(0);
@@ -140,6 +134,7 @@ export const usePedometer = (sensitivity: number = 3) => {
     dailySteps,
     sessionSteps,
     isTrackingSession,
+    lastStepTimestamp,
     error,
     permissionGranted,
     requestPermission,
