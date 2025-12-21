@@ -55,6 +55,25 @@ const StylishToggle = ({
     </div>
 );
 
+const InputField = ({ label, icon, value, onChange, placeholder, type = "text", suffix }: { label: string, icon: string, value: any, onChange: (val: any) => void, placeholder?: string, type?: string, suffix?: string }) => (
+    <div className="space-y-2">
+        <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">{label}</label>
+        <div className="relative group">
+            <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-brand-500 transition-colors">
+                <i className={`fa-solid ${icon}`}></i>
+            </div>
+            <input 
+                type={type}
+                value={value}
+                onChange={(e) => onChange(type === 'number' ? Number(e.target.value) : e.target.value)}
+                placeholder={placeholder}
+                className="w-full bg-slate-800/40 border border-slate-700/50 rounded-2xl py-3.5 pl-11 pr-14 text-sm text-white focus:border-brand-500 outline-none transition-all placeholder:text-slate-600"
+            />
+            {suffix && <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] font-black text-slate-500 uppercase tracking-wider">{suffix}</span>}
+        </div>
+    </div>
+);
+
 export const SettingsModal: React.FC<SettingsModalProps> = ({ 
   isOpen, onClose, settings, profile, onSave, onLogout, onLoginRequest 
 }) => {
@@ -62,13 +81,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [tempProfile, setTempProfile] = useState<UserProfile>(profile);
   const [isUpdating, setIsUpdating] = useState(false);
   const [updateSuccess, setUpdateSuccess] = useState(false);
-  
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (isOpen) {
-        setTempSettings(prev => ({ ...prev, ...settings }));
-        setTempProfile(profile);
+        setTempSettings({ ...settings });
+        setTempProfile({ ...profile });
         setUpdateSuccess(false);
     }
   }, [isOpen, settings, profile]);
@@ -77,22 +94,22 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
   const handleChange = (field: keyof UserSettings, value: any) => {
     let newSettings = { ...tempSettings, [field]: value };
+    // Auto-calculate stride if height changes
     if (field === 'heightCm') {
-        const estimatedStride = Math.round(value * 0.415);
-        newSettings.strideLengthCm = estimatedStride;
+        newSettings.strideLengthCm = Math.round(Number(value) * 0.415);
     }
     setTempSettings(newSettings);
   };
 
   const handleProfileChange = (field: keyof UserProfile, value: any) => {
-      setTempProfile(prev => ({ ...prev, [field]: value }));
+    setTempProfile(prev => ({ ...prev, [field]: value }));
   };
   
   const handleNotificationToggle = async (key: 'water' | 'walk' | 'breath', value: boolean) => {
       if (value) {
           const granted = await requestNotificationPermission();
           if (!granted) {
-              alert("Please allow notifications in your browser settings to use this feature.");
+              alert("Please allow notifications in your browser settings for Desi Nudges.");
               return;
           }
       }
@@ -118,17 +135,17 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
   return (
     <div className="fixed inset-0 bg-black/90 backdrop-blur-xl z-[100] flex items-center justify-center p-4">
-      <div className="bg-dark-card w-full max-w-xl h-[92vh] rounded-[3rem] overflow-hidden border border-white/5 shadow-[0_0_50px_rgba(0,0,0,0.5)] relative flex flex-col animate-message-pop">
+      <div className="bg-dark-card w-full max-w-xl h-[92vh] rounded-[3.5rem] overflow-hidden border border-white/5 shadow-[0_0_80px_rgba(0,0,0,0.6)] relative flex flex-col animate-message-pop">
         
         {/* Header */}
-        <div className="p-6 border-b border-white/5 flex justify-between items-center bg-slate-900/40 sticky top-0 z-20">
+        <div className="p-6 border-b border-white/5 flex justify-between items-center bg-slate-900/40 sticky top-0 z-20 backdrop-blur-md">
           <div className="flex items-center gap-3">
-             <div className="w-10 h-10 rounded-2xl bg-brand-500/10 flex items-center justify-center text-brand-500 border border-brand-500/20">
-                <i className="fa-solid fa-house-user"></i>
+             <div className="w-12 h-12 rounded-2xl bg-brand-500/10 flex items-center justify-center text-brand-500 border border-brand-500/20 shadow-inner">
+                <i className="fa-solid fa-id-card-clip text-xl"></i>
              </div>
              <div>
-                <h2 className="text-white font-black text-xl tracking-tighter uppercase italic">Apna Kona</h2>
-                <p className="text-slate-500 text-[9px] font-bold uppercase tracking-widest">Personal Space</p>
+                <h2 className="text-white font-black text-2xl tracking-tighter uppercase italic">Profile Hub</h2>
+                <p className="text-slate-500 text-[9px] font-black uppercase tracking-[4px]">Personalize Your Pace</p>
              </div>
           </div>
           <button onClick={onClose} className="w-10 h-10 rounded-2xl bg-slate-800 text-slate-400 hover:text-white flex items-center justify-center transition-all hover:scale-110 active:scale-90 border border-slate-700 shadow-lg">
@@ -136,17 +153,93 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-6 space-y-10 no-scrollbar pb-24">
+        <div className="flex-1 overflow-y-auto p-8 space-y-12 no-scrollbar pb-32">
           
-          {/* Alerts Hub */}
-          <div>
+          {/* Identity Section */}
+          <div className="space-y-6">
+               <SectionHeader icon="fa-fingerprint" title="Identity" />
+               <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                   <InputField label="Full Name" icon="fa-user" value={tempProfile.name} onChange={(v) => handleProfileChange('name', v)} />
+                   <InputField label="Username" icon="fa-at" value={tempProfile.username || ''} onChange={(v) => handleProfileChange('username', v)} />
+               </div>
+               <div className="space-y-2">
+                   <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">About You (Bio)</label>
+                   <textarea 
+                        value={tempProfile.bio || ''} 
+                        onChange={(e) => handleProfileChange('bio', e.target.value)}
+                        placeholder="Tell the squad why you walk..."
+                        className="w-full bg-slate-800/40 border border-slate-700/50 rounded-2xl p-4 text-sm text-white focus:border-brand-500 outline-none transition-all resize-none h-24 placeholder:text-slate-600"
+                   />
+               </div>
+          </div>
+
+          {/* Goals Section */}
+          <div className="space-y-6">
+               <SectionHeader icon="fa-bullseye" title="Target Dhanda (Goals)" />
+               <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+                   <InputField type="number" label="Daily Steps" icon="fa-shoe-prints" value={tempSettings.stepGoal} onChange={(v) => handleChange('stepGoal', v)} suffix="Steps" />
+                   <InputField type="number" label="Distance" icon="fa-route" value={(tempSettings.distanceGoal || 5000) / 1000} onChange={(v) => handleChange('distanceGoal', v * 1000)} suffix="KM" />
+                   <InputField type="number" label="Calories" icon="fa-fire" value={tempSettings.calorieGoal || 300} onChange={(v) => handleChange('calorieGoal', v)} suffix="KCAL" />
+               </div>
+          </div>
+
+          {/* Health Metrics */}
+          <div className="space-y-6">
+               <SectionHeader icon="fa-heart-pulse" title="Body Metrics" />
+               <div className="grid grid-cols-2 gap-5">
+                   <InputField type="number" label="Weight" icon="fa-weight-hanging" value={tempSettings.weightKg} onChange={(v) => handleChange('weightKg', v)} suffix="KG" />
+                   <InputField type="number" label="Height" icon="fa-arrows-up-down" value={tempSettings.heightCm} onChange={(v) => handleChange('heightCm', v)} suffix="CM" />
+               </div>
+               <div className="bg-slate-800/30 p-4 rounded-2xl border border-slate-700/30 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                        <i className="fa-solid fa-ruler-horizontal text-slate-500"></i>
+                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Estimated Stride</span>
+                    </div>
+                    <span className="text-white font-black text-sm italic">{tempSettings.strideLengthCm} CM</span>
+               </div>
+          </div>
+
+          {/* Personalization */}
+          <div className="space-y-6">
+               <SectionHeader icon="fa-wand-magic-sparkles" title="App Vibe" />
+               <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                    <div className="space-y-2">
+                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Coach Personality</label>
+                        <select 
+                            value={tempSettings.coachVibe} 
+                            onChange={(e) => handleChange('coachVibe', e.target.value)}
+                            className="w-full bg-slate-800/40 border border-slate-700/50 rounded-2xl py-3.5 px-4 text-sm text-white focus:border-brand-500 outline-none transition-all cursor-pointer"
+                        >
+                            <option value="Energetic">Energetic (High Voltage)</option>
+                            <option value="Strict">Strict (Ustad Vibes)</option>
+                            <option value="Chill">Chill (Friendly Dost)</option>
+                        </select>
+                    </div>
+                    <div className="space-y-2">
+                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Theme Color</label>
+                        <div className="flex gap-2.5">
+                            {(['green', 'blue', 'orange', 'purple', 'pink'] as const).map(color => (
+                                <button 
+                                    key={color}
+                                    onClick={() => handleChange('theme', color)}
+                                    className={`w-full h-11 rounded-xl transition-all border-2 ${tempSettings.theme === color ? 'border-white scale-105 shadow-lg' : 'border-transparent opacity-60'}`}
+                                    style={{ backgroundColor: color === 'green' ? '#4CAF50' : color === 'blue' ? '#2196F3' : color === 'orange' ? '#FF9800' : color === 'purple' ? '#9C27B0' : '#E91E63' }}
+                                />
+                            ))}
+                        </div>
+                    </div>
+               </div>
+          </div>
+
+          {/* Apna Nudges (Notifications) */}
+          <div className="space-y-6">
                <SectionHeader icon="fa-bell" title="Apna Nudges" />
-               <div className="grid grid-cols-1 gap-3">
+               <div className="grid grid-cols-1 gap-4">
                    <StylishToggle 
                         checked={!!tempSettings.notifications?.water} 
                         onChange={(val) => handleNotificationToggle('water', val)} 
                         icon="fa-glass-water" 
-                        label="Fuel Check (Hydration)" 
+                        label="Fuel Check" 
                         subLabel="Desi reminders to drink water every 3h" 
                         colorClass="peer-checked:bg-blue-500" 
                    />
@@ -154,26 +247,49 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         checked={!!tempSettings.notifications?.walk} 
                         onChange={(val) => handleNotificationToggle('walk', val)} 
                         icon="fa-person-walking" 
-                        label="Arre Boss, Utho! (Slacker Nudge)" 
-                        subLabel="Get yelled at (politely) if you don't move" 
+                        label="Arre Boss, Utho!" 
+                        subLabel="Get nudged if you don't move for an hour" 
                         colorClass="peer-checked:bg-brand-500" 
                    />
                    <StylishToggle 
                         checked={!!tempSettings.notifications?.breath} 
                         onChange={(val) => handleNotificationToggle('breath', val)} 
                         icon="fa-medal" 
-                        label="Milestone Victory Alerts" 
-                        subLabel="Loud celebrations when you hit 50%/100%" 
+                        label="Milestone Victory" 
+                        subLabel="Loud celebrations when you hit targets" 
                         colorClass="peer-checked:bg-orange-500" 
                    />
                </div>
            </div>
 
-           {/* Other Settings Sections ... [omitted for brevity] */}
+           {/* Account Actions */}
+           <div className="pt-6">
+                <button 
+                    onClick={() => { if(confirm("Are you sure? Local data will remain but you'll be signed out.")) onLogout(); }}
+                    className="w-full py-4 bg-red-500/10 border border-red-500/20 text-red-500 rounded-3xl text-xs font-black uppercase tracking-[4px] hover:bg-red-500 hover:text-white transition-all active:scale-[0.98]"
+                >
+                    <i className="fa-solid fa-arrow-right-from-bracket mr-2"></i> Logout Account
+                </button>
+           </div>
 
         </div>
         
-        {/* Footer Save Button ... [preserved] */}
+        {/* Footer Save Button */}
+        <div className="p-6 bg-slate-900/80 backdrop-blur-xl border-t border-white/5 sticky bottom-0 z-30">
+            <button 
+                onClick={handleSave}
+                disabled={isUpdating}
+                className={`w-full py-5 rounded-[2rem] font-black text-sm uppercase tracking-[5px] shadow-2xl transition-all transform active:scale-95 flex items-center justify-center gap-3 ${updateSuccess ? 'bg-green-600 text-white' : 'bg-brand-600 text-white shadow-brand-500/40'}`}
+            >
+                {isUpdating ? (
+                    <i className="fa-solid fa-circle-notch fa-spin"></i>
+                ) : updateSuccess ? (
+                    <><i className="fa-solid fa-check"></i> Profile Updated!</>
+                ) : (
+                    <><i className="fa-solid fa-floppy-disk"></i> Update Profile</>
+                )}
+            </button>
+        </div>
       </div>
     </div>
   );
