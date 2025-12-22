@@ -37,6 +37,7 @@ import {
     getHydration, saveHydration, saveActivePlan, getHistory, 
     fetchCloudHistory, fetchCloudHydration 
 } from './services/storageService';
+import { signOut } from './services/authService';
 import { getWeather } from './services/weatherService';
 import { getLocalityName } from './services/parkService';
 import { getHydrationTip } from './services/geminiService';
@@ -103,6 +104,12 @@ const App: React.FC = () => {
           setFullHistory(cloudHist);
           setHydration(cloudHydra);
       } catch (e) { console.warn("Cloud sync failed, using cache."); }
+  };
+
+  const handleLogout = async () => {
+    await signOut();
+    setProfile({ name: '', email: '', isLoggedIn: false, isGuest: false });
+    setShowSettings(false);
   };
 
   // Auto-Tracker
@@ -284,7 +291,7 @@ const App: React.FC = () => {
       <JourneyHubModal isOpen={showJourneyHub} onClose={() => setShowJourneyHub(false)} history={fullHistory} onViewSegment={(s) => setSelectedForensicSession(s)} />
       <SessionDetailModal session={selectedForensicSession} onClose={() => setSelectedForensicSession(null)} onShare={(s) => setVisualShare({ isOpen: true, type: 'stats', data: s })} />
       <AICoachModal session={currentSession} isOpen={showCoach} onClose={() => setShowCoach(false)} isGuest={profile.isGuest!} onLoginRequest={() => {}} onShareStats={() => {}} />
-      <SettingsModal isOpen={showSettings} onClose={() => setShowSettings(false)} settings={settings} profile={profile} onSave={(s, p) => { setSettings(s); saveSettings(profile.id, s); setProfile(p); saveProfile(p); }} onLogout={() => setProfile({...profile, isLoggedIn: false})} onLoginRequest={() => {}} />
+      <SettingsModal isOpen={showSettings} onClose={() => setShowSettings(false)} settings={settings} profile={profile} onSave={(s, p) => { setSettings(s); saveSettings(profile.id, s); setProfile(p); saveProfile(p); }} onLogout={handleLogout} onLoginRequest={() => {}} />
       <WorkoutPlannerModal isOpen={showPlanner} onClose={() => setShowPlanner(false)} onSavePlan={(p) => { saveActivePlan(p); setShowPlanner(false); }} />
       <SocialHub isOpen={showSocial} onClose={() => setShowSocial(false)} profile={profile} />
       <BuddyFinder isOpen={showBuddy} onClose={() => setShowBuddy(false)} profile={profile} />

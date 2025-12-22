@@ -1,3 +1,4 @@
+
 import { supabase } from './supabaseClient';
 import { UserProfile } from '../types';
 
@@ -60,15 +61,30 @@ export const verifyAdminOTP = async (email: string, token: string) => {
     return data;
 };
 
+/**
+ * Performs a complete sign-out by clearing Supabase sessions,
+ * Google Identity auto-select flags, and local profile storage.
+ */
 export const signOut = async () => {
+  // 1. Disable Google One Tap auto-selection for this device/browser
   if (typeof google !== 'undefined' && google.accounts && google.accounts.id) {
-    google.accounts.id.disableAutoSelect();
+    try {
+        google.accounts.id.disableAutoSelect();
+    } catch (e) {
+        console.warn("One Tap disable error", e);
+    }
   }
   
+  // 2. Terminate Supabase session
   const { error } = await supabase.auth.signOut();
-  if (error) throw error;
+  if (error) console.error("Supabase SignOut Error:", error);
 
+  // 3. Clear local persistence keys to prevent "Ghost Login" on refresh
   localStorage.removeItem('strideai_profile');
+  localStorage.removeItem('strideai_active_plan');
+  
+  // We keep history and hydration locally by default as per "Local First" policy, 
+  // but the session identity is now fully purged.
 };
 
 const generateRandomUsername = (email: string) => {
