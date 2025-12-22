@@ -48,6 +48,22 @@ export const JourneyHubModal: React.FC<JourneyHubModalProps> = ({ isOpen, onClos
         });
     }, []);
 
+    const getActivityIcon = (type?: string) => {
+        switch(type) {
+            case 'cycling': return 'fa-bicycle';
+            case 'driving': return 'fa-car';
+            default: return 'fa-person-walking';
+        }
+    };
+
+    const getActivityColor = (type?: string) => {
+        switch(type) {
+            case 'cycling': return 'text-blue-400';
+            case 'driving': return 'text-orange-400';
+            default: return 'text-brand-500';
+        }
+    };
+
     if (!isOpen) return null;
 
     return (
@@ -115,7 +131,13 @@ export const JourneyHubModal: React.FC<JourneyHubModalProps> = ({ isOpen, onClos
 
                     {/* Timeline Segments */}
                     <div className="space-y-6 pt-4">
-                        <h4 className="text-[10px] font-black uppercase tracking-[5px] text-slate-500 ml-2">Timeline Segments</h4>
+                        <div className="flex items-center justify-between ml-2">
+                             <h4 className="text-[10px] font-black uppercase tracking-[5px] text-slate-500">Timeline Segments</h4>
+                             <div className="flex items-center gap-1.5 opacity-40">
+                                <i className="fa-solid fa-lock text-[8px]"></i>
+                                <span className="text-[7px] font-black uppercase tracking-widest">User Only Access</span>
+                             </div>
+                        </div>
                         
                         {sortedSessions.length === 0 ? (
                             <div className="py-12 text-center text-slate-700">
@@ -125,8 +147,8 @@ export const JourneyHubModal: React.FC<JourneyHubModalProps> = ({ isOpen, onClos
                             <div className="relative space-y-8 before:absolute before:left-[19px] before:top-4 before:bottom-4 before:w-0.5 before:bg-gradient-to-b before:from-brand-500 before:to-slate-900">
                                 {sortedSessions.map((session, idx) => (
                                     <div key={session.id} className="relative pl-12">
-                                        <div className="absolute left-0 top-0 w-10 h-10 rounded-2xl bg-slate-900 border-2 border-brand-500 flex items-center justify-center z-10 shadow-lg">
-                                            <i className="fa-solid fa-bolt text-brand-500 text-[10px]"></i>
+                                        <div className={`absolute left-0 top-0 w-10 h-10 rounded-2xl bg-slate-900 border-2 ${getActivityColor(session.activityType).replace('text', 'border')} flex items-center justify-center z-10 shadow-lg`}>
+                                            <i className={`fa-solid ${getActivityIcon(session.activityType)} ${getActivityColor(session.activityType)} text-[10px]`}></i>
                                         </div>
                                         <div 
                                             onClick={() => onViewSegment(session)}
@@ -137,8 +159,10 @@ export const JourneyHubModal: React.FC<JourneyHubModalProps> = ({ isOpen, onClos
                                                     <p className="text-brand-400 text-[10px] font-black uppercase tracking-widest mb-1">
                                                         {new Date(session.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} Segment
                                                     </p>
-                                                    <h4 className="text-white font-black text-xl italic tracking-tighter">
-                                                        {session.steps.toLocaleString()} <span className="text-[10px] not-italic text-slate-500 font-bold uppercase tracking-widest ml-1">Steps</span>
+                                                    <h4 className="text-white font-black text-xl italic tracking-tighter capitalize">
+                                                        {session.activityType || 'Travel'} <span className="text-[10px] not-italic text-slate-500 font-bold uppercase tracking-widest ml-1">
+                                                            {session.steps > 0 ? `(${session.steps.toLocaleString()} Steps)` : ''}
+                                                        </span>
                                                     </h4>
                                                 </div>
                                                 <div className="text-right">

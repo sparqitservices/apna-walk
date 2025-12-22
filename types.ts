@@ -16,6 +16,7 @@ export interface WalkSession {
   durationSeconds: number;
   route?: RoutePoint[];
   type?: 'Normal Walk' | 'Brisk Walk' | 'Power Walk' | 'Long Walk' | 'Hike Trail';
+  activityType?: 'walking' | 'cycling' | 'driving' | 'stationary';
   avgSpeed?: number;
   maxSpeed?: number;
 }
@@ -58,6 +59,7 @@ export interface UserSettings {
   calorieGoal?: number;
   sensitivity: number;
   enableLocation: boolean;
+  autoTravelHistory: boolean; // New: Toggle for automatic recording
   theme: 'green' | 'blue' | 'orange' | 'purple' | 'pink';
   coachVibe?: 'Energetic' | 'Strict' | 'Chill';
   coachVoiceEnabled: boolean;
@@ -68,7 +70,7 @@ export interface UserSettings {
     achievements: boolean;
   };
 }
-
+// ... rest of the file remains same
 export interface LiveConnection {
     id: string;
     username: string;

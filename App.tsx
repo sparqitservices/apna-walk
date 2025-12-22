@@ -65,9 +65,11 @@ const App: React.FC = () => {
 
   const [settings, setSettings] = useState<UserSettings>(() => {
     const saved = getSettings();
+    // Added missing 'autoTravelHistory' property to satisfy UserSettings interface requirements.
     const defaultSettings: UserSettings = {
         weightKg: 70, heightCm: 175, strideLengthCm: 73, stepGoal: 6000,
         sensitivity: 3, enableLocation: true, theme: 'green',
+        autoTravelHistory: false,
         coachVibe: 'Energetic', coachVoiceEnabled: true,
         notifications: { water: true, walk: true, breath: true, achievements: true }
     };

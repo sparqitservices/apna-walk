@@ -258,6 +258,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                <SectionHeader icon="fa-shield-halved" title="Radar & Privacy" badge="Security" />
                <div className="grid grid-cols-1 gap-3">
                    <StylishToggle 
+                        checked={tempSettings.autoTravelHistory || false} 
+                        onChange={(v) => handleSettingChange('autoTravelHistory', v)}
+                        icon="fa-clock-rotate-left"
+                        label="Auto Travel History"
+                        subLabel="Automatically record walking, biking & driving"
+                        colorClass="peer-checked:bg-brand-500"
+                   />
+                   <StylishToggle 
                         checked={tempProfile.is_ghost_mode || false} 
                         onChange={(v) => handleProfileChange('is_ghost_mode', v)}
                         icon="fa-ghost"

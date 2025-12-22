@@ -16,6 +16,14 @@ export const SessionDetailModal: React.FC<SessionDetailModalProps> = ({ session,
     const paceMin = km !== '0.00' ? Math.floor((session.durationSeconds / 60) / parseFloat(km)) : 0;
     const paceSec = km !== '0.00' ? Math.round(((session.durationSeconds / 60) / parseFloat(km) - paceMin) * 60) : 0;
 
+    const getActivityLabel = (type?: string) => {
+        switch(type) {
+            case 'cycling': return 'Cycling Expedition';
+            case 'driving': return 'Driving Route';
+            default: return 'Walking Path';
+        }
+    };
+
     return (
         <div className="fixed inset-0 bg-black/95 backdrop-blur-xl z-[120] flex items-center justify-center p-0 sm:p-4">
             <div className="bg-[#0a0f14] w-full max-w-2xl h-full sm:h-[94vh] sm:rounded-[3.5rem] border border-slate-800 shadow-2xl flex flex-col overflow-hidden animate-message-pop">
@@ -35,9 +43,9 @@ export const SessionDetailModal: React.FC<SessionDetailModalProps> = ({ session,
                     </div>
 
                     <div className="absolute bottom-8 left-10">
-                        <p className="text-brand-400 text-[10px] font-black uppercase tracking-[5px] mb-2">Session Signature</p>
+                        <p className="text-brand-400 text-[10px] font-black uppercase tracking-[5px] mb-2">{getActivityLabel(session.activityType)}</p>
                         <h2 className="text-white text-4xl font-black italic tracking-tighter uppercase">
-                            {new Date(session.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} Walk
+                            {new Date(session.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} Session
                         </h2>
                     </div>
                 </div>
@@ -47,9 +55,13 @@ export const SessionDetailModal: React.FC<SessionDetailModalProps> = ({ session,
                     {/* Core Matrix */}
                     <div className="grid grid-cols-2 gap-8">
                         <div className="bg-slate-800/20 p-6 rounded-[2.5rem] border border-slate-800/50 flex flex-col items-center">
-                            <i className="fa-solid fa-shoe-prints text-brand-500 mb-3 text-xl"></i>
-                            <span className="text-3xl font-black text-white italic tabular-nums">{session.steps.toLocaleString()}</span>
-                            <span className="text-[9px] text-slate-500 font-black uppercase tracking-widest mt-1">Steps Captured</span>
+                            <i className={`fa-solid ${session.activityType === 'cycling' ? 'fa-bicycle' : session.activityType === 'driving' ? 'fa-car' : 'fa-shoe-prints'} text-brand-500 mb-3 text-xl`}></i>
+                            <span className="text-3xl font-black text-white italic tabular-nums">
+                                {session.activityType === 'walking' ? session.steps.toLocaleString() : (session.avgSpeed || 0).toFixed(1)}
+                            </span>
+                            <span className="text-[9px] text-slate-500 font-black uppercase tracking-widest mt-1">
+                                {session.activityType === 'walking' ? 'Steps Captured' : 'Avg km/h'}
+                            </span>
                         </div>
                         <div className="bg-slate-800/20 p-6 rounded-[2.5rem] border border-slate-800/50 flex flex-col items-center">
                             <i className="fa-solid fa-route text-blue-500 mb-3 text-xl"></i>
@@ -68,13 +80,13 @@ export const SessionDetailModal: React.FC<SessionDetailModalProps> = ({ session,
                             </div>
                             <div className="w-px h-10 bg-slate-700/50"></div>
                             <div className="text-center">
-                                <p className="text-2xl font-black text-brand-400 tabular-nums italic">{paceMin}'{paceSec.toString().padStart(2, '0')}"</p>
-                                <p className="text-[8px] text-slate-500 font-black uppercase tracking-widest mt-1">Avg Pace</p>
+                                <p className="text-2xl font-black text-brand-400 tabular-nums italic">{(session.avgSpeed || 0).toFixed(1)}</p>
+                                <p className="text-[8px] text-slate-500 font-black uppercase tracking-widest mt-1">Avg Speed</p>
                             </div>
                             <div className="w-px h-10 bg-slate-700/50"></div>
                             <div className="text-center">
-                                <p className="text-2xl font-black text-orange-500 tabular-nums italic">{session.calories}</p>
-                                <p className="text-[8px] text-slate-500 font-black uppercase tracking-widest mt-1">Calories</p>
+                                <p className="text-2xl font-black text-orange-500 tabular-nums italic">{session.calories || 0}</p>
+                                <p className="text-[8px] text-slate-500 font-black uppercase tracking-widest mt-1">Burn (Kcal)</p>
                             </div>
                         </div>
                     </div>
@@ -90,7 +102,12 @@ export const SessionDetailModal: React.FC<SessionDetailModalProps> = ({ session,
                         <div className="bg-gradient-to-br from-brand-900/20 to-slate-900 p-8 rounded-[2.5rem] border border-brand-500/20 shadow-xl relative overflow-hidden">
                             <div className="absolute top-0 right-0 p-6 opacity-5 text-7xl text-brand-500 rotate-12 pointer-events-none italic font-black uppercase">VOICE</div>
                             <p className="text-slate-300 leading-relaxed font-medium italic">
-                                "Arre Boss! Aaj toh tune rasta naap diya! {(parseFloat(km) > 1) ? 'Long walk consistent thi, stamina ek number hai.' : 'Short break tha but momentum maintain raha.'} Ek number effort guru. Chalo ab thoda stretch kar lo aur kal phir se yahi energy!"
+                                {session.activityType === 'driving' ? 
+                                    `"Arre Boss! Aaj toh gaddi bhagai hai! Drive careful rakha kar guru. Location history mein record ho gaya hai safely."` :
+                                 session.activityType === 'cycling' ?
+                                    `"Cyclist mode on! ${km}km ki riding solid thi. Stamina boost ho raha hai. Sab private hai tension mat le!"` :
+                                    `"Arre Boss! Aaj toh tune rasta naap diya! ${(parseFloat(km) > 1) ? 'Long walk consistent thi, stamina ek number hai.' : 'Short break tha but momentum maintain raha.'} Ek number effort guru."`
+                                }
                             </p>
                         </div>
                     </div>
