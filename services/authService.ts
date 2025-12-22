@@ -28,7 +28,10 @@ export const signInWithGoogleOneTap = async (idToken: string) => {
     token: idToken,
   });
 
-  if (error) throw error;
+  if (error) {
+    console.error("Supabase ID Token Auth Error:", error.message);
+    throw error;
+  }
   
   if (data.user) {
     await syncProfile(data.user);
@@ -78,7 +81,6 @@ export const signOut = async () => {
   
   try {
     // 2. Attempt Supabase Cloud Sign Out
-    // We set a small timeout so we don't hang if the network is flaky
     const signOutPromise = supabase.auth.signOut();
     const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject('timeout'), 2000));
     
@@ -87,7 +89,6 @@ export const signOut = async () => {
     console.warn("Supabase SignOut timed out or failed, proceeding with local purge.", error);
   } finally {
     // 3. NUCLEAR PURGE: Clear everything in local storage
-    // This removes apnawalk keys AND internal supabase/google auth keys
     localStorage.clear();
     
     // 4. Force hard reload to home page to clear React state

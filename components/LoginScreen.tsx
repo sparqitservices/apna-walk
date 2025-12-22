@@ -15,7 +15,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onGuest, onSh
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  // Initialize Google One Tap with modern browser support
+  // Initialize Google One Tap with modern browser support (FedCM)
   useEffect(() => {
     let isMounted = true;
 
@@ -24,57 +24,59 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onGuest, onSh
       const isSecure = window.location.protocol === 'https:' || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
       
       if (!isSecure) {
-        console.warn("Google One Tap requires HTTPS. Switching to manual login.");
+        console.warn("Google One Tap requires a secure context (HTTPS). Fallback to manual login.");
         return;
       }
 
       if (typeof google !== 'undefined' && google.accounts && google.accounts.id) {
         try {
+          // Initialize Google Identity Services
           google.accounts.id.initialize({
-            // Verified Client ID for ApnaWalk
             client_id: "680287114674-8b6g3id67v9sq6o47is6n9m2v991j2sh.apps.googleusercontent.com", 
             callback: async (response: any) => {
               if (!isMounted) return;
               setIsLoading(true);
               setErrorMsg(null);
               try {
-                // response.credential is the ID Token
+                // response.credential is the JWT ID Token
                 await signInWithGoogleOneTap(response.credential);
               } catch (err: any) {
-                console.error("One Tap Sync Failed", err);
+                console.error("One Tap Authentication Failed:", err);
                 if (isMounted) {
-                  setErrorMsg("One Tap connection issue. Use manual button.");
+                  setErrorMsg("Auth sync failed. Please use the button below.");
                   setIsLoading(false);
                 }
               }
             },
+            // Configuration for maximum compatibility
             auto_select: false, 
             itp_support: true,
-            use_fedcm_for_prompt: true, // Crucial for Chrome 130+ compatibility
+            use_fedcm_for_prompt: true, // Google's new standard for privacy-preserving auth
             context: 'signin',
+            ux_mode: 'popup', // Ensure it shows as a bubble/popup
             cancel_on_tap_outside: false
           });
 
-          // Show One Tap prompt
+          // Display the One Tap prompt
           google.accounts.id.prompt((notification: any) => {
             if (notification.isNotDisplayed()) {
-              console.debug("One Tap Not Displayed Reason:", notification.getNotDisplayedReason());
+              const reason = notification.getNotDisplayedReason();
+              console.debug("One Tap Not Displayed:", reason);
+              // If it's suppressed (e.g. user closed it before), we don't show error, 
+              // just let them use the manual button.
             }
             if (notification.isSkippedMoment()) {
-              console.log("One Tap skipped moment:", notification.getSkippedReason());
-            }
-            if (notification.isDismissedMoment()) {
-                console.log("One Tap dismissed moment:", notification.getDismissedReason());
+              console.log("One Tap skipped:", notification.getSkippedReason());
             }
           });
         } catch (e) {
-          console.warn("GSI initialization error", e);
+          console.warn("Google Identity initialization error:", e);
         }
       }
     };
 
-    // Fast trigger with a slight delay to ensure the script is fully parsed
-    const timer = setTimeout(initializeOneTap, 1000);
+    // Delay slightly to ensure script is fully ready
+    const timer = setTimeout(initializeOneTap, 1500);
     return () => { 
         isMounted = false; 
         clearTimeout(timer);
@@ -88,15 +90,15 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onGuest, onSh
         await signInWithGoogle();
         // Browser handles redirect via Supabase OAuth
     } catch (error: any) {
-        console.error("Manual Login Failed", error);
-        setErrorMsg("Connection issue. Please try again.");
+        console.error("Standard OAuth Login Failed:", error);
+        setErrorMsg("Network error. Check connection and try again.");
         setIsLoading(false);
     }
   };
 
   return (
     <div className="min-h-screen bg-[#0a0f14] flex flex-col items-center justify-center p-6 relative overflow-hidden">
-      {/* Background Glows */}
+      {/* Dynamic Background Glows */}
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full max-w-lg z-0 pointer-events-none">
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[300px] h-[300px] bg-[#FF6B00] opacity-[0.08] blur-[100px] rounded-full animate-pulse-slow"></div>
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] h-[400px] bg-[#22C55E] opacity-[0.05] blur-[120px] rounded-full animate-pulse-slow" style={{ animationDelay: '1s' }}></div>
@@ -104,7 +106,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onGuest, onSh
       
       <div className="w-full max-w-md relative z-10 flex flex-col items-center">
         
-        {/* Modern Brand Intro */}
+        {/* Brand Identity */}
         <div className="mb-14 text-center animate-fade-in">
            <div className="scale-125 mb-4 inline-block">
                <ApnaWalkLogo size={56} />
@@ -116,15 +118,16 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onGuest, onSh
         <div className="w-full space-y-4">
           
           {errorMsg && (
-              <div className="bg-red-500/10 border border-red-500/50 text-red-400 text-[10px] font-black uppercase tracking-widest p-4 rounded-2xl text-center mb-2 animate-message-pop">
+              <div className="bg-red-500/10 border border-red-500/30 text-red-400 text-[10px] font-black uppercase tracking-widest p-4 rounded-2xl text-center mb-2 animate-message-pop">
                   <i className="fa-solid fa-circle-exclamation mr-2"></i> {errorMsg}
               </div>
           )}
 
+          {/* Primary Login Button (Standard OAuth) - Reliable fallback */}
           <button 
             onClick={handleGoogleLogin}
             disabled={isLoading}
-            className="w-full bg-white text-slate-900 font-black py-5 rounded-[2rem] shadow-2xl hover:shadow-brand-500/20 transition-all transform active:scale-95 flex items-center justify-center gap-3 relative overflow-hidden group border-2 border-white uppercase text-xs tracking-widest"
+            className="w-full bg-white text-slate-900 font-black py-5 rounded-[2rem] shadow-[0_20px_50px_rgba(255,255,255,0.1)] hover:shadow-brand-500/20 transition-all transform active:scale-95 flex items-center justify-center gap-3 relative overflow-hidden group border-2 border-white uppercase text-xs tracking-widest"
           >
              {isLoading ? (
                 <i className="fa-solid fa-circle-notch fa-spin text-slate-600"></i>
@@ -141,7 +144,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onGuest, onSh
                 <div className="w-full border-t border-white/5"></div>
             </div>
             <div className="relative flex justify-center text-[10px]">
-                <span className="bg-[#0a0f14] px-4 text-slate-600 uppercase font-black tracking-[5px]">Secure Syncing</span>
+                <span className="bg-[#0a0f14] px-4 text-slate-600 uppercase font-black tracking-[5px]">Or</span>
             </div>
           </div>
 
@@ -155,7 +158,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onGuest, onSh
 
         </div>
 
-        {/* Footnotes */}
+        {/* Footer Links */}
         <div className="mt-16 text-center space-y-6 animate-fade-in" style={{ animationDelay: '0.4s' }}>
              <div className="flex justify-center gap-6">
                 <button onClick={() => onShowLegal('terms')} className="text-[10px] font-black text-slate-500 hover:text-brand-500 uppercase tracking-widest transition-colors">Terms</button>
@@ -171,6 +174,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onGuest, onSh
              </div>
         </div>
       </div>
+
+      {/* Google One Tap will render automatically in the top-right if configured correctly */}
     </div>
   );
 };
