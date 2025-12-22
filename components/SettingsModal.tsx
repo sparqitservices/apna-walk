@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { UserSettings, UserProfile } from '../types';
 import { requestNotificationPermission } from '../services/notificationService';
@@ -151,7 +150,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
   return (
     <div className="fixed inset-0 bg-black/95 backdrop-blur-2xl z-[100] flex items-center justify-center p-0 sm:p-4">
-      <div className="bg-[#0a0f14] w-full max-w-2xl h-full sm:h-[92vh] sm:rounded-[3.5rem] overflow-hidden border border-white/5 shadow-[0_0_100px_rgba(0,0,0,0.8)] relative flex flex-col animate-message-pop">
+      <div className="bg-[#0a0f14] w-full max-w-2xl h-full sm:h-[92vh] sm:rounded-[3.5rem] overflow-hidden border border-slate-800 shadow-[0_0_100px_rgba(0,0,0,0.8)] relative flex flex-col animate-message-pop">
         
         {/* Header */}
         <div className="p-6 border-b border-white/5 flex justify-between items-center bg-slate-900/40 sticky top-0 z-20 backdrop-blur-xl">
@@ -256,22 +255,22 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             </button>
         </div>
 
-        {/* CUSTOM LOGOUT POPUP OVERLAY */}
+        {/* CUSTOM LOGOUT POPUP OVERLAY - FIRM IMPLEMENTATION */}
         {showLogoutConfirm && (
-            <div className="absolute inset-0 z-50 bg-[#0a0f14]/80 backdrop-blur-md flex items-center justify-center p-6 animate-fade-in">
+            <div className="absolute inset-0 z-[100] bg-black/80 backdrop-blur-xl flex items-center justify-center p-6 animate-fade-in">
                 <div className="bg-slate-900 w-full max-w-sm rounded-[2.5rem] border border-red-500/30 shadow-[0_40px_80px_rgba(0,0,0,0.9)] p-8 text-center animate-message-pop">
                     <div className="w-20 h-20 bg-red-500/10 rounded-[1.8rem] flex items-center justify-center text-red-500 mx-auto mb-6 border border-red-500/20">
                         <i className="fa-solid fa-triangle-exclamation text-3xl"></i>
                     </div>
-                    <h3 className="text-white font-black text-xl uppercase tracking-tighter italic mb-2">Disconnect Account?</h3>
+                    <h3 className="text-white font-black text-xl uppercase tracking-tighter italic mb-2">Logout of ApnaWalk?</h3>
                     <p className="text-slate-400 text-xs leading-relaxed font-bold uppercase tracking-widest mb-8 opacity-80">
-                        This will clear your cloud session. Local steps remain until browser cache is wiped.
+                        This will clear your current cloud session. Local steps remain until cache is wiped.
                     </p>
                     <div className="flex flex-col gap-3">
                         <button 
                             onClick={confirmLogout}
                             disabled={isLoggingOut}
-                            className="w-full py-4 bg-red-600 hover:bg-red-500 text-white font-black rounded-2xl text-[10px] uppercase tracking-[4px] shadow-lg shadow-red-900/20 transition-all active:scale-95"
+                            className="w-full py-4 bg-red-600 hover:bg-red-500 text-white font-black rounded-2xl text-[10px] uppercase tracking-[4px] shadow-lg shadow-red-900/20 transition-all active:scale-95 flex items-center justify-center gap-2"
                         >
                             {isLoggingOut ? <i className="fa-solid fa-circle-notch fa-spin"></i> : "Confirm Logout"}
                         </button>

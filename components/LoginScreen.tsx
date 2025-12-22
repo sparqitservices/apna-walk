@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { ApnaWalkLogo } from './ApnaWalkLogo';
 import { signInWithGoogleOneTap } from '../services/authService';
@@ -17,7 +16,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onGuest, onSh
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const googleBtnRef = useRef<HTMLDivElement>(null);
 
-  // Initialize Google Identity Services as soon as library is available
   useEffect(() => {
     let isMounted = true;
     let checkInterval: number;
@@ -40,7 +38,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onGuest, onSh
               } catch (err: any) {
                 console.error("Auth sync failed:", err);
                 if (isMounted) {
-                  setErrorMsg("One Tap failed. Please try again.");
+                  setErrorMsg("Auth failed. Ensure your origin is authorized in Google Cloud Console.");
                   setIsLoading(false);
                 }
               }
@@ -63,16 +61,21 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onGuest, onSh
             setIsGsiReady(true);
           }
 
-          google.accounts.id.prompt();
+          // Trigger One Tap if appropriate
+          google.accounts.id.prompt((notification: any) => {
+              if (notification.isNotDisplayed()) {
+                  console.debug("One Tap display reason:", notification.getNotDisplayedReason());
+              }
+          });
         } catch (e) {
           console.warn("GSI setup error:", e);
         }
       }
     };
 
-    // Check immediately and then periodically until ready
+    // Check immediately and then periodically until library script is ready
     initializeGSI();
-    checkInterval = window.setInterval(initializeGSI, 100);
+    checkInterval = window.setInterval(initializeGSI, 200);
 
     return () => { 
         isMounted = false; 
