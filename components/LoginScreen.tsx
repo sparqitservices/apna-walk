@@ -15,7 +15,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onGuest, onSh
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  // Initialize Google One Tap
+  // Initialize Google One Tap with FedCM support
   useEffect(() => {
     let isMounted = true;
 
@@ -32,20 +32,20 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onGuest, onSh
               } catch (err: any) {
                 console.error("One Tap Login Failed", err);
                 if (isMounted) {
-                  setErrorMsg("Automatic detection failed. Use the button.");
+                  setErrorMsg("Credential sync failed. Please use the Gmail button.");
                   setIsLoading(false);
                 }
               }
             },
             auto_select: false,
             itp_support: true,
-            use_fedcm_for_prompt: true, // Explicitly enable FedCM
-            cancel_on_tap_outside: true,
+            use_fedcm_for_prompt: true, 
           });
 
           google.accounts.id.prompt((notification: any) => {
             if (notification.isNotDisplayed()) {
-              console.log("One Tap skipped:", notification.getNotDisplayedReason());
+              console.warn("One Tap skipped:", notification.getNotDisplayedReason());
+              // If FedCM is blocked, we don't show an error yet, user can still use the manual button
             }
           });
         } catch (e) {
@@ -54,7 +54,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onGuest, onSh
       }
     };
 
-    const timer = setTimeout(initializeOneTap, 1500);
+    // Delay slightly to ensure script is fully ready
+    const timer = setTimeout(initializeOneTap, 2000);
     return () => {
       isMounted = false;
       clearTimeout(timer);
@@ -68,13 +69,18 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onGuest, onSh
         await signInWithGoogle();
     } catch (error: any) {
         console.error("Login Failed", error);
-        setErrorMsg(error.message || "Failed to connect to Google.");
+        // Distinguish between user closing the popup and actual errors
+        if (error.message?.includes("closed") || error.error_description?.includes("closed")) {
+            setErrorMsg(null);
+        } else {
+            setErrorMsg("Login blocked. Please ensure popups are allowed.");
+        }
         setIsLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-[#0a0f14] flex flex-col items-center justify-center p-6 relative overflow-hidden transition-colors duration-500">
+    <div className="min-h-screen bg-[#0a0f14] flex flex-col items-center justify-center p-6 relative overflow-hidden">
       {/* Dynamic Brand Glow Backdrop */}
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full max-w-lg z-0 pointer-events-none">
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[300px] h-[300px] bg-[#FF6B00] opacity-[0.08] blur-[100px] rounded-full animate-pulse-slow"></div>
