@@ -60,8 +60,14 @@ export const verifyAdminOTP = async (email: string, token: string) => {
     return data;
 };
 
+/**
+ * Robust Sign Out
+ * Force-clears local state to prevent "stuck" login sessions.
+ */
 export const signOut = async () => {
-  // 1. Disable Google One Tap auto-select for next visit
+  console.log("Initiating global sign-out...");
+  
+  // 1. Attempt Google One Tap cleanup
   if (typeof google !== 'undefined' && google.accounts && google.accounts.id) {
     try {
         google.accounts.id.disableAutoSelect();
@@ -70,22 +76,23 @@ export const signOut = async () => {
     }
   }
   
-  // 2. Supabase Cloud Sign Out
-  const { error } = await supabase.auth.signOut();
-  if (error) console.error("Supabase SignOut Error:", error);
-
-  // 3. Complete Local Storage Purge for specific app keys
-  const keysToPurge = [
-    'strideai_profile',
-    'strideai_active_plan',
-    'strideai_settings',
-    'apnawalk_schema_version'
-  ];
-  
-  keysToPurge.forEach(key => localStorage.removeItem(key));
-  
-  // Force a reload to clear any remaining in-memory state
-  window.location.reload();
+  try {
+    // 2. Attempt Supabase Cloud Sign Out
+    // We set a small timeout so we don't hang if the network is flaky
+    const signOutPromise = supabase.auth.signOut();
+    const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject('timeout'), 2000));
+    
+    await Promise.race([signOutPromise, timeoutPromise]);
+  } catch (error) {
+    console.warn("Supabase SignOut timed out or failed, proceeding with local purge.", error);
+  } finally {
+    // 3. NUCLEAR PURGE: Clear everything in local storage
+    // This removes apnawalk keys AND internal supabase/google auth keys
+    localStorage.clear();
+    
+    // 4. Force hard reload to home page to clear React state
+    window.location.href = window.location.origin;
+  }
 };
 
 const generateRandomUsername = (email: string) => {
