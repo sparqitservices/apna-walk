@@ -37,7 +37,8 @@ import {
     getHydration, saveHydration, saveActivePlan, getHistory, 
     fetchCloudHistory, fetchCloudHydration 
 } from './services/storageService';
-import { signOut } from './services/authService';
+import { signOut, syncProfile } from './services/authService';
+import { supabase } from './services/supabaseClient';
 import { getWeather } from './services/weatherService';
 import { getLocalityName } from './services/parkService';
 import { getHydrationTip } from './services/geminiService';
@@ -87,6 +88,26 @@ const App: React.FC = () => {
   const [fullHistory, setFullHistory] = useState<DailyHistory[]>(() => getHistory());
   const [currentSession, setCurrentSession] = useState<WalkSession | null>(null);
   const [visualShare, setVisualShare] = useState<{ isOpen: boolean; type: 'stats' | 'quote'; data: any; }>({ isOpen: false, type: 'stats', data: null as any });
+
+  // AUTH LISTENER: Listen for Google Sign-In events
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && session?.user) {
+        try {
+          const userProfile = await syncProfile(session.user);
+          setProfile(userProfile);
+          saveProfile(userProfile);
+        } catch (err) {
+          console.error("Auth sync error:", err);
+        }
+      } else if (event === 'SIGNED_OUT') {
+        setProfile({ name: '', email: '', isLoggedIn: false, isGuest: false });
+        localStorage.removeItem('strideai_profile');
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
 
   // Initial Data Sync from Cloud
   useEffect(() => {
@@ -198,7 +219,11 @@ const App: React.FC = () => {
   }, [fullHistory]);
 
   if (!profile.isLoggedIn) {
-    return <LoginScreen onLogin={() => {}} onGuest={() => setProfile({ ...profile, isLoggedIn: true, isGuest: true, id: 'guest' })} onShowLegal={() => {}} />;
+    return <LoginScreen 
+        onLogin={() => {}} 
+        onGuest={() => setProfile({ ...profile, isLoggedIn: true, isGuest: true, id: 'guest' })} 
+        onShowLegal={() => {}} 
+    />;
   }
 
   return (
