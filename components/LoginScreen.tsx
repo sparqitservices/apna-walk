@@ -25,6 +25,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onGuest, onSh
         if (checkInterval) clearInterval(checkInterval);
         
         try {
+          // Official ApnaWalk OAuth Client ID
           const client_id = "680287114674-8b6g3id67v9sq6o47is6n9m2v991j2sh.apps.googleusercontent.com";
           
           google.accounts.id.initialize({
@@ -38,7 +39,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onGuest, onSh
               } catch (err: any) {
                 console.error("Auth sync failed:", err);
                 if (isMounted) {
-                  setErrorMsg("Auth failed. Ensure your origin is authorized in Google Cloud Console.");
+                  setErrorMsg("Auth failed. Verify that apnawalk.com is an authorized origin in your Google Cloud Console.");
                   setIsLoading(false);
                 }
               }
