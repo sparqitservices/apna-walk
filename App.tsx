@@ -45,7 +45,10 @@ import { getHydrationTip } from './services/geminiService';
 import { updateLiveLocation } from './services/buddyService';
 
 const App: React.FC = () => {
+  // Authentication & Initialization States
   const [profile, setProfile] = useState<UserProfile>(() => getProfile() || { name: '', email: '', isLoggedIn: false, isGuest: false });
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
+
   const [settings, setSettings] = useState<UserSettings>(() => getSettings() || {
     weightKg: 70, heightCm: 175, strideLengthCm: 73, stepGoal: 6000,
     sensitivity: 3, enableLocation: true, theme: 'green',
@@ -89,20 +92,36 @@ const App: React.FC = () => {
   const [currentSession, setCurrentSession] = useState<WalkSession | null>(null);
   const [visualShare, setVisualShare] = useState<{ isOpen: boolean; type: 'stats' | 'quote'; data: any; }>({ isOpen: false, type: 'stats', data: null as any });
 
-  // AUTH LISTENER: Listen for Google Sign-In events
+  // AUTH LISTENER: Handles login/logout and redirect detection
   useEffect(() => {
+    const initAuth = async () => {
+        // Initial session check
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user) {
+            const userProfile = await syncProfile(session.user);
+            setProfile(userProfile);
+            saveProfile(userProfile);
+        }
+        setIsInitialLoading(false);
+    };
+
+    initAuth();
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && session?.user) {
+      console.log("Auth Event:", event);
+      if ((event === 'SIGNED_IN' || event === 'USER_UPDATED') && session?.user) {
         try {
           const userProfile = await syncProfile(session.user);
           setProfile(userProfile);
           saveProfile(userProfile);
+          setIsInitialLoading(false);
         } catch (err) {
           console.error("Auth sync error:", err);
         }
       } else if (event === 'SIGNED_OUT') {
         setProfile({ name: '', email: '', isLoggedIn: false, isGuest: false });
         localStorage.removeItem('strideai_profile');
+        setIsInitialLoading(false);
       }
     });
 
@@ -217,6 +236,16 @@ const App: React.FC = () => {
     const todayStr = new Date().toISOString().split('T')[0];
     return fullHistory.find(h => h.date === todayStr) || { steps: 0, sessions: [] };
   }, [fullHistory]);
+
+  // Loading Screen
+  if (isInitialLoading) {
+    return (
+        <div className="min-h-screen bg-[#0a0f14] flex flex-col items-center justify-center p-6">
+            <div className="w-16 h-16 border-4 border-brand-500 border-t-transparent rounded-full animate-spin mb-6"></div>
+            <p className="text-slate-500 text-[10px] font-black uppercase tracking-[5px] animate-pulse">Syncing Identity...</p>
+        </div>
+    );
+  }
 
   if (!profile.isLoggedIn) {
     return <LoginScreen 

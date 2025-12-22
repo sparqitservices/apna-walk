@@ -100,6 +100,8 @@ export const syncProfile = async (user: any): Promise<UserProfile> => {
         .eq('id', user.id)
         .single();
 
+    let finalProfile: UserProfile;
+
     if (existingProfile) {
         const finalUsername = existingProfile.username || generateRandomUsername(existingProfile.email);
         
@@ -107,7 +109,7 @@ export const syncProfile = async (user: any): Promise<UserProfile> => {
             await supabase.from('profiles').update({ username: finalUsername }).eq('id', user.id);
         }
 
-        return {
+        finalProfile = {
             id: existingProfile.id,
             name: existingProfile.full_name,
             username: finalUsername,
@@ -122,34 +124,32 @@ export const syncProfile = async (user: any): Promise<UserProfile> => {
             isLoggedIn: true,
             isGuest: false
         };
+    } else {
+        const username = generateRandomUsername(user.email);
+        const newProfile = {
+            id: user.id,
+            email: user.email,
+            full_name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'Apna Walker',
+            username: username,
+            avatar_url: user.user_metadata?.avatar_url || user.user_metadata?.picture,
+            is_looking_for_buddy: true,
+            is_ghost_mode: false
+        };
+
+        await supabase.from('profiles').insert([newProfile]);
+
+        finalProfile = {
+            id: newProfile.id,
+            name: newProfile.full_name,
+            username: newProfile.username,
+            email: newProfile.email,
+            avatar: newProfile.avatar_url,
+            isLoggedIn: true,
+            isGuest: false
+        };
     }
 
-    const username = generateRandomUsername(user.email);
-    const newProfile = {
-        id: user.id,
-        email: user.email,
-        full_name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'Apna Walker',
-        username: username,
-        avatar_url: user.user_metadata?.avatar_url || user.user_metadata?.picture,
-        is_looking_for_buddy: true,
-        is_ghost_mode: false
-    };
-
-    const { error } = await supabase
-        .from('profiles')
-        .insert([newProfile]);
-
-    if (error) {
-        console.error("Error creating profile:", error);
-    }
-
-    return {
-        id: newProfile.id,
-        name: newProfile.full_name,
-        username: newProfile.username,
-        email: newProfile.email,
-        avatar: newProfile.avatar_url,
-        isLoggedIn: true,
-        isGuest: false
-    };
+    // CRITICAL: Ensure local storage is updated so getProfile() works on refresh
+    localStorage.setItem('strideai_profile', JSON.stringify(finalProfile));
+    return finalProfile;
 };
