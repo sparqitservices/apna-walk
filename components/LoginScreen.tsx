@@ -33,24 +33,23 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onGuest, onSh
               } catch (err: any) {
                 console.error("One Tap Sync Failed", err);
                 if (isMounted) {
-                  setErrorMsg("One Tap failed. Please use 'Continue with Gmail' button.");
+                  setErrorMsg("One Tap connection issue. Use manual button.");
                   setIsLoading(false);
                 }
               }
             },
             auto_select: false, 
             itp_support: true,
-            use_fedcm_for_prompt: true, 
+            use_fedcm_for_prompt: true, // Crucial for Chrome 130+
           });
 
           // Show One Tap prompt
           google.accounts.id.prompt((notification: any) => {
             if (notification.isNotDisplayed()) {
-              console.warn("One Tap Hidden:", notification.getNotDisplayedReason());
+              console.debug("One Tap Not Displayed:", notification.getNotDisplayedReason());
             }
             if (notification.isSkippedMoment()) {
-              // If skipped, we don't force it again to respect user choice
-              console.log("One Tap skipped by user");
+              console.log("One Tap skipped");
             }
           });
         } catch (e) {
@@ -60,7 +59,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onGuest, onSh
     };
 
     // Fast trigger
-    const timer = setTimeout(initializeOneTap, 500);
+    const timer = setTimeout(initializeOneTap, 600);
     return () => { 
         isMounted = false; 
         clearTimeout(timer);
@@ -72,7 +71,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onGuest, onSh
     setErrorMsg(null);
     try {
         await signInWithGoogle();
-        // Browser will redirect, handling token in hash on return
+        // Browser handles redirect
     } catch (error: any) {
         console.error("Manual Login Failed", error);
         setErrorMsg("Connection issue. Please try again.");
@@ -96,7 +95,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onGuest, onSh
                <ApnaWalkLogo size={56} />
            </div>
            <div className="h-0.5 w-12 bg-gradient-to-r from-transparent via-slate-700 to-transparent mx-auto mt-4 mb-2"></div>
-           <p className="text-slate-500 text-[10px] font-black tracking-[4px] uppercase text-center">Desi Fitness Revolution</p>
+           <p className="text-slate-500 text-[10px] font-black tracking-[4px] uppercase text-center">India's Smartest Step Counter</p>
         </div>
 
         <div className="w-full space-y-4">
@@ -127,7 +126,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onGuest, onSh
                 <div className="w-full border-t border-white/5"></div>
             </div>
             <div className="relative flex justify-center text-[10px]">
-                <span className="bg-[#0a0f14] px-4 text-slate-600 uppercase font-black tracking-[5px]">Secure & Encrypted</span>
+                <span className="bg-[#0a0f14] px-4 text-slate-600 uppercase font-black tracking-[5px]">Secure Syncing</span>
             </div>
           </div>
 
@@ -136,7 +135,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onGuest, onSh
             disabled={isLoading}
             className="w-full bg-slate-800/40 hover:bg-slate-800/60 text-slate-300 font-black py-5 rounded-[2rem] border border-white/5 transition-all active:scale-95 flex items-center justify-center gap-3 uppercase text-[10px] tracking-[4px] disabled:opacity-50"
           >
-            <i className="fa-solid fa-user-secret opacity-50"></i> Trial Guest Mode
+            <i className="fa-solid fa-user-secret opacity-50"></i> Try Guest Mode
           </button>
 
         </div>
@@ -151,7 +150,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onGuest, onSh
              
              <div className="pt-8 border-t border-white/5 mt-4">
                 <p className="text-[9px] text-slate-600 font-bold uppercase tracking-[2px] leading-loose">
-                    Proudly Made in Bharat<br/>
+                    Built for Bharat<br/>
                     <span className="text-white opacity-80 font-black tracking-widest uppercase">Sparq IT Ecosystem</span>
                 </p>
              </div>

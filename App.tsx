@@ -45,13 +45,11 @@ import { getHydrationTip } from './services/geminiService';
 import { updateLiveLocation } from './services/buddyService';
 
 // --- GLOBAL CACHE CONTROL ---
-const CURRENT_APP_VERSION = "2.3.0"; 
+// Incrementing this will clear all user cache on load.
+const CURRENT_APP_VERSION = "2.4.0"; 
 
 const App: React.FC = () => {
-  // 1. Check if we are returning from OAuth (tokens in URL)
-  const isReturningFromAuth = window.location.hash.includes('access_token=') || window.location.hash.includes('type=recovery');
-
-  // 2. Initial State from Cache (Optimistic)
+  // 1. Initial State from Cache (Optimistic)
   const [profile, setProfile] = useState<UserProfile>(() => {
     const savedVersion = localStorage.getItem('apnawalk_schema_version');
     if (savedVersion !== CURRENT_APP_VERSION) {
@@ -62,8 +60,12 @@ const App: React.FC = () => {
     return getProfile() || { name: '', email: '', isLoggedIn: false, isGuest: false };
   });
 
-  // Only show loading if we have NO profile AND we are returning from OAuth
-  const [isInitialLoading, setIsInitialLoading] = useState(!profile.isLoggedIn && isReturningFromAuth);
+  // 2. Loading State: Only show if we are likely transitioning
+  const [isInitialLoading, setIsInitialLoading] = useState(() => {
+      const isReturning = window.location.hash.includes('access_token=') || window.location.hash.includes('type=recovery');
+      // If we have a cached profile, don't show loading unless we are returning from a fresh OAuth login
+      return isReturning && !profile.isLoggedIn;
+  });
 
   const [settings, setSettings] = useState<UserSettings>(() => getSettings() || {
     weightKg: 70, heightCm: 175, strideLengthCm: 73, stepGoal: 6000,
@@ -99,25 +101,34 @@ const App: React.FC = () => {
   const [currentSession, setCurrentSession] = useState<WalkSession | null>(null);
   const [visualShare, setVisualShare] = useState<{ isOpen: boolean; type: 'stats' | 'quote'; data: any; }>({ isOpen: false, type: 'stats', data: null as any });
 
-  // AUTH LIFECYCLE (Optimized)
+  // AUTH LIFECYCLE (Hard-Timeout Fail-safe)
   useEffect(() => {
     let mounted = true;
+    
+    // Hard escape hatch: 3 seconds max for loading screen
+    const failSafe = setTimeout(() => {
+        if (mounted && isInitialLoading) {
+            console.warn("Auth sync taking too long. Forcing dashboard load.");
+            setIsInitialLoading(false);
+        }
+    }, 3000);
 
     const initSession = async () => {
         try {
-            // Immediately check for session
             const { data: { session } } = await supabase.auth.getSession();
             if (session?.user && mounted) {
                 const userProfile = await syncProfile(session.user);
                 setProfile(userProfile);
                 saveProfile(userProfile);
-                // Clear the hash from URL without refreshing
                 if (window.location.hash) window.history.replaceState(null, '', window.location.pathname);
             }
         } catch (e) { 
-            console.error("Auth init failed", e);
+            console.error("Auth init issue:", e);
         } finally {
-            if (mounted) setIsInitialLoading(false);
+            if (mounted) {
+                setIsInitialLoading(false);
+                clearTimeout(failSafe);
+            }
         }
     };
 
@@ -125,22 +136,25 @@ const App: React.FC = () => {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (!mounted) return;
-      console.log("Supabase Auth Event:", event);
+      console.log("Auth State Changed:", event);
       
-      if (session?.user) {
+      if ((event === 'SIGNED_IN' || event === 'USER_UPDATED' || event === 'INITIAL_SESSION') && session?.user) {
         const userProfile = await syncProfile(session.user);
         setProfile(userProfile);
         saveProfile(userProfile);
         setIsInitialLoading(false);
+        clearTimeout(failSafe);
       } else if (event === 'SIGNED_OUT') {
         setProfile({ name: '', email: '', isLoggedIn: false, isGuest: false });
         localStorage.removeItem('strideai_profile');
+        setIsInitialLoading(false);
       }
     });
 
     return () => {
         mounted = false;
         subscription.unsubscribe();
+        clearTimeout(failSafe);
     };
   }, []);
 
@@ -168,7 +182,6 @@ const App: React.FC = () => {
       }
   );
 
-  // Geo & Weather Background
   useEffect(() => {
     if (settings.enableLocation && profile.isLoggedIn) {
         navigator.geolocation.getCurrentPosition(async (pos) => {
@@ -226,7 +239,7 @@ const App: React.FC = () => {
                 <div className="absolute inset-0 border-4 border-slate-800 rounded-2xl"></div>
                 <div className="absolute inset-0 border-4 border-brand-500 rounded-2xl border-t-transparent animate-spin"></div>
             </div>
-            <p className="text-slate-500 text-[9px] font-black uppercase tracking-[5px] animate-pulse">Establishing Session...</p>
+            <p className="text-slate-500 text-[10px] font-black uppercase tracking-[5px] animate-pulse">Syncing Identity...</p>
         </div>
     );
   }

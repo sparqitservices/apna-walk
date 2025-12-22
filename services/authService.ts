@@ -85,65 +85,84 @@ const generateRandomUsername = (email: string) => {
 export const syncProfile = async (user: any): Promise<UserProfile> => {
     if (!user?.id) throw new Error("Invalid user object for profile sync");
 
-    // Fast check for existing profile
-    const { data: existingProfile } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', user.id)
-        .maybeSingle();
+    try {
+        // Attempt to fetch from cloud
+        const { data: existingProfile, error: fetchError } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', user.id)
+            .maybeSingle();
 
-    let finalProfile: UserProfile;
+        if (fetchError) throw fetchError;
 
-    if (existingProfile) {
-        const finalUsername = existingProfile.username || generateRandomUsername(existingProfile.email || user.email);
-        
-        // Background update if username was missing
-        if (!existingProfile.username) {
-            supabase.from('profiles').update({ username: finalUsername }).eq('id', user.id).then();
+        let finalProfile: UserProfile;
+
+        if (existingProfile) {
+            const finalUsername = existingProfile.username || generateRandomUsername(existingProfile.email || user.email);
+            
+            // Background update if username was missing
+            if (!existingProfile.username) {
+                supabase.from('profiles').update({ username: finalUsername }).eq('id', user.id).then();
+            }
+
+            finalProfile = {
+                id: existingProfile.id,
+                name: existingProfile.full_name || user.user_metadata?.full_name,
+                username: finalUsername,
+                email: existingProfile.email || user.email,
+                avatar: existingProfile.avatar_url || user.user_metadata?.avatar_url,
+                bio: existingProfile.bio,
+                pace: existingProfile.pace,
+                preferred_time: existingProfile.preferred_time,
+                age: existingProfile.age,
+                is_looking_for_buddy: existingProfile.is_looking_for_buddy,
+                is_ghost_mode: existingProfile.is_ghost_mode,
+                isLoggedIn: true,
+                isGuest: false,
+                share_live_location: existingProfile.share_live_location
+            };
+        } else {
+            const username = generateRandomUsername(user.email);
+            const newProfileData = {
+                id: user.id,
+                email: user.email,
+                full_name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'Apna Walker',
+                username: username,
+                avatar_url: user.user_metadata?.avatar_url || user.user_metadata?.picture,
+                is_looking_for_buddy: true,
+                is_ghost_mode: false
+            };
+
+            // Standard Insert (Try)
+            await supabase.from('profiles').insert([newProfileData]);
+
+            finalProfile = {
+                id: newProfileData.id,
+                name: newProfileData.full_name,
+                username: newProfileData.username,
+                email: newProfileData.email,
+                avatar: newProfileData.avatar_url,
+                isLoggedIn: true,
+                isGuest: false
+            };
         }
 
-        finalProfile = {
-            id: existingProfile.id,
-            name: existingProfile.full_name || user.user_metadata?.full_name,
-            username: finalUsername,
-            email: existingProfile.email || user.email,
-            avatar: existingProfile.avatar_url || user.user_metadata?.avatar_url,
-            bio: existingProfile.bio,
-            pace: existingProfile.pace,
-            preferred_time: existingProfile.preferred_time,
-            age: existingProfile.age,
-            is_looking_for_buddy: existingProfile.is_looking_for_buddy,
-            is_ghost_mode: existingProfile.is_ghost_mode,
-            isLoggedIn: true,
-            isGuest: false,
-            share_live_location: existingProfile.share_live_location
-        };
-    } else {
-        const username = generateRandomUsername(user.email);
-        const newProfileData = {
+        localStorage.setItem('strideai_profile', JSON.stringify(finalProfile));
+        return finalProfile;
+
+    } catch (dbError) {
+        console.warn("Database Sync Failed. Using Local-Only Auth fallback.", dbError);
+        // CRITICAL FALLBACK: If DB is broken/missing table, let them in with metadata
+        const fallbackProfile: UserProfile = {
             id: user.id,
+            name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'Apna Walker',
             email: user.email,
-            full_name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'Apna Walker',
-            username: username,
-            avatar_url: user.user_metadata?.avatar_url || user.user_metadata?.picture,
-            is_looking_for_buddy: true,
-            is_ghost_mode: false
-        };
-
-        // Standard Insert
-        await supabase.from('profiles').insert([newProfileData]);
-
-        finalProfile = {
-            id: newProfileData.id,
-            name: newProfileData.full_name,
-            username: newProfileData.username,
-            email: newProfileData.email,
-            avatar: newProfileData.avatar_url,
+            avatar: user.user_metadata?.avatar_url || user.user_metadata?.picture,
+            username: user.email?.split('@')[0] || 'walker',
             isLoggedIn: true,
             isGuest: false
         };
+        localStorage.setItem('strideai_profile', JSON.stringify(fallbackProfile));
+        return fallbackProfile;
     }
-
-    localStorage.setItem('strideai_profile', JSON.stringify(finalProfile));
-    return finalProfile;
 };
