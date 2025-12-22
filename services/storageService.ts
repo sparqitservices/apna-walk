@@ -11,10 +11,7 @@ const KEYS = {
   HYDRATION: 'strideai_hydration'
 };
 
-// --- HELPER: Is Cloud Available? ---
 const isCloudUser = (userId?: string) => !!userId && userId !== 'guest';
-
-// --- PROFILE & SETTINGS ---
 
 export const saveProfile = async (profile: UserProfile) => {
   localStorage.setItem(KEYS.PROFILE, JSON.stringify(profile));
@@ -51,12 +48,9 @@ export const getSettings = (): UserSettings | null => {
   return s ? JSON.parse(s) : null;
 };
 
-// --- HISTORY & SESSIONS ---
-
 export const saveHistory = async (userId: string | undefined, steps: number, session?: WalkSession) => {
   const today = new Date().toISOString().split('T')[0];
   
-  // Update Local for instant UI feedback
   const historyStr = localStorage.getItem(KEYS.HISTORY);
   let history: DailyHistory[] = historyStr ? JSON.parse(historyStr) : [];
   const existingIndex = history.findIndex(h => h.date === today);
@@ -73,16 +67,14 @@ export const saveHistory = async (userId: string | undefined, steps: number, ses
   if (history.length > 30) history = history.slice(-30);
   localStorage.setItem(KEYS.HISTORY, JSON.stringify(history));
 
-  // Sync to Cloud
   if (isCloudUser(userId)) {
       if (steps > 0) {
-          // Incrementally update daily log
           await supabase.rpc('increment_daily_steps', { 
               u_id: userId, 
               d_date: today, 
               s_inc: steps,
               c_inc: Math.round(steps * 0.04),
-              dist_inc: 0 // Will be handled by sessions mostly
+              dist_inc: 0 
           });
       }
       if (session) {
@@ -91,11 +83,10 @@ export const saveHistory = async (userId: string | undefined, steps: number, ses
               user_id: userId,
               start_time: new Date(session.startTime).toISOString(),
               steps: session.steps,
-              // Corrected: changed session.duration_seconds to session.durationSeconds
               duration_seconds: session.durationSeconds,
-              // Corrected: changed session.distance_meters to session.distanceMeters
               distance_meters: session.distanceMeters,
-              route_data: session.route ? JSON.stringify(session.route) : null
+              route_data: session.route ? JSON.stringify(session.route) : null,
+              activity_type: session.activityType || 'walking'
           });
       }
   }
@@ -106,7 +97,7 @@ export const fetchCloudHistory = async (userId: string): Promise<DailyHistory[]>
     const { data: logs, error: lErr } = await supabase.from('daily_logs').select('*').eq('user_id', userId).order('date', { ascending: false }).limit(30);
     const { data: sess, error: sErr } = await supabase.from('walking_sessions').select('*').eq('user_id', userId).order('start_time', { ascending: false }).limit(50);
     
-    if (lErr || sErr) return getHistory(); // Fallback
+    if (lErr || sErr) return getHistory();
 
     const history: DailyHistory[] = (logs || []).map(log => ({
         date: log.date,
@@ -120,7 +111,9 @@ export const fetchCloudHistory = async (userId: string): Promise<DailyHistory[]>
                 durationSeconds: s.duration_seconds,
                 distanceMeters: s.distance_meters,
                 calories: Math.round(s.steps * 0.04),
-                route: s.route_data ? JSON.parse(JSON.stringify(s.route_data)) : undefined
+                route: s.route_data ? (typeof s.route_data === 'string' ? JSON.parse(s.route_data) : s.route_data) : undefined,
+                activityType: s.activity_type || 'walking',
+                avgSpeed: (s.distance_meters / (s.duration_seconds || 1)) * 3.6
             }))
     }));
     
@@ -133,15 +126,12 @@ export const getHistory = (): DailyHistory[] => {
   return historyStr ? JSON.parse(historyStr) : [];
 };
 
-// --- HYDRATION ---
-
 export const saveHydration = async (userId: string | undefined, log: HydrationLog) => {
     localStorage.setItem(KEYS.HYDRATION, JSON.stringify(log));
     if (isCloudUser(userId)) {
         await supabase.from('hydration_logs').upsert({
             user_id: userId,
             date: log.date,
-            // Fixed: Use currentMl instead of current_ml as defined in HydrationLog interface
             current_ml: log.currentMl,
             goal_ml: log.goalMl
         }, { onConflict: 'user_id, date' });
@@ -170,8 +160,6 @@ export const getHydration = (): HydrationLog => {
     return { date: today, currentMl: 0, goalMl: 2500 };
 };
 
-// --- BADGES & PLANS ---
-
 export const saveBadges = (badges: Badge[]) => {
   localStorage.setItem(KEYS.BADGES, JSON.stringify(badges));
 };
@@ -191,12 +179,6 @@ export const getActivePlan = (): WeeklyPlan | null => {
   return p ? JSON.parse(p) : null;
 };
 
-// --- ADMIN FUNCTIONS ---
-
-/**
- * Fetches all users from profiles table with their step count for today.
- * Used for Admin Dashboard roster intelligence.
- */
 export const fetchAllUsersAdmin = async (): Promise<AdminUserView[]> => {
   const today = new Date().toISOString().split('T')[0];
   
@@ -229,10 +211,6 @@ export const fetchAllUsersAdmin = async (): Promise<AdminUserView[]> => {
   }));
 };
 
-/**
- * Fetches the last 50 walking sessions for a specific user.
- * Used for admin forensic activity logs.
- */
 export const fetchUserSessionsAdmin = async (userId: string): Promise<WalkSession[]> => {
   const { data, error } = await supabase
     .from('walking_sessions')
@@ -250,15 +228,12 @@ export const fetchUserSessionsAdmin = async (userId: string): Promise<WalkSessio
     durationSeconds: s.duration_seconds,
     distanceMeters: s.distance_meters,
     calories: Math.round(s.steps * 0.04),
-    route: s.route_data ? JSON.parse(JSON.stringify(s.route_data)) : undefined,
-    avgSpeed: (s.distance_meters / (s.duration_seconds || 1)) * 3.6
+    route: s.route_data ? (typeof s.route_data === 'string' ? JSON.parse(s.route_data) : s.route_data) : undefined,
+    avgSpeed: (s.distance_meters / (s.duration_seconds || 1)) * 3.6,
+    activityType: s.activity_type || 'walking'
   }));
 };
 
-/**
- * Fetches the last 30 daily logs for a specific user.
- * Used for admin historical step charts.
- */
 export const fetchUserHistoryAdmin = async (userId: string): Promise<DailyHistory[]> => {
   const { data, error } = await supabase
     .from('daily_logs')

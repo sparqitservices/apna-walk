@@ -59,7 +59,7 @@ export interface UserSettings {
   calorieGoal?: number;
   sensitivity: number;
   enableLocation: boolean;
-  autoTravelHistory: boolean; // New: Toggle for automatic recording
+  autoTravelHistory: boolean; 
   theme: 'green' | 'blue' | 'orange' | 'purple' | 'pink';
   coachVibe?: 'Energetic' | 'Strict' | 'Chill';
   coachVoiceEnabled: boolean;
@@ -70,7 +70,7 @@ export interface UserSettings {
     achievements: boolean;
   };
 }
-// ... rest of the file remains same
+
 export interface LiveConnection {
     id: string;
     username: string;

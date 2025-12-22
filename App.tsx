@@ -27,6 +27,8 @@ import { LiveTracker } from './components/LiveTracker';
 import { SessionDetailModal } from './components/SessionDetailModal';
 import { JourneyHubModal } from './components/JourneyHubModal';
 import { PathSnailTrail } from './components/PathSnailTrail';
+import { AutoTrackerCard } from './components/AutoTrackerCard';
+import { AutoHistoryModal } from './components/AutoHistoryModal';
 
 import { usePedometer } from './hooks/usePedometer';
 import { useMetronome } from './hooks/useMetronome';
@@ -65,7 +67,6 @@ const App: React.FC = () => {
 
   const [settings, setSettings] = useState<UserSettings>(() => {
     const saved = getSettings();
-    // Added missing 'autoTravelHistory' property to satisfy UserSettings interface requirements.
     const defaultSettings: UserSettings = {
         weightKg: 70, heightCm: 175, strideLengthCm: 73, stepGoal: 6000,
         sensitivity: 3, enableLocation: true, theme: 'green',
@@ -92,6 +93,7 @@ const App: React.FC = () => {
   const [showWeatherDetail, setShowWeatherDetail] = useState(false);
   const [showRhythmDetail, setShowRhythmDetail] = useState(false);
   const [showJourneyHub, setShowJourneyHub] = useState(false);
+  const [showAutoHistory, setShowAutoHistory] = useState(false);
   const [selectedForensicSession, setSelectedForensicSession] = useState<WalkSession | null>(null);
 
   // Data States
@@ -168,7 +170,7 @@ const App: React.FC = () => {
     setShowSettings(false);
   };
 
-  const { isAutoRecording, autoRoute } = useAutoTracker(
+  const { isAutoRecording, autoRoute, activeActivityType } = useAutoTracker(
       profile.isLoggedIn, 
       dailySteps, 
       settings, 
@@ -191,7 +193,7 @@ const App: React.FC = () => {
             setHydrationTip(tip);
         }, null, { enableHighAccuracy: false });
     }
-  }, [settings.enableLocation, profile.isLoggedIn]);
+  }, [settings.enableLocation, profile.isLoggedIn, dailySteps]);
 
   const displaySteps = isTrackingSession ? sessionSteps : dailySteps;
   const displayDistance = (displaySteps * settings.strideLengthCm) / 100;
@@ -327,6 +329,8 @@ const App: React.FC = () => {
             <WeatherCard weather={weather} loading={weatherLoading} onClick={() => setShowWeatherDetail(true)} />
             <DailyQuote onShare={(q) => setVisualShare({ isOpen: true, type: 'quote', data: q })} />
             <Achievements totalSteps={dailySteps} earnedBadges={[]} />
+            {/* New AutoTracker Card at the bottom */}
+            <AutoTrackerCard isActive={settings.autoTravelHistory} currentMode={activeActivityType} onClick={() => setShowAutoHistory(true)} />
         </section>
       </main>
 
@@ -336,6 +340,7 @@ const App: React.FC = () => {
       </button>
 
       <JourneyHubModal isOpen={showJourneyHub} onClose={() => setShowJourneyHub(false)} history={fullHistory} onViewSegment={(s) => setSelectedForensicSession(s)} />
+      <AutoHistoryModal isOpen={showAutoHistory} onClose={() => setShowAutoHistory(false)} history={fullHistory} />
       <SessionDetailModal session={selectedForensicSession} onClose={() => setSelectedForensicSession(null)} onShare={(s) => setVisualShare({ isOpen: true, type: 'stats', data: s })} />
       <AICoachModal session={currentSession} isOpen={showCoach} onClose={() => setShowCoach(false)} isGuest={profile.isGuest!} onLoginRequest={() => {}} onShareStats={() => {}} />
       <SettingsModal isOpen={showSettings} onClose={() => setShowSettings(false)} settings={settings} profile={profile} onSave={(s, p) => { setSettings(s); saveSettings(profile.id, s); setProfile(p); saveProfile(p); }} onLogout={handleLogout} onLoginRequest={() => {}} />
