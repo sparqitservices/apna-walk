@@ -94,29 +94,41 @@ const App: React.FC = () => {
 
   // AUTH LISTENER: Handles login/logout and redirect detection
   useEffect(() => {
+    let mounted = true;
+
     const initAuth = async () => {
-        // Initial session check
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session?.user) {
-            const userProfile = await syncProfile(session.user);
-            setProfile(userProfile);
-            saveProfile(userProfile);
+        try {
+            // Check for existing session (handles manual refresh)
+            const { data: { session } } = await supabase.auth.getSession();
+            if (session?.user && mounted) {
+                const userProfile = await syncProfile(session.user);
+                setProfile(userProfile);
+                saveProfile(userProfile);
+            }
+        } catch (err) {
+            console.error("Auth init error:", err);
+        } finally {
+            if (mounted) setIsInitialLoading(false);
         }
-        setIsInitialLoading(false);
     };
 
     initAuth();
 
+    // Listen for auth state changes (handles redirect from Google)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log("Auth Event:", event);
-      if ((event === 'SIGNED_IN' || event === 'USER_UPDATED') && session?.user) {
+      if (!mounted) return;
+      
+      console.log("Supabase Auth Event:", event);
+      
+      if ((event === 'SIGNED_IN' || event === 'USER_UPDATED' || event === 'INITIAL_SESSION') && session?.user) {
         try {
           const userProfile = await syncProfile(session.user);
           setProfile(userProfile);
           saveProfile(userProfile);
           setIsInitialLoading(false);
         } catch (err) {
-          console.error("Auth sync error:", err);
+          console.error("Auth sync error during event:", err);
+          setIsInitialLoading(false);
         }
       } else if (event === 'SIGNED_OUT') {
         setProfile({ name: '', email: '', isLoggedIn: false, isGuest: false });
@@ -125,7 +137,10 @@ const App: React.FC = () => {
       }
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+        mounted = false;
+        subscription.unsubscribe();
+    };
   }, []);
 
   // Initial Data Sync from Cloud
