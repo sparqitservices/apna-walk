@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { FitnessEvent } from '../types';
 import { findLocalEvents } from '../services/geminiService';
@@ -12,14 +13,19 @@ export const EventsModal: React.FC<EventsModalProps> = ({ isOpen, onClose, locat
   const [events, setEvents] = useState<FitnessEvent[]>([]);
   const [loading, setLoading] = useState(false);
   const [filter, setFilter] = useState<'All' | 'Marathon' | 'Yoga' | 'Walk'>('All');
+  const [groundingSources, setGroundingSources] = useState<any[]>([]); // Added for grounding compliance
 
   useEffect(() => {
     if (isOpen && locationName && events.length === 0) {
         setLoading(true);
         const cityQuery = locationName.includes(',') && !locationName.includes(' ') ? 'India' : locationName;
         
+        // Updated to handle the new return object containing events and grounding sources
         findLocalEvents(cityQuery)
-            .then(data => setEvents(data))
+            .then(data => {
+                setEvents(data.events);
+                setGroundingSources(data.sources);
+            })
             .finally(() => setLoading(false));
     }
   }, [isOpen, locationName]);
@@ -99,7 +105,7 @@ export const EventsModal: React.FC<EventsModalProps> = ({ isOpen, onClose, locat
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto p-5 scroll-smooth relative">
+        <div className="flex-1 overflow-y-auto p-5 scroll-smooth relative no-scrollbar">
             {loading ? (
                 <div className="space-y-4">
                     {[1, 2, 3].map(i => (
@@ -176,6 +182,22 @@ export const EventsModal: React.FC<EventsModalProps> = ({ isOpen, onClose, locat
                             </div>
                         </div>
                     ))}
+
+                    {/* Source compliance note - REQUIRED for Google Search Grounding */}
+                    {groundingSources.length > 0 && (
+                        <div className="mt-8 pt-4 border-t border-slate-800 pb-10">
+                            <p className="text-[8px] text-slate-500 font-bold uppercase tracking-widest mb-2 flex items-center gap-1">
+                                <i className="fa-solid fa-magnifying-glass text-[7px]"></i> Verified Search Sources
+                            </p>
+                            <div className="flex flex-wrap gap-2">
+                                {groundingSources.map((s, i) => s.web && (
+                                    <a key={i} href={s.web.uri} target="_blank" rel="noreferrer" className="text-[8px] bg-slate-800 text-slate-400 px-2 py-1 rounded border border-slate-700 hover:text-white transition-colors">
+                                        {s.web.title || 'Source'}
+                                    </a>
+                                ))}
+                            </div>
+                        </div>
+                    )}
                 </div>
             ) : (
                 <div className="flex flex-col items-center justify-center h-full text-center p-6">

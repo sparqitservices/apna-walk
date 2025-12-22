@@ -1,35 +1,60 @@
+
 import { GoogleGenAI, Type } from "@google/genai";
 import { WalkSession, AIInsight, DailyHistory, Badge, WeeklyPlan, WeatherData, FitnessEvent } from "../types";
 
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 const MODEL_ID = "gemini-3-flash-preview";
 
-// Existing fallback data...
-const FALLBACK_INSIGHTS = [
-    {
-        summary: "Quota hit, but you crushed it! Great consistency today.",
-        motivation: "Consistency is key, aur aaj tumne kamaal kar diya!",
-        tips: ["Drink more water", "Stretch your calves", "Sleep early today"]
+// --- RATE LIMITING LOGIC ---
+const USAGE_KEY = 'apnawalk_ai_usage';
+const MAX_REQUESTS_PER_HOUR = 15;
+
+export interface UsageStatus {
+    allowed: boolean;
+    remaining: number;
+    resetInMinutes: number;
+}
+
+const checkUsageLimit = (): UsageStatus => {
+    const now = Date.now();
+    const oneHour = 60 * 60 * 1000;
+    const usageStr = localStorage.getItem(USAGE_KEY);
+    let timestamps: number[] = usageStr ? JSON.parse(usageStr) : [];
+
+    // Filter out timestamps older than 1 hour
+    timestamps = timestamps.filter(ts => now - ts < oneHour);
+
+    if (timestamps.length >= MAX_REQUESTS_PER_HOUR) {
+        const oldest = timestamps[0];
+        const resetIn = Math.ceil((oneHour - (now - oldest)) / 60000);
+        return { allowed: false, remaining: 0, resetInMinutes: resetIn };
     }
-];
+
+    return { 
+        allowed: true, 
+        remaining: MAX_REQUESTS_PER_HOUR - timestamps.length, 
+        resetInMinutes: 0 
+    };
+};
+
+const recordUsage = () => {
+    const usageStr = localStorage.getItem(USAGE_KEY);
+    let timestamps: number[] = usageStr ? JSON.parse(usageStr) : [];
+    timestamps.push(Date.now());
+    localStorage.setItem(USAGE_KEY, JSON.stringify(timestamps));
+};
+
+// --- AI SERVICES ---
+
+export const getUsageStatus = (): UsageStatus => checkUsageLimit();
 
 export const generatePersonalizedNudge = async (
     type: 'SEDENTARY' | 'GOAL_50' | 'GOAL_100' | 'HYDRATION' | 'MORNING',
     context: { locality: string, steps: number, goal: number, weather?: WeatherData | null, coachVibe?: string }
 ): Promise<{ title: string, body: string }> => {
-    const prompt = `
-        Act as "Apna Coach", a high-energy Desi fitness mentor from India. 
-        Generate a notification for a user.
-        Event Type: ${type}
-        User Context: Located in ${context.locality}, Steps today: ${context.steps}, Goal: ${context.goal}, 
-        Weather: ${context.weather ? context.weather.temperature + '°C' : 'Unknown'}.
-        Coach Vibe: ${context.coachVibe || 'Energetic'}.
+    if (!checkUsageLimit().allowed) return { title: "", body: "" };
 
-        Rules:
-        - Language: Strictly Hinglish (Mix of Hindi and English).
-        - Style: Witty, dramatic, and very Indian (mention Chai, Biryani, local vibes, or "Boss/Guru").
-        - Output: Valid JSON with "title" (max 30 chars) and "body" (max 80 chars).
-    `;
+    const prompt = `Act as "Apna Coach", a high-energy Desi fitness mentor. Event: ${type}. User Context: ${context.locality}, Steps: ${context.steps}, Goal: ${context.goal}. Style: Hinglish, witty. JSON: {title, body}`;
 
     try {
         const response = await ai.models.generateContent({
@@ -39,46 +64,20 @@ export const generatePersonalizedNudge = async (
                 responseMimeType: "application/json",
                 responseSchema: {
                     type: Type.OBJECT,
-                    properties: {
-                        title: { type: Type.STRING },
-                        body: { type: Type.STRING }
-                    },
+                    properties: { title: { type: Type.STRING }, body: { type: Type.STRING } },
                     required: ["title", "body"]
                 }
             }
         });
-
-        if (response.text) {
-            return JSON.parse(response.text);
-        }
-        throw new Error("Empty response");
-    } catch (e) {
-        console.error("AI Nudge Error:", e);
-        // Fallback to empty to trigger manual vault
-        return { title: "", body: "" };
-    }
+        recordUsage();
+        return response.text ? JSON.parse(response.text) : { title: "", body: "" };
+    } catch (e) { return { title: "", body: "" }; }
 };
 
-// ... Rest of the existing geminiService functions remain same ...
 export const getWalkingInsight = async (session: WalkSession): Promise<AIInsight> => {
-  const prompt = `
-    I just finished a walking session. Here are my stats:
-    - Steps: ${session.steps}
-    - Distance: ${(session.distanceMeters / 1000).toFixed(2)} km
-    - Duration: ${Math.floor(session.durationSeconds / 60)} minutes
-    - Calories: ${session.calories} kcal
-    - Average Speed: ${(session.distanceMeters / session.durationSeconds * 3.6).toFixed(1)} km/h
+  if (!checkUsageLimit().allowed) throw new Error("LIMIT_REACHED");
 
-    Act as "Apna Coach", an enthusiastic Desi fitness coach from India.
-    Your tone should be:
-    - Highly energetic and dramatic (use Hinglish words like "Arre waah!", "Shabaash!", "Ek number boss!", "Chha gaye guru").
-    - Relatable Indian Context: Mention things like burning off yesterday's Biryani, earning a chai break, or walking faster than a Bangalore auto in traffic.
-    
-    Provide a JSON response with:
-    1. A brief 1-sentence summary of the workout (Desi style).
-    2. A short motivational quote or phrase specific to this effort (Hinglish allowed).
-    3. Three very short, actionable tips for my next walk (bullet points).
-  `;
+  const prompt = `Analyze this walk: Steps ${session.steps}, Dist ${(session.distanceMeters/1000).toFixed(2)}km. Persona: Desi Coach. Hinglish. JSON with summary, motivation, tips.`;
 
   try {
     const response = await ai.models.generateContent({
@@ -91,130 +90,39 @@ export const getWalkingInsight = async (session: WalkSession): Promise<AIInsight
           properties: {
             summary: { type: Type.STRING },
             motivation: { type: Type.STRING },
-            tips: { 
-              type: Type.ARRAY,
-              items: { type: Type.STRING }
-            }
+            tips: { type: Type.ARRAY, items: { type: Type.STRING } }
           },
           required: ["summary", "motivation", "tips"]
         }
       }
     });
-
-    if (response.text) {
-      return JSON.parse(response.text) as AIInsight;
-    }
-    throw new Error("No data returned");
-  } catch (error: any) {
-    console.error("❌ Gemini Insight Error:", error);
-    return FALLBACK_INSIGHTS[Math.floor(Math.random() * FALLBACK_INSIGHTS.length)];
-  }
+    recordUsage();
+    return response.text ? JSON.parse(response.text) : { summary: "Great walk!", motivation: "Keep it up!", tips: [] };
+  } catch (error) { throw error; }
 };
 
 export const chatWithCoach = async (history: {role: string, text: string}[], message: string, audioBase64?: string): Promise<string> => {
-    try {
-        const userParts: any[] = [{ text: message }];
-        
-        if (audioBase64) {
-            userParts.push({
-                inlineData: {
-                    mimeType: "audio/wav", 
-                    data: audioBase64
-                }
-            });
-        }
+    if (!checkUsageLimit().allowed) return "REACHED_LIMIT";
 
+    try {
         const contents = [
-            ...history.map(h => ({
-                role: h.role,
-                parts: [{ text: h.text }]
-            })),
-            {
-                role: "user",
-                parts: userParts
-            }
+            ...history.map(h => ({ role: h.role, parts: [{ text: h.text }] })),
+            { role: "user", parts: [{ text: message }, ...(audioBase64 ? [{ inlineData: { mimeType: "audio/wav", data: audioBase64 } }] : [])] }
         ];
 
         const response = await ai.models.generateContent({
             model: MODEL_ID,
-            config: {
-                systemInstruction: `
-                    You are "Apna Coach", a witty, energetic, and purely Desi fitness companion from India.
-                    Persona: Strictly Hinglish. Enthusiastic. Encouraging but firm.
-                `,
-            },
+            config: { systemInstruction: "You are 'Apna Coach', a witty, energetic, Desi fitness companion. Strictly Hinglish." },
             contents: contents
         });
-
-        return response.text || "Arre, signal weak hai shayad. Phir se bolo?";
-    } catch (error: any) {
-        console.error("❌ Gemini Chat Error:", error);
-        return "Arre dost! Server pe bheed bahut hai. 2 min wait karo, tab tak stretch kar lo!";
-    }
-};
-
-export const generateBadges = async (
-    session: WalkSession, 
-    history: DailyHistory[], 
-    existingBadges: Badge[]
-): Promise<Badge | null> => {
-    if (session.steps < 500) return null;
-
-    const prompt = `
-        Act as a gamification engine for a walking app with a Desi/Indian twist.
-        Analyze the user's latest activity and history to see if they earned a NEW, creative badge.
-        Current Session: Steps ${session.steps}, Duration ${session.durationSeconds}s.
-        Return JSON with awarded: boolean and badge: object.
-    `;
-
-    try {
-        const response = await ai.models.generateContent({
-            model: MODEL_ID,
-            contents: prompt,
-            config: {
-                responseMimeType: "application/json",
-                responseSchema: {
-                    type: Type.OBJECT,
-                    properties: {
-                        awarded: { type: Type.BOOLEAN },
-                        badge: {
-                            type: Type.OBJECT,
-                            properties: {
-                                title: { type: Type.STRING },
-                                description: { type: Type.STRING },
-                                icon: { type: Type.STRING },
-                                color: { type: Type.STRING }
-                            },
-                            nullable: true
-                        }
-                    }
-                }
-            }
-        });
-
-        if (response.text) {
-            const result = JSON.parse(response.text);
-            if (result.awarded && result.badge) {
-                return {
-                    id: `ai-${Date.now()}`,
-                    title: result.badge.title,
-                    description: result.badge.description,
-                    icon: result.badge.icon,
-                    color: result.badge.color,
-                    isAiGenerated: true,
-                    dateEarned: new Date().toISOString()
-                };
-            }
-        }
-        return null;
-    } catch (e) {
-        return null;
-    }
+        recordUsage();
+        return response.text || "Arre, signal weak hai shayad.";
+    } catch (error) { return "Arre dost! Server pe bheed bahut hai."; }
 };
 
 export const generateWeeklyPlan = async (goal: string, intensityLevel: string): Promise<WeeklyPlan> => {
-    const prompt = `Create a 7-Day Walking Schedule for goal: "${goal}" and intensity: "${intensityLevel}". Return STRICT JSON.`;
-
+    if (!checkUsageLimit().allowed) throw new Error("LIMIT_REACHED");
+    const prompt = `Create 7-Day Walking Schedule for: "${goal}" at "${intensityLevel}" intensity. Return STRICT JSON.`;
     try {
         const response = await ai.models.generateContent({
             model: MODEL_ID,
@@ -233,8 +141,8 @@ export const generateWeeklyPlan = async (goal: string, intensityLevel: string): 
                                   title: { type: Type.STRING },
                                   description: { type: Type.STRING },
                                   durationMinutes: { type: Type.INTEGER },
-                                  intensity: { type: Type.STRING, enum: ["Low", "Medium", "High"] },
-                                  type: { type: Type.STRING, enum: ["Interval", "Endurance", "Recovery", "Power"] }
+                                  intensity: { type: Type.STRING },
+                                  type: { type: Type.STRING }
                               }
                           }
                       }
@@ -242,79 +150,63 @@ export const generateWeeklyPlan = async (goal: string, intensityLevel: string): 
                 }
             }
         });
-
-        if (response.text) {
-            const data = JSON.parse(response.text);
-            return {
-                id: `plan-${Date.now()}`,
-                goal,
-                createdAt: new Date().toISOString(),
-                schedule: data.schedule
-            };
-        }
-        throw new Error("Empty plan generated");
-    } catch (e) {
-        throw e;
-    }
+        recordUsage();
+        const data = JSON.parse(response.text);
+        return { id: `plan-${Date.now()}`, goal, createdAt: new Date().toISOString(), schedule: data.schedule };
+    } catch (e) { throw e; }
 };
 
-export const getHydrationTip = async (
-  currentMl: number, 
-  goalMl: number, 
-  steps: number, 
-  weather: WeatherData | null
-): Promise<string> => {
-  const prompt = `Act as "Apna Coach". Hydration: ${currentMl}/${goalMl}ml, Steps: ${steps}. Short, witty Hinglish sentence (max 10 words). Output ONLY text.`;
+export const getHydrationTip = async (c: number, g: number, s: number, w: any): Promise<string> => {
+  if (!checkUsageLimit().allowed) return "Pani piyo stamina banega!";
+  const prompt = `Coach advice: Hydration ${c}/${g}ml, Steps ${s}. Hinglish, max 10 words.`;
   try {
     const response = await ai.models.generateContent({
       model: MODEL_ID,
       contents: prompt,
-      config: { 
-        maxOutputTokens: 100, 
-        thinkingConfig: { thinkingBudget: 50 }, 
-        temperature: 1 
-      }
+      config: { maxOutputTokens: 60, thinkingConfig: { thinkingBudget: 0 } }
     });
-    return response.text?.trim() || "Bhai, pani pee le stamina banega!";
-  } catch (error) {
-    return "Pani peena bhul gaye kya?";
-  }
+    recordUsage();
+    return response.text?.trim() || "Pani piyo stamina banega!";
+  } catch (error) { return "Pani piyo stamina banega!"; }
 };
 
-export const findLocalEvents = async (city: string): Promise<FitnessEvent[]> => {
-    const prompt = `Generate 5 realistic fitness events for "${city}". Return STRICT JSON.`;
+/**
+ * findLocalEvents: Fetches local fitness events using Google Search grounding.
+ */
+export const findLocalEvents = async (location: string): Promise<{ events: FitnessEvent[], sources: any[] }> => {
+    if (!checkUsageLimit().allowed) return { events: [], sources: [] };
+
+    const prompt = `Find 5-10 upcoming fitness events like marathons, yoga sessions, or community walks in or near ${location}.
+    Return ONLY a JSON array of objects with the following keys: 
+    id (string), title (string), date (YYYY-MM-DD), time (string), location (string), 
+    type (one of: 'Marathon', 'Yoga', 'Walk', 'Cycling', 'Zumba'), attendees (number), 
+    distanceKm (number), description (string), link (string).`;
+
     try {
         const response = await ai.models.generateContent({
             model: MODEL_ID,
             contents: prompt,
             config: {
-                responseMimeType: "application/json",
-                responseSchema: {
-                    type: Type.ARRAY,
-                    items: {
-                        type: Type.OBJECT,
-                        properties: {
-                            id: { type: Type.STRING },
-                            title: { type: Type.STRING },
-                            date: { type: Type.STRING },
-                            time: { type: Type.STRING },
-                            location: { type: Type.STRING },
-                            type: { type: Type.STRING, enum: ['Marathon', 'Yoga', 'Walk', 'Cycling', 'Zumba'] },
-                            attendees: { type: Type.INTEGER },
-                            distanceKm: { type: Type.NUMBER },
-                            description: { type: Type.STRING },
-                            link: { type: Type.STRING },
-                            image: { type: Type.STRING }
-                        }
-                    }
-                }
+                tools: [{ googleSearch: {} }]
             }
         });
-        if (response.text) {
-            return JSON.parse(response.text).map((e: any) => ({ ...e, isJoined: false }));
+
+        recordUsage();
+        
+        const text = response.text || "[]";
+        // Extract JSON block from potential markdown or conversational wrapping
+        const jsonMatch = text.match(/\[\s*\{.*\}\s*\]/s);
+        const jsonStr = jsonMatch ? jsonMatch[0] : text;
+        const sources = response.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
+
+        try {
+            return { events: JSON.parse(jsonStr), sources };
+        } catch (e) {
+            console.error("findLocalEvents JSON parse failed:", e);
+            return { events: [], sources };
         }
-        return [];
-    } catch (e) {
-        return [];
+    } catch (error) {
+        console.error("findLocalEvents failed:", error);
+        return { events: [], sources: [] };
     }
 };
