@@ -39,25 +39,25 @@
 
 /* Enhanced hover for the shimmer text */
 .logo-root-container:hover .walk-text-shimmer {
-  animation: premium-shimmer 1.5s cubic-bezier(0.4, 0, 0.2, 1) infinite; /* Speed up shimmer on hover */
+  animation: premium-shimmer 1.5s cubic-bezier(0.4, 0, 0.2, 1) infinite;
   transform: scale(1.05);
   transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
   filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.6)) 
-          drop-shadow(0 0 15px rgba(255, 153, 51, 0.3));
+          drop-shadow(0 0 15px rgba(255, 153, 51, 0.4));
 }
 
 .walk-text-shimmer {
   transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-  /* Ultra-vibrant Tricolor with a sharp liquid highlight */
+  /* Ultra-vibrant Tricolor representing India (Saffron, White, Green) */
   background: linear-gradient(
     110deg,
-    #FF9933 0%,    /* Deep Saffron */
-    #FFCC33 15%,   /* Bright Saffron */
-    #FFFFFF 30%,   /* White start */
-    #E0F7FA 45%,   /* Brilliant Sheen highlight (Cyan-White) */
-    #FFFFFF 60%,   /* White end */
-    #2E7D32 75%,   /* Rich Green */
-    #138808 100%   /* Deep Green */
+    #FF6B00 0%,    /* Vibrant Saffron */
+    #FFB347 15%,   /* Light Saffron */
+    #FFFFFF 35%,   /* Brilliant White center */
+    #E0F7FA 45%,   /* Liquid sheen highlight */
+    #FFFFFF 55%,   /* Brilliant White center */
+    #22C55E 80%,   /* Fresh Green */
+    #15803D 100%   /* Deep Forest Green */
   );
   
   background-size: 300% auto;
@@ -66,11 +66,11 @@
   -webkit-text-fill-color: transparent;
   color: #FF9933; 
 
-  animation: premium-shimmer 4s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  animation: premium-shimmer 3.5s cubic-bezier(0.4, 0, 0.2, 1) infinite;
   display: inline-block; 
   padding-bottom: 2px;
   filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.5)) 
-          drop-shadow(0 0 10px rgba(255, 153, 51, 0.15));
+          drop-shadow(0 0 10px rgba(255, 153, 51, 0.2));
 }
 
 @keyframes premium-shimmer {
@@ -80,18 +80,6 @@
   100% {
     background-position: -150% center;
   }
-}
-
-/* Background elements from original */
-.bg-pulse {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: 100%;
-  height: 100%;
-  pointer-events: none;
-  z-index: 0;
 }
 
 .pulse-ring {

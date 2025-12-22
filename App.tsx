@@ -31,8 +31,12 @@ import { PathSnailTrail } from './components/PathSnailTrail';
 import { usePedometer } from './hooks/usePedometer';
 import { useMetronome } from './hooks/useMetronome';
 import { useAutoTracker } from './hooks/useAutoTracker';
-import { UserProfile, UserSettings, WalkSession, HydrationLog, WeatherData, WeeklyPlan, DailyHistory } from './types';
-import { getProfile, saveProfile, getSettings, saveSettings, saveHistory, getHydration, saveHydration, saveActivePlan, getHistory } from './services/storageService';
+import { UserProfile, UserSettings, WalkSession, HydrationLog, WeatherData, DailyHistory } from './types';
+import { 
+    getProfile, saveProfile, getSettings, saveSettings, saveHistory, 
+    getHydration, saveHydration, saveActivePlan, getHistory, 
+    fetchCloudHistory, fetchCloudHydration 
+} from './services/storageService';
 import { getWeather } from './services/weatherService';
 import { getLocalityName } from './services/parkService';
 import { getHydrationTip } from './services/geminiService';
@@ -53,9 +57,8 @@ const App: React.FC = () => {
     lastStepTimestamp, 
     requestPermission, 
     startSession, 
-    stopSession,
-    error: sensorError 
-  } = usePedometer(settings.sensitivity);
+    stopSession
+  } = usePedometer(profile.id, settings.sensitivity);
   
   const { bpm, isPlaying, togglePlay, setBpm } = useMetronome(115);
 
@@ -71,7 +74,6 @@ const App: React.FC = () => {
   const [showSleep, setShowSleep] = useState(false);
   const [showWeatherDetail, setShowWeatherDetail] = useState(false);
   const [showRhythmDetail, setShowRhythmDetail] = useState(false);
-  const [showLiveTracker, setShowLiveTracker] = useState(false);
   const [showJourneyHub, setShowJourneyHub] = useState(false);
   const [selectedForensicSession, setSelectedForensicSession] = useState<WalkSession | null>(null);
 
@@ -85,13 +87,31 @@ const App: React.FC = () => {
   const [currentSession, setCurrentSession] = useState<WalkSession | null>(null);
   const [visualShare, setVisualShare] = useState<{ isOpen: boolean; type: 'stats' | 'quote'; data: any; }>({ isOpen: false, type: 'stats', data: null as any });
 
-  // Auto-Tracker: Silent recording logic
+  // Initial Data Sync from Cloud
+  useEffect(() => {
+      if (profile.isLoggedIn && !profile.isGuest && profile.id) {
+          syncCloudData(profile.id);
+      }
+  }, [profile.isLoggedIn, profile.isGuest, profile.id]);
+
+  const syncCloudData = async (userId: string) => {
+      try {
+          const [cloudHist, cloudHydra] = await Promise.all([
+              fetchCloudHistory(userId),
+              fetchCloudHydration(userId)
+          ]);
+          setFullHistory(cloudHist);
+          setHydration(cloudHydra);
+      } catch (e) { console.warn("Cloud sync failed, using cache."); }
+  };
+
+  // Auto-Tracker
   const { isAutoRecording, autoRoute } = useAutoTracker(
       profile.isLoggedIn, 
       dailySteps, 
       settings, 
-      (session) => {
-          const updatedHistory = saveHistory(session.steps, session);
+      async (session) => {
+          const updatedHistory = await saveHistory(profile.id, session.steps, session);
           setFullHistory(updatedHistory);
           if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
       }
@@ -100,7 +120,7 @@ const App: React.FC = () => {
   // Background Live Location Sync
   useEffect(() => {
       let interval: number;
-      if (profile.isLoggedIn && !profile.isGuest && profile.share_live_location) {
+      if (profile.isLoggedIn && !profile.isGuest && profile.share_live_location && profile.id) {
           const syncLocation = () => {
               navigator.geolocation.getCurrentPosition(async (pos) => {
                   try {
@@ -108,12 +128,11 @@ const App: React.FC = () => {
                   } catch (e) { console.warn("Live sync failed", e); }
               }, null, { enableHighAccuracy: true });
           };
-          
           syncLocation();
-          interval = window.setInterval(syncLocation, 30000); // Sync every 30s
+          interval = window.setInterval(syncLocation, 30000); 
       }
       return () => { if (interval) clearInterval(interval); };
-  }, [profile.isLoggedIn, profile.share_live_location]);
+  }, [profile.isLoggedIn, profile.share_live_location, profile.id]);
 
   useEffect(() => {
     if (settings.enableLocation && profile.isLoggedIn) {
@@ -122,8 +141,7 @@ const App: React.FC = () => {
             const data = await getWeather(pos.coords.latitude, pos.coords.longitude);
             const locData = await getLocalityName(pos.coords.latitude, pos.coords.longitude);
             setWeather(data);
-            const locString = locData.country ? `${locData.locality}, ${locData.country}` : locData.locality;
-            setLocality(locString);
+            setLocality(`${locData.locality}, ${locData.country}`);
             setWeatherLoading(false);
             const tip = await getHydrationTip(hydration.currentMl, hydration.goalMl, dailySteps, data);
             setHydrationTip(tip);
@@ -139,7 +157,7 @@ const App: React.FC = () => {
     if (isTrackingSession) {
         const finalSteps = stopSession();
         if (navigator.vibrate) navigator.vibrate([100, 30]);
-        const dummySession: WalkSession = {
+        const session: WalkSession = {
             id: `manual-${Date.now()}`,
             startTime: Date.now() - 3600,
             steps: finalSteps,
@@ -147,9 +165,9 @@ const App: React.FC = () => {
             calories: Math.round((finalSteps * 0.04) * (settings.weightKg / 70)),
             durationSeconds: 0 
         };
-        const updated = saveHistory(dummySession.steps, dummySession);
+        const updated = await saveHistory(profile.id, session.steps, session);
         setFullHistory(updated);
-        setCurrentSession(dummySession);
+        setCurrentSession(session);
         setShowCoach(true);
     } else {
         const granted = await requestPermission();
@@ -162,17 +180,9 @@ const App: React.FC = () => {
     }
   };
 
-  const handleFinishManualWorkout = (session: WalkSession) => {
-    const updated = saveHistory(session.steps, session);
-    setFullHistory(updated);
-    setCurrentSession(session);
-    setShowLiveTracker(false);
-    setShowCoach(true);
-  };
-
   const handleHydrationUpdate = (newLog: HydrationLog) => {
     setHydration(newLog);
-    saveHydration(newLog);
+    saveHydration(profile.id, newLog);
   };
 
   const todayData = useMemo(() => {
@@ -181,7 +191,7 @@ const App: React.FC = () => {
   }, [fullHistory]);
 
   if (!profile.isLoggedIn) {
-    return <LoginScreen onLogin={() => {}} onGuest={() => setProfile({ ...profile, isLoggedIn: true, isGuest: true })} onShowLegal={() => {}} />;
+    return <LoginScreen onLogin={() => {}} onGuest={() => setProfile({ ...profile, isLoggedIn: true, isGuest: true, id: 'guest' })} onShowLegal={() => {}} />;
   }
 
   return (
@@ -210,43 +220,18 @@ const App: React.FC = () => {
 
       <main className="max-w-xl mx-auto px-6 pt-10 space-y-12">
         
-        {/* --- MAIN DASHBOARD --- */}
         <section className="flex flex-col items-center">
-            <RadialProgress 
-                current={displaySteps} 
-                total={settings.stepGoal} 
-                label={isTrackingSession ? "Session Live" : "Today's Walk"} 
-                subLabel="Tap to control" 
-                lastStepTime={lastStepTimestamp}
-                isActive={isTrackingSession}
-                onClick={handleToggleTracking}
-            />
-            
+            <RadialProgress current={displaySteps} total={settings.stepGoal} label={isTrackingSession ? "Session Live" : "Today's Walk"} subLabel="Tap to control" lastStepTime={lastStepTimestamp} isActive={isTrackingSession} onClick={handleToggleTracking} />
             <div className="w-full grid grid-cols-1 gap-6 mt-8">
                 <StatsGrid calories={displayCalories} distance={displayDistance} duration={0} onStatClick={() => {}} />
-                
                 <div className="flex gap-4 w-full">
                     {!isTrackingSession ? (
-                        <button 
-                            onClick={handleToggleTracking}
-                            className="flex-1 bg-gradient-to-r from-brand-600 to-emerald-500 hover:from-brand-500 hover:to-emerald-400 text-white font-black py-5 rounded-[2rem] shadow-xl shadow-brand-500/20 active:scale-[0.98] transition-all text-xs uppercase tracking-[5px] flex items-center justify-center gap-3 border border-white/10"
-                        >
-                            <i className="fa-solid fa-play"></i> Start Walk
-                        </button>
+                        <button onClick={handleToggleTracking} className="flex-1 bg-gradient-to-r from-brand-600 to-emerald-500 text-white font-black py-5 rounded-[2rem] shadow-xl text-xs uppercase tracking-[5px] flex items-center justify-center gap-3 border border-white/10"><i className="fa-solid fa-play"></i> Start Walk</button>
                     ) : (
-                        <button 
-                            onClick={handleToggleTracking}
-                            className="flex-1 bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-500 hover:to-orange-500 text-white font-black py-5 rounded-[2rem] shadow-xl shadow-red-500/20 active:scale-[0.98] transition-all text-xs uppercase tracking-[5px] flex items-center justify-center gap-3 border border-white/10"
-                        >
-                            <i className="fa-solid fa-square"></i> Finish Walk
-                        </button>
+                        <button onClick={handleToggleTracking} className="flex-1 bg-gradient-to-r from-red-600 to-orange-600 text-white font-black py-5 rounded-[2rem] shadow-xl text-xs uppercase tracking-[5px] flex items-center justify-center gap-3 border border-white/10"><i className="fa-solid fa-square"></i> Finish Walk</button>
                     )}
                 </div>
-
-                <div 
-                  onClick={() => setShowJourneyHub(true)}
-                  className="bg-slate-800/40 border border-slate-700/50 rounded-[2.5rem] p-6 flex flex-col gap-6 hover:bg-slate-800/60 transition-all cursor-pointer group shadow-2xl relative overflow-hidden"
-                >
+                <div onClick={() => setShowJourneyHub(true)} className="bg-slate-800/40 border border-slate-700/50 rounded-[2.5rem] p-6 flex flex-col gap-6 hover:bg-slate-800/60 transition-all cursor-pointer group shadow-2xl relative overflow-hidden">
                     <div className="flex justify-between items-center relative z-10">
                         <div>
                             <p className="text-brand-400 text-[10px] font-black uppercase tracking-[4px] mb-1">Journey Log</p>
@@ -256,30 +241,17 @@ const App: React.FC = () => {
                             <i className="fa-solid fa-map-location-dot text-xl"></i>
                         </div>
                     </div>
-
                     <div className="w-full h-20 bg-slate-900/60 rounded-2xl flex items-center justify-center border border-white/5 relative z-10">
-                        {autoRoute.length > 1 ? (
-                            <PathSnailTrail route={autoRoute} className="h-16 w-full opacity-60" />
-                        ) : (
-                            <div className="flex items-center gap-3 opacity-20">
-                                <i className="fa-solid fa-satellite-dish animate-pulse"></i>
-                                <span className="text-[10px] font-black uppercase tracking-widest">Awaiting Movement</span>
-                            </div>
-                        )}
+                        {autoRoute.length > 1 ? <PathSnailTrail route={autoRoute} className="h-16 w-full opacity-60" /> : <div className="flex items-center gap-3 opacity-20"><i className="fa-solid fa-satellite-dish animate-pulse"></i><span className="text-[10px] font-black uppercase tracking-widest">Awaiting Movement</span></div>}
                     </div>
-
                     <div className="flex justify-between items-center pt-2 relative z-10">
                         <span className="text-[9px] text-slate-500 font-bold uppercase tracking-[3px]">Tap to browse history</span>
-                        <div className="flex items-center gap-2 text-brand-500">
-                             <span className="text-[10px] font-black uppercase tracking-widest">Full Access</span>
-                             <i className="fa-solid fa-chevron-right text-xs"></i>
-                        </div>
+                        <div className="flex items-center gap-2 text-brand-500"><span className="text-[10px] font-black uppercase tracking-widest">Full Access</span><i className="fa-solid fa-chevron-right text-xs"></i></div>
                     </div>
                 </div>
             </div>
         </section>
 
-        {/* --- TOOLS --- */}
         <section className="grid grid-cols-2 sm:grid-cols-4 gap-4">
             <ToolCard icon="fa-calendar-day" label="AI Plan" color="bg-slate-800/40" iconColor="text-brand-400" onClick={() => setShowPlanner(true)} />
             <ToolCard icon="fa-users-line" label="Social" color="bg-slate-800/40" iconColor="text-orange-400" onClick={() => setShowSocial(true)} />
@@ -287,7 +259,6 @@ const App: React.FC = () => {
             <ToolCard icon="fa-map-location-dot" label="Parks" color="bg-slate-800/40" iconColor="text-emerald-400" onClick={() => setShowParks(true)} />
         </section>
 
-        {/* --- HEALTH & PERFORMANCE --- */}
         <section className="space-y-4">
             <HydrationCard data={hydration} recommendation={hydrationTip} onClick={() => setShowHydration(true)} onQuickAdd={() => handleHydrationUpdate({...hydration, currentMl: hydration.currentMl + 250})} />
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -298,7 +269,6 @@ const App: React.FC = () => {
             <VirtualTrekCard totalLifetimeSteps={dailySteps} />
         </section>
 
-        {/* --- FOOTER CONTENT --- */}
         <section className="space-y-8 pb-10">
             <WeatherCard weather={weather} loading={weatherLoading} onClick={() => setShowWeatherDetail(true)} />
             <DailyQuote onShare={(q) => setVisualShare({ isOpen: true, type: 'quote', data: q })} />
@@ -306,18 +276,15 @@ const App: React.FC = () => {
         </section>
       </main>
 
-      {/* --- FLOATING COACH --- */}
-      <button onClick={() => setShowCoach(true)} className="fixed bottom-8 right-8 w-20 h-20 bg-gradient-to-tr from-brand-600 to-emerald-400 rounded-[2rem] shadow-[0_25px_60px_rgba(76,175,80,0.4)] flex flex-col items-center justify-center text-white z-50 hover:scale-110 active:scale-90 transition-all border-2 border-white/10 group">
+      <button onClick={() => setShowCoach(true)} className="fixed bottom-8 right-8 w-20 h-20 bg-gradient-to-tr from-brand-600 to-emerald-400 rounded-[2rem] shadow-2xl flex flex-col items-center justify-center text-white z-50 hover:scale-110 active:scale-90 transition-all border-2 border-white/10 group">
         <i className="fa-solid fa-robot text-2xl group-hover:animate-bounce"></i>
         <span className="text-[8px] font-black uppercase tracking-widest mt-1">Coach</span>
       </button>
 
-      {/* --- MODAL LAYER --- */}
       <JourneyHubModal isOpen={showJourneyHub} onClose={() => setShowJourneyHub(false)} history={fullHistory} onViewSegment={(s) => setSelectedForensicSession(s)} />
       <SessionDetailModal session={selectedForensicSession} onClose={() => setSelectedForensicSession(null)} onShare={(s) => setVisualShare({ isOpen: true, type: 'stats', data: s })} />
-      <LiveTracker isOpen={showLiveTracker} onClose={() => setShowLiveTracker(false)} profile={profile} settings={settings} onFinish={handleFinishManualWorkout} />
       <AICoachModal session={currentSession} isOpen={showCoach} onClose={() => setShowCoach(false)} isGuest={profile.isGuest!} onLoginRequest={() => {}} onShareStats={() => {}} />
-      <SettingsModal isOpen={showSettings} onClose={() => setShowSettings(false)} settings={settings} profile={profile} onSave={(s, p) => { setSettings(s); saveSettings(s); setProfile(p); saveProfile(p); }} onLogout={() => setProfile({...profile, isLoggedIn: false})} onLoginRequest={() => {}} />
+      <SettingsModal isOpen={showSettings} onClose={() => setShowSettings(false)} settings={settings} profile={profile} onSave={(s, p) => { setSettings(s); saveSettings(profile.id, s); setProfile(p); saveProfile(p); }} onLogout={() => setProfile({...profile, isLoggedIn: false})} onLoginRequest={() => {}} />
       <WorkoutPlannerModal isOpen={showPlanner} onClose={() => setShowPlanner(false)} onSavePlan={(p) => { saveActivePlan(p); setShowPlanner(false); }} />
       <SocialHub isOpen={showSocial} onClose={() => setShowSocial(false)} profile={profile} />
       <BuddyFinder isOpen={showBuddy} onClose={() => setShowBuddy(false)} profile={profile} />

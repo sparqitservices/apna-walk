@@ -74,67 +74,76 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onGuest, onSh
   };
 
   return (
-    <div className="min-h-screen bg-dark-bg flex flex-col items-center justify-center p-6 relative overflow-hidden transition-colors duration-500">
-      <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-brand-500/10 via-dark-bg to-dark-bg z-0"></div>
+    <div className="min-h-screen bg-[#0a0f14] flex flex-col items-center justify-center p-6 relative overflow-hidden transition-colors duration-500">
+      {/* Dynamic Brand Glow Backdrop */}
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full max-w-lg z-0 pointer-events-none">
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[300px] h-[300px] bg-[#FF6B00] opacity-[0.08] blur-[100px] rounded-full animate-pulse-slow"></div>
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] h-[400px] bg-[#22C55E] opacity-[0.05] blur-[120px] rounded-full animate-pulse-slow" style={{ animationDelay: '1s' }}></div>
+      </div>
       
       <div className="w-full max-w-md relative z-10 flex flex-col items-center">
         
-        <div className="mb-12 animate-fade-in scale-110">
-           <ApnaWalkLogo size={48} />
-           <p className="text-dark-muted text-xs font-medium tracking-widest uppercase mt-2 text-center">Walk Towards Fitness</p>
+        {/* Centered Premium Logo Area */}
+        <div className="mb-14 animate-fade-in text-center">
+           <div className="scale-125 mb-4 inline-block">
+               <ApnaWalkLogo size={56} />
+           </div>
+           <div className="h-0.5 w-12 bg-gradient-to-r from-transparent via-slate-700 to-transparent mx-auto mt-4 mb-2"></div>
+           <p className="text-slate-500 text-[10px] font-black tracking-[4px] uppercase text-center">Journey Towards Wellness</p>
         </div>
 
         <div className="w-full space-y-4 animate-message-pop" style={{ animationDelay: '0.2s' }}>
           
           {errorMsg && (
-              <div className="bg-red-500/10 border border-red-500/50 text-red-400 text-xs p-3 rounded-lg text-center mb-2">
-                  {errorMsg}
+              <div className="bg-red-500/10 border border-red-500/50 text-red-400 text-[10px] font-black uppercase tracking-widest p-3 rounded-2xl text-center mb-2">
+                  <i className="fa-solid fa-circle-exclamation mr-2"></i> {errorMsg}
               </div>
           )}
 
           <button 
             onClick={handleGoogleLogin}
             disabled={isLoading}
-            className="w-full bg-white dark:bg-white text-slate-800 font-medium py-4 rounded-xl shadow-lg hover:shadow-xl transition-all transform active:scale-95 flex items-center justify-center gap-3 relative overflow-hidden group border border-slate-200"
+            className="w-full bg-white text-slate-900 font-black py-5 rounded-[2rem] shadow-2xl hover:shadow-brand-500/20 transition-all transform active:scale-95 flex items-center justify-center gap-3 relative overflow-hidden group border-2 border-white uppercase text-xs tracking-widest"
           >
              {isLoading ? (
                 <i className="fa-solid fa-circle-notch fa-spin text-slate-600"></i>
              ) : (
                 <>
-                    <img src="https://www.svgrepo.com/show/475656/google-color.svg" alt="Google" className="w-6 h-6" />
+                    <img src="https://www.svgrepo.com/show/475656/google-color.svg" alt="Google" className="w-5 h-5 group-hover:scale-110 transition-transform" />
                     <span>Continue with Gmail</span>
                 </>
              )}
           </button>
 
-          <div className="relative py-4">
+          <div className="relative py-6">
             <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-dark-border/50"></div>
+                <div className="w-full border-t border-white/5"></div>
             </div>
-            <div className="relative flex justify-center text-xs">
-                <span className="bg-dark-bg px-2 text-dark-muted uppercase tracking-wider">Or</span>
+            <div className="relative flex justify-center text-[10px]">
+                <span className="bg-[#0a0f14] px-4 text-slate-600 uppercase font-black tracking-[5px]">Secure Access</span>
             </div>
           </div>
 
           <button 
             onClick={onGuest}
-            className="w-full bg-slate-200/50 dark:bg-slate-800/50 hover:bg-slate-300 dark:hover:bg-slate-800 text-dark-text font-medium py-4 rounded-xl border border-dark-border transition-all active:scale-95 flex items-center justify-center gap-2"
+            className="w-full bg-slate-800/40 hover:bg-slate-800/60 text-slate-300 font-black py-5 rounded-[2rem] border border-white/5 transition-all active:scale-95 flex items-center justify-center gap-3 uppercase text-[10px] tracking-[4px]"
           >
-            <i className="fa-solid fa-user-secret"></i> Start Walking (Guest Mode)
+            <i className="fa-solid fa-user-secret opacity-50"></i> Start in Guest Mode
           </button>
 
         </div>
 
-        <div className="mt-12 text-center space-y-4 animate-fade-in" style={{ animationDelay: '0.5s' }}>
-             <p className="text-xs text-dark-muted">
-                By continuing, you agree to our <a href="/terms-conditions" className="text-brand-500 hover:underline">Terms</a> & <a href="/privacy-policy" className="text-brand-500 hover:underline">Privacy Policy</a>.
-             </p>
+        <div className="mt-16 text-center space-y-6 animate-fade-in" style={{ animationDelay: '0.5s' }}>
+             <div className="flex justify-center gap-6">
+                <button onClick={() => onShowLegal('terms')} className="text-[10px] font-black text-slate-500 hover:text-brand-500 uppercase tracking-widest transition-colors">Terms</button>
+                <div className="w-1 h-1 bg-slate-800 rounded-full my-auto"></div>
+                <button onClick={() => onShowLegal('privacy')} className="text-[10px] font-black text-slate-500 hover:text-brand-500 uppercase tracking-widest transition-colors">Privacy</button>
+             </div>
              
-             <div className="pt-6 pb-2 border-t border-dark-border/20 mt-4">
-                <p className="text-xs text-dark-muted">
-                    Built with ❤️ & <span className="text-orange-500 font-bold">Masala Chai ☕</span> by 
-                    <span className="block text-brand-500 font-bold mt-1 text-sm tracking-wide">Afzal Hameed</span>
-                    <span className="text-[10px] block opacity-70">from Sparq IT Service</span>
+             <div className="pt-8 border-t border-white/5 mt-4">
+                <p className="text-[9px] text-slate-600 font-bold uppercase tracking-[2px] leading-loose">
+                    Handcrafted with Pride in India<br/>
+                    <span className="text-white opacity-80">By Afzal Hameed</span>
                 </p>
              </div>
         </div>
