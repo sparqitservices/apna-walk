@@ -89,6 +89,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [isUpdating, setIsUpdating] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [updateSuccess, setUpdateSuccess] = useState(false);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
@@ -103,6 +104,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         setTempProfile({ ...profile });
         setUpdateSuccess(false);
         setIsLoggingOut(false);
+        setShowLogoutConfirm(false);
     }
   }, [isOpen, settings, profile]);
 
@@ -141,13 +143,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     setTimeout(() => onClose(), 800);
   };
 
-  const handleDisconnect = () => {
-    if (confirm("Logout of ApnaWalk? This will clear your current cloud session. Local steps remain until cache is wiped.")) {
-        setIsLoggingOut(true);
-        if (navigator.vibrate) navigator.vibrate([50, 100]);
-        // Trigger parent onLogout which calls authService.signOut
-        onLogout();
-    }
+  const confirmLogout = () => {
+      setIsLoggingOut(true);
+      if (navigator.vibrate) navigator.vibrate([50, 100]);
+      onLogout();
   };
 
   return (
@@ -229,15 +228,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           <div className="pt-10 border-t border-white/5 space-y-4">
                 <SectionHeader icon="fa-triangle-exclamation" title="Danger Zone" />
                 <button 
-                    onClick={handleDisconnect}
+                    onClick={() => setShowLogoutConfirm(true)}
                     disabled={isLoggingOut}
                     className="w-full py-5 bg-red-500/10 border border-red-500/20 text-red-500 rounded-[1.8rem] text-[11px] font-black uppercase tracking-[4px] hover:bg-red-500 hover:text-white transition-all active:scale-[0.98] group flex items-center justify-center gap-3 shadow-xl disabled:opacity-50"
                 >
-                    {isLoggingOut ? (
-                        <><i className="fa-solid fa-circle-notch fa-spin"></i> Disconnecting...</>
-                    ) : (
-                        <><i className="fa-solid fa-power-off group-hover:rotate-90 transition-transform duration-500"></i> Disconnect Account</>
-                    )}
+                    <i className="fa-solid fa-power-off group-hover:rotate-90 transition-transform duration-500"></i> Disconnect Account
                 </button>
                 <p className="text-[8px] text-slate-600 font-bold uppercase tracking-widest text-center">Version 2.4.0 • Built by Sparq IT</p>
           </div>
@@ -260,6 +255,37 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 )}
             </button>
         </div>
+
+        {/* CUSTOM LOGOUT POPUP OVERLAY */}
+        {showLogoutConfirm && (
+            <div className="absolute inset-0 z-50 bg-[#0a0f14]/80 backdrop-blur-md flex items-center justify-center p-6 animate-fade-in">
+                <div className="bg-slate-900 w-full max-w-sm rounded-[2.5rem] border border-red-500/30 shadow-[0_40px_80px_rgba(0,0,0,0.9)] p-8 text-center animate-message-pop">
+                    <div className="w-20 h-20 bg-red-500/10 rounded-[1.8rem] flex items-center justify-center text-red-500 mx-auto mb-6 border border-red-500/20">
+                        <i className="fa-solid fa-triangle-exclamation text-3xl"></i>
+                    </div>
+                    <h3 className="text-white font-black text-xl uppercase tracking-tighter italic mb-2">Disconnect Account?</h3>
+                    <p className="text-slate-400 text-xs leading-relaxed font-bold uppercase tracking-widest mb-8 opacity-80">
+                        This will clear your cloud session. Local steps remain until browser cache is wiped.
+                    </p>
+                    <div className="flex flex-col gap-3">
+                        <button 
+                            onClick={confirmLogout}
+                            disabled={isLoggingOut}
+                            className="w-full py-4 bg-red-600 hover:bg-red-500 text-white font-black rounded-2xl text-[10px] uppercase tracking-[4px] shadow-lg shadow-red-900/20 transition-all active:scale-95"
+                        >
+                            {isLoggingOut ? <i className="fa-solid fa-circle-notch fa-spin"></i> : "Confirm Logout"}
+                        </button>
+                        <button 
+                            onClick={() => setShowLogoutConfirm(false)}
+                            disabled={isLoggingOut}
+                            className="w-full py-4 bg-slate-800 hover:bg-slate-700 text-slate-400 font-black rounded-2xl text-[10px] uppercase tracking-[4px] transition-all active:scale-95"
+                        >
+                            Stay Logged In
+                        </button>
+                    </div>
+                </div>
+            </div>
+        )}
       </div>
     </div>
   );

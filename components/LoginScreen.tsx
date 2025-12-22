@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { ApnaWalkLogo } from './ApnaWalkLogo';
-import { signInWithGoogle, signInWithGoogleOneTap } from '../services/authService';
+import { signInWithGoogleOneTap } from '../services/authService';
 
 interface LoginScreenProps {
   onLogin: (name: string, email: string) => void; 
@@ -13,48 +13,45 @@ declare const google: any;
 
 export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onGuest, onShowLegal }) => {
   const [isLoading, setIsLoading] = useState(false);
+  const [isGsiReady, setIsGsiReady] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const googleBtnRef = useRef<HTMLDivElement>(null);
 
-  // Initialize Google Identity Services
+  // Initialize Google Identity Services as soon as library is available
   useEffect(() => {
     let isMounted = true;
+    let checkInterval: number;
 
     const initializeGSI = () => {
-      if (typeof google === 'undefined' || !google.accounts || !google.accounts.id) {
-          console.warn("GSI library not yet loaded");
-          return;
-      }
-
-      try {
-        // ApnaWalk Official Client ID
-        const client_id = "680287114674-8b6g3id67v9sq6o47is6n9m2v991j2sh.apps.googleusercontent.com";
+      if (typeof google !== 'undefined' && google.accounts && google.accounts.id) {
+        if (checkInterval) clearInterval(checkInterval);
         
-        google.accounts.id.initialize({
-          client_id: client_id,
-          callback: async (response: any) => {
-            if (!isMounted) return;
-            setIsLoading(true);
-            setErrorMsg(null);
-            try {
-              // Valid JWT ID Token from Google
-              await signInWithGoogleOneTap(response.credential);
-            } catch (err: any) {
-              console.error("Auth sync failed:", err);
-              if (isMounted) {
-                setErrorMsg("One Tap failed. Please use the button below.");
-                setIsLoading(false);
+        try {
+          const client_id = "680287114674-8b6g3id67v9sq6o47is6n9m2v991j2sh.apps.googleusercontent.com";
+          
+          google.accounts.id.initialize({
+            client_id: client_id,
+            callback: async (response: any) => {
+              if (!isMounted) return;
+              setIsLoading(true);
+              setErrorMsg(null);
+              try {
+                await signInWithGoogleOneTap(response.credential);
+              } catch (err: any) {
+                console.error("Auth sync failed:", err);
+                if (isMounted) {
+                  setErrorMsg("One Tap failed. Please try again.");
+                  setIsLoading(false);
+                }
               }
-            }
-          },
-          auto_select: false,
-          itp_support: true, 
-          use_fedcm_for_prompt: true, // Required for modern Chrome (130+)
-          context: 'signin'
-        });
+            },
+            auto_select: false,
+            itp_support: true, 
+            use_fedcm_for_prompt: true,
+            context: 'signin'
+          });
 
-        // 1. Render standard button as reliable primary method
-        if (googleBtnRef.current) {
+          if (googleBtnRef.current) {
             google.accounts.id.renderButton(googleBtnRef.current, {
                 type: 'standard',
                 theme: 'outline',
@@ -63,43 +60,25 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onGuest, onSh
                 shape: 'pill',
                 width: 320
             });
+            setIsGsiReady(true);
+          }
+
+          google.accounts.id.prompt();
+        } catch (e) {
+          console.warn("GSI setup error:", e);
         }
-
-        // 2. Trigger One Tap with logging
-        google.accounts.id.prompt((notification: any) => {
-          if (notification.isNotDisplayed()) {
-            console.debug("One Tap Display Issue:", notification.getNotDisplayedReason());
-          }
-          if (notification.isSkippedMoment()) {
-            console.debug("One Tap Skipped:", notification.getSkippedReason());
-          }
-        });
-
-      } catch (e) {
-        console.warn("GSI setup error:", e);
       }
     };
 
-    // Delay initialization to ensure script is fully ready
-    const timer = setTimeout(initializeGSI, 1500);
+    // Check immediately and then periodically until ready
+    initializeGSI();
+    checkInterval = window.setInterval(initializeGSI, 100);
+
     return () => { 
         isMounted = false; 
-        clearTimeout(timer);
+        if (checkInterval) clearInterval(checkInterval);
     };
   }, []);
-
-  const handleManualLogin = async () => {
-    setIsLoading(true);
-    setErrorMsg(null);
-    try {
-        await signInWithGoogle();
-        // Redirect is handled by Supabase/Google OAuth
-    } catch (err: any) {
-        console.error("Manual Login Error:", err);
-        setErrorMsg("Access Denied. Check your connection or try Guest Mode.");
-        setIsLoading(false);
-    }
-  };
 
   const handleGuestMode = () => {
       if (navigator.vibrate) navigator.vibrate(10);
@@ -133,9 +112,17 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onGuest, onSh
               </div>
           )}
 
-          {/* Official Google GSI Button Container */}
-          <div className="w-full flex justify-center min-h-[50px] animate-fade-in" style={{ animationDelay: '0.2s' }}>
-              <div ref={googleBtnRef} className="w-full flex justify-center"></div>
+          {/* Official Google GSI Button Container with Skeleton Loader */}
+          <div className="w-full flex justify-center min-h-[44px] relative">
+              {!isGsiReady && !isLoading && (
+                  <div className="absolute inset-0 flex justify-center items-center">
+                      <div className="w-[320px] h-[44px] bg-white/5 rounded-full animate-pulse border border-white/10 flex items-center justify-center gap-3">
+                          <div className="w-5 h-5 bg-white/10 rounded-full"></div>
+                          <div className="w-24 h-2 bg-white/10 rounded"></div>
+                      </div>
+                  </div>
+              )}
+              <div ref={googleBtnRef} className={`w-full flex justify-center transition-opacity duration-300 ${isGsiReady ? 'opacity-100' : 'opacity-0'}`}></div>
           </div>
 
           <div className="relative py-4 w-full">
@@ -146,15 +133,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onGuest, onSh
                 <span className="bg-[#0a0f14] px-6 text-slate-600 uppercase font-black tracking-[6px]">Secure Sync</span>
             </div>
           </div>
-
-          {/* Manual OAuth Button (Fallback) */}
-          <button 
-            onClick={handleManualLogin}
-            disabled={isLoading}
-            className="w-full max-w-[320px] bg-white/5 hover:bg-white/10 text-white font-black py-4 rounded-full border border-white/10 transition-all active:scale-95 flex items-center justify-center gap-3 uppercase text-[10px] tracking-[4px] disabled:opacity-50"
-          >
-             {isLoading ? <i className="fa-solid fa-circle-notch fa-spin"></i> : <><i className="fa-brands fa-google text-brand-500"></i> Manual Sign In</>}
-          </button>
 
           <button 
             onClick={handleGuestMode}
