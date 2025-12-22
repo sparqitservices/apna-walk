@@ -20,15 +20,25 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onGuest, onSh
     let isMounted = true;
 
     const initializeOneTap = () => {
+      // One Tap requires HTTPS or localhost
+      const isSecure = window.location.protocol === 'https:' || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+      
+      if (!isSecure) {
+        console.warn("Google One Tap requires HTTPS. Switching to manual login.");
+        return;
+      }
+
       if (typeof google !== 'undefined' && google.accounts && google.accounts.id) {
         try {
           google.accounts.id.initialize({
+            // Verified Client ID for ApnaWalk
             client_id: "680287114674-8b6g3id67v9sq6o47is6n9m2v991j2sh.apps.googleusercontent.com", 
             callback: async (response: any) => {
               if (!isMounted) return;
               setIsLoading(true);
               setErrorMsg(null);
               try {
+                // response.credential is the ID Token
                 await signInWithGoogleOneTap(response.credential);
               } catch (err: any) {
                 console.error("One Tap Sync Failed", err);
@@ -40,16 +50,21 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onGuest, onSh
             },
             auto_select: false, 
             itp_support: true,
-            use_fedcm_for_prompt: true, // Crucial for Chrome 130+
+            use_fedcm_for_prompt: true, // Crucial for Chrome 130+ compatibility
+            context: 'signin',
+            cancel_on_tap_outside: false
           });
 
           // Show One Tap prompt
           google.accounts.id.prompt((notification: any) => {
             if (notification.isNotDisplayed()) {
-              console.debug("One Tap Not Displayed:", notification.getNotDisplayedReason());
+              console.debug("One Tap Not Displayed Reason:", notification.getNotDisplayedReason());
             }
             if (notification.isSkippedMoment()) {
-              console.log("One Tap skipped");
+              console.log("One Tap skipped moment:", notification.getSkippedReason());
+            }
+            if (notification.isDismissedMoment()) {
+                console.log("One Tap dismissed moment:", notification.getDismissedReason());
             }
           });
         } catch (e) {
@@ -58,8 +73,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onGuest, onSh
       }
     };
 
-    // Fast trigger
-    const timer = setTimeout(initializeOneTap, 600);
+    // Fast trigger with a slight delay to ensure the script is fully parsed
+    const timer = setTimeout(initializeOneTap, 1000);
     return () => { 
         isMounted = false; 
         clearTimeout(timer);
@@ -71,7 +86,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onGuest, onSh
     setErrorMsg(null);
     try {
         await signInWithGoogle();
-        // Browser handles redirect
+        // Browser handles redirect via Supabase OAuth
     } catch (error: any) {
         console.error("Manual Login Failed", error);
         setErrorMsg("Connection issue. Please try again.");
