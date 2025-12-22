@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { ApnaWalkLogo } from './ApnaWalkLogo';
 import { signInWithGoogle, signInWithGoogleOneTap } from '../services/authService';
 
@@ -14,168 +14,151 @@ declare const google: any;
 export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onGuest, onShowLegal }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const googleBtnRef = useRef<HTMLDivElement>(null);
 
-  // Initialize Google One Tap with modern browser support (FedCM)
+  // Initialize Google Identity Services
   useEffect(() => {
     let isMounted = true;
 
-    const initializeOneTap = () => {
-      // One Tap requires HTTPS or localhost
-      const isSecure = window.location.protocol === 'https:' || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-      
-      if (!isSecure) {
-        console.warn("Google One Tap requires a secure context (HTTPS). Fallback to manual login.");
-        return;
+    const initializeGSI = () => {
+      if (typeof google === 'undefined' || !google.accounts || !google.accounts.id) {
+          console.warn("GSI library not yet loaded");
+          return;
       }
 
-      if (typeof google !== 'undefined' && google.accounts && google.accounts.id) {
-        try {
-          // Initialize Google Identity Services
-          google.accounts.id.initialize({
-            client_id: "680287114674-8b6g3id67v9sq6o47is6n9m2v991j2sh.apps.googleusercontent.com", 
-            callback: async (response: any) => {
-              if (!isMounted) return;
-              setIsLoading(true);
-              setErrorMsg(null);
-              try {
-                // response.credential is the JWT ID Token
-                await signInWithGoogleOneTap(response.credential);
-              } catch (err: any) {
-                console.error("One Tap Authentication Failed:", err);
-                if (isMounted) {
-                  setErrorMsg("Auth sync failed. Please use the button below.");
-                  setIsLoading(false);
-                }
+      try {
+        const client_id = "680287114674-8b6g3id67v9sq6o47is6n9m2v991j2sh.apps.googleusercontent.com";
+        
+        google.accounts.id.initialize({
+          client_id: client_id,
+          callback: async (response: any) => {
+            if (!isMounted) return;
+            setIsLoading(true);
+            setErrorMsg(null);
+            try {
+              // Valid JWT ID Token from Google
+              await signInWithGoogleOneTap(response.credential);
+            } catch (err: any) {
+              console.error("Auth sync failed:", err);
+              if (isMounted) {
+                setErrorMsg("One Tap failed. Please use the button.");
+                setIsLoading(false);
               }
-            },
-            // Configuration for maximum compatibility
-            auto_select: false, 
-            itp_support: true,
-            use_fedcm_for_prompt: true, // Google's new standard for privacy-preserving auth
-            context: 'signin',
-            ux_mode: 'popup', // Ensure it shows as a bubble/popup
-            cancel_on_tap_outside: false
-          });
+            }
+          },
+          auto_select: false,
+          itp_support: true, // Essential for Safari and browsers with tracking protection
+          use_fedcm_for_prompt: true, // Required for modern Chrome compatibility
+          context: 'signin'
+        });
 
-          // Display the One Tap prompt
-          google.accounts.id.prompt((notification: any) => {
-            if (notification.isNotDisplayed()) {
-              const reason = notification.getNotDisplayedReason();
-              console.debug("One Tap Not Displayed:", reason);
-              // If it's suppressed (e.g. user closed it before), we don't show error, 
-              // just let them use the manual button.
-            }
-            if (notification.isSkippedMoment()) {
-              console.log("One Tap skipped:", notification.getSkippedReason());
-            }
-          });
-        } catch (e) {
-          console.warn("Google Identity initialization error:", e);
+        // 1. Render the standard "Sign in with Google" button (More stable than One Tap)
+        if (googleBtnRef.current) {
+            google.accounts.id.renderButton(googleBtnRef.current, {
+                type: 'standard',
+                theme: 'outline',
+                size: 'large',
+                text: 'continue_with',
+                shape: 'pill',
+                width: googleBtnRef.current.offsetWidth || 340
+            });
         }
+
+        // 2. Trigger the One Tap prompt
+        google.accounts.id.prompt((notification: any) => {
+          if (notification.isNotDisplayed()) {
+            console.debug("One Tap not shown:", notification.getNotDisplayedReason());
+          }
+          if (notification.isSkippedMoment()) {
+            console.debug("One Tap skipped:", notification.getSkippedReason());
+          }
+        });
+
+      } catch (e) {
+        console.warn("GSI setup error:", e);
       }
     };
 
-    // Delay slightly to ensure script is fully ready
-    const timer = setTimeout(initializeOneTap, 1500);
+    // Delay slightly to ensure script is loaded and DOM is painted
+    const timer = setTimeout(initializeGSI, 2000);
     return () => { 
         isMounted = false; 
         clearTimeout(timer);
     };
   }, []);
 
-  const handleGoogleLogin = async () => {
-    setIsLoading(true);
-    setErrorMsg(null);
-    try {
-        await signInWithGoogle();
-        // Browser handles redirect via Supabase OAuth
-    } catch (error: any) {
-        console.error("Standard OAuth Login Failed:", error);
-        setErrorMsg("Network error. Check connection and try again.");
-        setIsLoading(false);
-    }
+  const handleGuestMode = () => {
+      if (navigator.vibrate) navigator.vibrate(10);
+      onGuest();
   };
 
   return (
     <div className="min-h-screen bg-[#0a0f14] flex flex-col items-center justify-center p-6 relative overflow-hidden">
-      {/* Dynamic Background Glows */}
+      {/* Background Ambience */}
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full max-w-lg z-0 pointer-events-none">
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[300px] h-[300px] bg-[#FF6B00] opacity-[0.08] blur-[100px] rounded-full animate-pulse-slow"></div>
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] h-[400px] bg-[#22C55E] opacity-[0.05] blur-[120px] rounded-full animate-pulse-slow" style={{ animationDelay: '1s' }}></div>
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[300px] h-[300px] bg-[#FF6B00] opacity-[0.06] blur-[100px] rounded-full animate-pulse-slow"></div>
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] h-[400px] bg-[#22C55E] opacity-[0.04] blur-[120px] rounded-full animate-pulse-slow" style={{ animationDelay: '1s' }}></div>
       </div>
       
       <div className="w-full max-w-md relative z-10 flex flex-col items-center">
         
-        {/* Brand Identity */}
+        {/* Brand Reveal */}
         <div className="mb-14 text-center animate-fade-in">
            <div className="scale-125 mb-4 inline-block">
                <ApnaWalkLogo size={56} />
            </div>
-           <div className="h-0.5 w-12 bg-gradient-to-r from-transparent via-slate-700 to-transparent mx-auto mt-4 mb-2"></div>
-           <p className="text-slate-500 text-[10px] font-black tracking-[4px] uppercase text-center">India's Smartest Step Counter</p>
+           <div className="h-0.5 w-12 bg-gradient-to-r from-transparent via-slate-800 to-transparent mx-auto mt-4 mb-2"></div>
+           <p className="text-slate-500 text-[9px] font-black tracking-[5px] uppercase text-center">India's Smartest Step Counter</p>
         </div>
 
-        <div className="w-full space-y-4">
+        <div className="w-full space-y-6 flex flex-col items-center">
           
           {errorMsg && (
-              <div className="bg-red-500/10 border border-red-500/30 text-red-400 text-[10px] font-black uppercase tracking-widest p-4 rounded-2xl text-center mb-2 animate-message-pop">
+              <div className="w-full bg-red-500/10 border border-red-500/20 text-red-400 text-[10px] font-black uppercase tracking-widest p-4 rounded-2xl text-center animate-message-pop">
                   <i className="fa-solid fa-circle-exclamation mr-2"></i> {errorMsg}
               </div>
           )}
 
-          {/* Primary Login Button (Standard OAuth) - Reliable fallback */}
-          <button 
-            onClick={handleGoogleLogin}
-            disabled={isLoading}
-            className="w-full bg-white text-slate-900 font-black py-5 rounded-[2rem] shadow-[0_20px_50px_rgba(255,255,255,0.1)] hover:shadow-brand-500/20 transition-all transform active:scale-95 flex items-center justify-center gap-3 relative overflow-hidden group border-2 border-white uppercase text-xs tracking-widest"
-          >
-             {isLoading ? (
-                <i className="fa-solid fa-circle-notch fa-spin text-slate-600"></i>
-             ) : (
-                <>
-                    <img src="https://www.svgrepo.com/show/475656/google-color.svg" alt="Google" className="w-5 h-5 group-hover:scale-110 transition-transform" />
-                    <span>Continue with Gmail</span>
-                </>
-             )}
-          </button>
+          {/* This is where the official Google button is rendered for maximum reliability */}
+          <div className="w-full flex justify-center min-h-[50px]">
+              <div ref={googleBtnRef} className="w-full max-w-[340px]"></div>
+          </div>
 
-          <div className="relative py-6">
+          <div className="relative py-4 w-full">
             <div className="absolute inset-0 flex items-center">
                 <div className="w-full border-t border-white/5"></div>
             </div>
             <div className="relative flex justify-center text-[10px]">
-                <span className="bg-[#0a0f14] px-4 text-slate-600 uppercase font-black tracking-[5px]">Or</span>
+                <span className="bg-[#0a0f14] px-6 text-slate-600 uppercase font-black tracking-[6px]">Secure Sync</span>
             </div>
           </div>
 
           <button 
-            onClick={onGuest}
+            onClick={handleGuestMode}
             disabled={isLoading}
-            className="w-full bg-slate-800/40 hover:bg-slate-800/60 text-slate-300 font-black py-5 rounded-[2rem] border border-white/5 transition-all active:scale-95 flex items-center justify-center gap-3 uppercase text-[10px] tracking-[4px] disabled:opacity-50"
+            className="w-full bg-slate-800/40 hover:bg-slate-800/60 text-slate-400 font-black py-4 rounded-[2rem] border border-white/5 transition-all active:scale-95 flex items-center justify-center gap-3 uppercase text-[10px] tracking-[4px] disabled:opacity-50 shadow-inner"
           >
-            <i className="fa-solid fa-user-secret opacity-50"></i> Try Guest Mode
+            <i className="fa-solid fa-user-secret opacity-40"></i> Try Guest Mode
           </button>
 
         </div>
 
-        {/* Footer Links */}
+        {/* Legal & Branding */}
         <div className="mt-16 text-center space-y-6 animate-fade-in" style={{ animationDelay: '0.4s' }}>
-             <div className="flex justify-center gap-6">
-                <button onClick={() => onShowLegal('terms')} className="text-[10px] font-black text-slate-500 hover:text-brand-500 uppercase tracking-widest transition-colors">Terms</button>
-                <div className="w-1 h-1 bg-slate-800 rounded-full my-auto"></div>
-                <button onClick={() => onShowLegal('privacy')} className="text-[10px] font-black text-slate-500 hover:text-brand-500 uppercase tracking-widest transition-colors">Privacy</button>
+             <div className="flex justify-center gap-8">
+                <button onClick={() => onShowLegal('terms')} className="text-[9px] font-black text-slate-600 hover:text-brand-500 uppercase tracking-widest transition-colors">Terms</button>
+                <div className="w-1 h-1 bg-slate-800 rounded-full my-auto opacity-30"></div>
+                <button onClick={() => onShowLegal('privacy')} className="text-[9px] font-black text-slate-600 hover:text-brand-500 uppercase tracking-widest transition-colors">Privacy</button>
              </div>
              
-             <div className="pt-8 border-t border-white/5 mt-4">
-                <p className="text-[9px] text-slate-600 font-bold uppercase tracking-[2px] leading-loose">
-                    Built for Bharat<br/>
-                    <span className="text-white opacity-80 font-black tracking-widest uppercase">Sparq IT Ecosystem</span>
+             <div className="pt-8 border-t border-white/5">
+                <p className="text-[8px] text-slate-700 font-bold uppercase tracking-[3px] leading-loose">
+                    Local-First Architecture<br/>
+                    <span className="text-white opacity-40 font-black tracking-widest uppercase">Sparq IT Service</span>
                 </p>
              </div>
         </div>
       </div>
-
-      {/* Google One Tap will render automatically in the top-right if configured correctly */}
     </div>
   );
 };
