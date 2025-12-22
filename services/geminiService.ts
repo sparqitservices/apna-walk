@@ -5,7 +5,7 @@ import { WalkSession, AIInsight, DailyHistory, Badge, WeeklyPlan, WeatherData, F
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 const MODEL_ID = "gemini-3-flash-preview";
 
-// --- RATE LIMITING LOGIC ---
+// --- RATE LIMITING LOGIC (Abuse Prevention) ---
 const USAGE_KEY = 'apnawalk_ai_usage';
 const MAX_REQUESTS_PER_HOUR = 15;
 
@@ -70,7 +70,8 @@ export const generatePersonalizedNudge = async (
             }
         });
         recordUsage();
-        return response.text ? JSON.parse(response.text) : { title: "", body: "" };
+        const text = response.text || '{"title":"","body":""}';
+        return JSON.parse(text);
     } catch (e) { return { title: "", body: "" }; }
 };
 
@@ -97,7 +98,8 @@ export const getWalkingInsight = async (session: WalkSession): Promise<AIInsight
       }
     });
     recordUsage();
-    return response.text ? JSON.parse(response.text) : { summary: "Great walk!", motivation: "Keep it up!", tips: [] };
+    const text = response.text || '{"summary":"Great walk!","motivation":"Keep it up!","tips":[]}';
+    return JSON.parse(text);
   } catch (error) { throw error; }
 };
 
@@ -151,7 +153,8 @@ export const generateWeeklyPlan = async (goal: string, intensityLevel: string): 
             }
         });
         recordUsage();
-        const data = JSON.parse(response.text);
+        const text = response.text || '{"schedule":[]}';
+        const data = JSON.parse(text);
         return { id: `plan-${Date.now()}`, goal, createdAt: new Date().toISOString(), schedule: data.schedule };
     } catch (e) { throw e; }
 };
@@ -194,9 +197,9 @@ export const findLocalEvents = async (location: string): Promise<{ events: Fitne
         recordUsage();
         
         const text = response.text || "[]";
-        // Extract JSON block from potential markdown or conversational wrapping
+        // Extract JSON block safely
         const jsonMatch = text.match(/\[\s*\{.*\}\s*\]/s);
-        const jsonStr = jsonMatch ? jsonMatch[0] : text;
+        const jsonStr = jsonMatch ? jsonMatch[0] : (text.startsWith('[') ? text : "[]");
         const sources = response.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
 
         try {
