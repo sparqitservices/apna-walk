@@ -27,6 +27,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onGuest, onSh
       }
 
       try {
+        // ApnaWalk Official Client ID
         const client_id = "680287114674-8b6g3id67v9sq6o47is6n9m2v991j2sh.apps.googleusercontent.com";
         
         google.accounts.id.initialize({
@@ -41,18 +42,18 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onGuest, onSh
             } catch (err: any) {
               console.error("Auth sync failed:", err);
               if (isMounted) {
-                setErrorMsg("One Tap failed. Please use the button.");
+                setErrorMsg("One Tap failed. Please use the button below.");
                 setIsLoading(false);
               }
             }
           },
           auto_select: false,
-          itp_support: true, // Essential for Safari and browsers with tracking protection
-          use_fedcm_for_prompt: true, // Required for modern Chrome compatibility
+          itp_support: true, 
+          use_fedcm_for_prompt: true, // Required for modern Chrome (130+)
           context: 'signin'
         });
 
-        // 1. Render the standard "Sign in with Google" button (More stable than One Tap)
+        // 1. Render standard button as reliable primary method
         if (googleBtnRef.current) {
             google.accounts.id.renderButton(googleBtnRef.current, {
                 type: 'standard',
@@ -60,17 +61,17 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onGuest, onSh
                 size: 'large',
                 text: 'continue_with',
                 shape: 'pill',
-                width: googleBtnRef.current.offsetWidth || 340
+                width: 320
             });
         }
 
-        // 2. Trigger the One Tap prompt
+        // 2. Trigger One Tap with logging
         google.accounts.id.prompt((notification: any) => {
           if (notification.isNotDisplayed()) {
-            console.debug("One Tap not shown:", notification.getNotDisplayedReason());
+            console.debug("One Tap Display Issue:", notification.getNotDisplayedReason());
           }
           if (notification.isSkippedMoment()) {
-            console.debug("One Tap skipped:", notification.getSkippedReason());
+            console.debug("One Tap Skipped:", notification.getSkippedReason());
           }
         });
 
@@ -79,13 +80,26 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onGuest, onSh
       }
     };
 
-    // Delay slightly to ensure script is loaded and DOM is painted
-    const timer = setTimeout(initializeGSI, 2000);
+    // Delay initialization to ensure script is fully ready
+    const timer = setTimeout(initializeGSI, 1500);
     return () => { 
         isMounted = false; 
         clearTimeout(timer);
     };
   }, []);
+
+  const handleManualLogin = async () => {
+    setIsLoading(true);
+    setErrorMsg(null);
+    try {
+        await signInWithGoogle();
+        // Redirect is handled by Supabase/Google OAuth
+    } catch (err: any) {
+        console.error("Manual Login Error:", err);
+        setErrorMsg("Access Denied. Check your connection or try Guest Mode.");
+        setIsLoading(false);
+    }
+  };
 
   const handleGuestMode = () => {
       if (navigator.vibrate) navigator.vibrate(10);
@@ -119,9 +133,9 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onGuest, onSh
               </div>
           )}
 
-          {/* This is where the official Google button is rendered for maximum reliability */}
-          <div className="w-full flex justify-center min-h-[50px]">
-              <div ref={googleBtnRef} className="w-full max-w-[340px]"></div>
+          {/* Official Google GSI Button Container */}
+          <div className="w-full flex justify-center min-h-[50px] animate-fade-in" style={{ animationDelay: '0.2s' }}>
+              <div ref={googleBtnRef} className="w-full flex justify-center"></div>
           </div>
 
           <div className="relative py-4 w-full">
@@ -133,10 +147,19 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onGuest, onSh
             </div>
           </div>
 
+          {/* Manual OAuth Button (Fallback) */}
+          <button 
+            onClick={handleManualLogin}
+            disabled={isLoading}
+            className="w-full max-w-[320px] bg-white/5 hover:bg-white/10 text-white font-black py-4 rounded-full border border-white/10 transition-all active:scale-95 flex items-center justify-center gap-3 uppercase text-[10px] tracking-[4px] disabled:opacity-50"
+          >
+             {isLoading ? <i className="fa-solid fa-circle-notch fa-spin"></i> : <><i className="fa-brands fa-google text-brand-500"></i> Manual Sign In</>}
+          </button>
+
           <button 
             onClick={handleGuestMode}
             disabled={isLoading}
-            className="w-full bg-slate-800/40 hover:bg-slate-800/60 text-slate-400 font-black py-4 rounded-[2rem] border border-white/5 transition-all active:scale-95 flex items-center justify-center gap-3 uppercase text-[10px] tracking-[4px] disabled:opacity-50 shadow-inner"
+            className="w-full max-w-[320px] bg-slate-800/40 hover:bg-slate-800/60 text-slate-400 font-black py-4 rounded-full border border-white/5 transition-all active:scale-95 flex items-center justify-center gap-3 uppercase text-[10px] tracking-[4px] disabled:opacity-50"
           >
             <i className="fa-solid fa-user-secret opacity-40"></i> Try Guest Mode
           </button>
@@ -153,8 +176,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onGuest, onSh
              
              <div className="pt-8 border-t border-white/5">
                 <p className="text-[8px] text-slate-700 font-bold uppercase tracking-[3px] leading-loose">
-                    Local-First Architecture<br/>
-                    <span className="text-white opacity-40 font-black tracking-widest uppercase">Sparq IT Service</span>
+                    Verified PWA<br/>
+                    <span className="text-white opacity-40 font-black tracking-widest uppercase">Sparq IT Ecosystem</span>
                 </p>
              </div>
         </div>
