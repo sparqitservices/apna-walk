@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { UserSettings, UserProfile } from '../types';
 import { requestNotificationPermission } from '../services/notificationService';
@@ -86,24 +87,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [tempSettings, setTempSettings] = useState<UserSettings>(settings);
   const [tempProfile, setTempProfile] = useState<UserProfile>(profile);
   const [isUpdating, setIsUpdating] = useState(false);
-  const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [updateSuccess, setUpdateSuccess] = useState(false);
-  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
-        setTempSettings({ 
-            ...settings,
-            coachVoiceEnabled: settings.coachVoiceEnabled ?? true,
-            notifications: {
-                ...settings.notifications,
-                achievements: settings.notifications.achievements ?? true
-            }
-        });
+        setTempSettings({ ...settings });
         setTempProfile({ ...profile });
         setUpdateSuccess(false);
-        setIsLoggingOut(false);
-        setShowLogoutConfirm(false);
     }
   }, [isOpen, settings, profile]);
 
@@ -111,6 +101,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
   const handleSettingChange = (field: keyof UserSettings, value: any) => {
     let newSettings = { ...tempSettings, [field]: value };
+    // Auto-calc stride if height changes
     if (field === 'heightCm') {
         newSettings.strideLengthCm = Math.round(Number(value) * 0.415);
     }
@@ -134,18 +125,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     setUpdateSuccess(false);
     if (navigator.vibrate) navigator.vibrate(30);
     
-    await new Promise(r => setTimeout(r, 1000));
+    // Simulate sync lag for premium feel
+    await new Promise(r => setTimeout(r, 1200));
     
     onSave(tempSettings, tempProfile);
     setIsUpdating(false);
     setUpdateSuccess(true);
     setTimeout(() => onClose(), 800);
-  };
-
-  const confirmLogout = () => {
-      setIsLoggingOut(true);
-      if (navigator.vibrate) navigator.vibrate([50, 100]);
-      onLogout();
   };
 
   return (
@@ -163,35 +149,47 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 <p className="text-slate-500 text-[9px] font-black uppercase tracking-[4px] mt-1">Command Center</p>
              </div>
           </div>
-          <button onClick={onClose} disabled={isLoggingOut} className="w-11 h-11 rounded-2xl bg-white/5 text-slate-400 hover:text-white flex items-center justify-center transition-all hover:scale-110 active:scale-90 border border-white/5 disabled:opacity-30">
+          <button onClick={onClose} className="w-11 h-11 rounded-2xl bg-white/5 text-slate-400 hover:text-white flex items-center justify-center transition-all hover:scale-110 active:scale-90 border border-white/5">
             <i className="fa-solid fa-xmark"></i>
           </button>
         </div>
 
         <div className="flex-1 overflow-y-auto p-6 sm:p-10 space-y-12 no-scrollbar pb-32">
           
-          {/* Identity Section */}
+          {/* 1. Identity & Profile */}
           <div className="space-y-8">
                <div className="flex flex-col items-center mb-8">
                     <div className="relative group cursor-pointer">
-                        <div className="w-28 h-28 rounded-[2.5rem] bg-gradient-to-tr from-brand-600 to-emerald-400 p-1 shadow-2xl">
+                        <div className="w-28 h-28 rounded-[2.5rem] bg-gradient-to-tr from-brand-600 to-emerald-400 p-1 shadow-2xl transition-transform group-hover:scale-105">
                              <div className="w-full h-full rounded-[2.2rem] bg-slate-900 overflow-hidden border-4 border-slate-900">
-                                <img src={tempProfile.avatar || 'https://www.gravatar.com/avatar?d=mp'} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
+                                <img src={tempProfile.avatar || 'https://www.gravatar.com/avatar?d=mp'} className="w-full h-full object-cover" />
                              </div>
+                        </div>
+                        <div className="absolute -bottom-2 -right-2 w-10 h-10 bg-slate-800 rounded-2xl border-4 border-slate-900 flex items-center justify-center text-brand-400 shadow-xl">
+                            <i className="fa-solid fa-camera-retro text-sm"></i>
                         </div>
                     </div>
                     <h3 className="text-white font-black text-xl mt-4 italic tracking-tight">@{tempProfile.username || 'walker'}</h3>
-                    <div className="bg-brand-500/10 text-brand-500 px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-widest border border-brand-500/20 mt-1">Verified Member</div>
+                    <div className="bg-brand-500/10 text-brand-400 px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-widest border border-brand-500/20 mt-1">Verified Member</div>
                </div>
 
-               <SectionHeader icon="fa-fingerprint" title="Identity" />
+               <SectionHeader icon="fa-fingerprint" title="Subject Identity" />
                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                    <InputField label="Display Name" icon="fa-user" value={tempProfile.name} onChange={(v) => handleProfileChange('name', v)} />
                    <InputField label="Unique Handle" icon="fa-at" value={tempProfile.username || ''} onChange={(v) => handleProfileChange('username', v)} />
                </div>
+               <div className="space-y-2">
+                   <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Personal Bio</label>
+                   <textarea 
+                        value={tempProfile.bio || ''} 
+                        onChange={(e) => handleProfileChange('bio', e.target.value)}
+                        placeholder="Chasing sunrises and steps..."
+                        className="w-full bg-white/5 border border-white/5 rounded-2xl p-4 text-sm text-white focus:border-brand-500 focus:bg-white/[0.08] outline-none transition-all placeholder:text-slate-600 font-bold h-24 resize-none"
+                   />
+               </div>
           </div>
 
-          {/* Core Goals */}
+          {/* 2. Activity Matrix */}
           <div className="space-y-6">
                <SectionHeader icon="fa-bullseye" title="Activity Matrix" />
                <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
@@ -201,7 +199,91 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                </div>
           </div>
 
-          {/* Notifications Center */}
+          {/* 3. Bio-Metrics */}
+          <div className="space-y-6">
+               <SectionHeader icon="fa-dna" title="Bio-Metrics" badge="Used for stats" />
+               <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                   <InputField type="number" label="Weight" icon="fa-weight-scale" value={tempSettings.weightKg} onChange={(v) => handleSettingChange('weightKg', v)} suffix="KG" />
+                   <InputField type="number" label="Height" icon="fa-ruler-vertical" value={tempSettings.heightCm} onChange={(v) => handleSettingChange('heightCm', v)} suffix="CM" />
+               </div>
+               <div className="bg-slate-800/40 p-5 rounded-3xl border border-white/5 flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                        <div className="w-10 h-10 bg-brand-500/10 rounded-xl flex items-center justify-center text-brand-500">
+                            <i className="fa-solid fa-arrows-left-right-to-line"></i>
+                        </div>
+                        <div>
+                            <p className="text-white font-bold text-sm">Stride Length</p>
+                            <p className="text-[10px] text-slate-500 font-bold uppercase">Auto-calculated</p>
+                        </div>
+                    </div>
+                    <span className="text-2xl font-black text-white italic">{tempSettings.strideLengthCm}<small className="text-[10px] ml-1 not-italic">cm</small></span>
+               </div>
+          </div>
+
+          {/* 4. Persona & Vibe */}
+          <div className="space-y-6">
+               <SectionHeader icon="fa-person-walking-arrow-right" title="Walking Persona" />
+               <div className="space-y-4">
+                    <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Typical Pace</label>
+                    <div className="grid grid-cols-3 gap-3">
+                        {['slow', 'moderate', 'fast'].map(p => (
+                            <button 
+                                key={p}
+                                onClick={() => { if(navigator.vibrate) navigator.vibrate(10); handleProfileChange('pace', p); }}
+                                className={`py-4 rounded-2xl border font-black text-[10px] uppercase tracking-widest transition-all ${tempProfile.pace === p ? 'bg-brand-600 border-brand-400 text-white shadow-lg' : 'bg-white/5 border-white/5 text-slate-500 hover:border-white/10'}`}
+                            >
+                                {p}
+                            </button>
+                        ))}
+                    </div>
+               </div>
+               <div className="space-y-4">
+                    <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Preferred Time</label>
+                    <div className="grid grid-cols-3 gap-3">
+                        {['morning', 'afternoon', 'evening'].map(t => (
+                            <button 
+                                key={t}
+                                onClick={() => { if(navigator.vibrate) navigator.vibrate(10); handleProfileChange('preferred_time', t); }}
+                                className={`py-4 rounded-2xl border font-black text-[10px] uppercase tracking-widest transition-all ${tempProfile.preferred_time === t ? 'bg-blue-600 border-blue-400 text-white shadow-lg' : 'bg-white/5 border-white/5 text-slate-500 hover:border-white/10'}`}
+                            >
+                                {t}
+                            </button>
+                        ))}
+                    </div>
+               </div>
+          </div>
+
+          {/* 5. Radar & Privacy */}
+          <div className="space-y-6">
+               <SectionHeader icon="fa-shield-halved" title="Radar & Privacy" badge="Security" />
+               <div className="grid grid-cols-1 gap-3">
+                   <StylishToggle 
+                        checked={tempProfile.is_ghost_mode || false} 
+                        onChange={(v) => handleProfileChange('is_ghost_mode', v)}
+                        icon="fa-ghost"
+                        label="Ghost Mode"
+                        subLabel="Hide from nearby discovery"
+                        colorClass="peer-checked:bg-purple-600"
+                   />
+                   <StylishToggle 
+                        checked={tempProfile.share_live_location || false} 
+                        onChange={(v) => handleProfileChange('share_live_location', v)}
+                        icon="fa-location-dot"
+                        label="Live Radar"
+                        subLabel="Share location with buddies"
+                        colorClass="peer-checked:bg-blue-500"
+                   />
+                   <StylishToggle 
+                        checked={tempProfile.is_stats_public || false} 
+                        onChange={(v) => handleProfileChange('is_stats_public', v)}
+                        icon="fa-chart-simple"
+                        label="Public Stats"
+                        subLabel="Appear on global leaderboards"
+                   />
+               </div>
+          </div>
+
+          {/* 6. Notifications Center */}
           <div className="space-y-6">
                <SectionHeader icon="fa-bell" title="Notifications" badge="Real-time" />
                <div className="grid grid-cols-1 gap-3">
@@ -220,16 +302,23 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         subLabel="Nudges when you're sedentary"
                         colorClass="peer-checked:bg-blue-500"
                    />
+                   <StylishToggle 
+                        checked={tempSettings.coachVoiceEnabled} 
+                        onChange={(v) => handleSettingChange('coachVoiceEnabled', v)}
+                        icon="fa-comment-dots"
+                        label="AI Voice Guide"
+                        subLabel="Coach will speak to you"
+                        colorClass="peer-checked:bg-orange-500"
+                   />
                </div>
           </div>
 
-          {/* Account Actions */}
+          {/* Danger Zone */}
           <div className="pt-10 border-t border-white/5 space-y-4">
                 <SectionHeader icon="fa-triangle-exclamation" title="Danger Zone" />
                 <button 
-                    onClick={() => setShowLogoutConfirm(true)}
-                    disabled={isLoggingOut}
-                    className="w-full py-5 bg-red-500/10 border border-red-500/20 text-red-500 rounded-[1.8rem] text-[11px] font-black uppercase tracking-[4px] hover:bg-red-500 hover:text-white transition-all active:scale-[0.98] group flex items-center justify-center gap-3 shadow-xl disabled:opacity-50"
+                    onClick={() => { if(confirm('Logout of ApnaWalk?')) onLogout(); }}
+                    className="w-full py-5 bg-red-500/10 border border-red-500/20 text-red-500 rounded-[1.8rem] text-[11px] font-black uppercase tracking-[4px] hover:bg-red-500 hover:text-white transition-all active:scale-[0.98] group flex items-center justify-center gap-3 shadow-xl"
                 >
                     <i className="fa-solid fa-power-off group-hover:rotate-90 transition-transform duration-500"></i> Disconnect Account
                 </button>
@@ -242,7 +331,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         <div className="p-6 sm:p-8 bg-slate-900/80 backdrop-blur-2xl border-t border-white/10 sticky bottom-0 z-30">
             <button 
                 onClick={handleSave}
-                disabled={isUpdating || isLoggingOut}
+                disabled={isUpdating}
                 className={`w-full py-5 rounded-[2rem] font-black text-sm uppercase tracking-[6px] shadow-[0_20px_50px_rgba(0,0,0,0.5)] transition-all transform active:scale-95 flex items-center justify-center gap-4 ${updateSuccess ? 'bg-emerald-600 text-white' : 'bg-brand-600 text-white'} disabled:opacity-50`}
             >
                 {isUpdating ? (
@@ -254,37 +343,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 )}
             </button>
         </div>
-
-        {/* CUSTOM LOGOUT POPUP OVERLAY - FIRM IMPLEMENTATION */}
-        {showLogoutConfirm && (
-            <div className="absolute inset-0 z-[100] bg-black/80 backdrop-blur-xl flex items-center justify-center p-6 animate-fade-in">
-                <div className="bg-slate-900 w-full max-w-sm rounded-[2.5rem] border border-red-500/30 shadow-[0_40px_80px_rgba(0,0,0,0.9)] p-8 text-center animate-message-pop">
-                    <div className="w-20 h-20 bg-red-500/10 rounded-[1.8rem] flex items-center justify-center text-red-500 mx-auto mb-6 border border-red-500/20">
-                        <i className="fa-solid fa-triangle-exclamation text-3xl"></i>
-                    </div>
-                    <h3 className="text-white font-black text-xl uppercase tracking-tighter italic mb-2">Logout of ApnaWalk?</h3>
-                    <p className="text-slate-400 text-xs leading-relaxed font-bold uppercase tracking-widest mb-8 opacity-80">
-                        This will clear your current cloud session. Local steps remain until cache is wiped.
-                    </p>
-                    <div className="flex flex-col gap-3">
-                        <button 
-                            onClick={confirmLogout}
-                            disabled={isLoggingOut}
-                            className="w-full py-4 bg-red-600 hover:bg-red-500 text-white font-black rounded-2xl text-[10px] uppercase tracking-[4px] shadow-lg shadow-red-900/20 transition-all active:scale-95 flex items-center justify-center gap-2"
-                        >
-                            {isLoggingOut ? <i className="fa-solid fa-circle-notch fa-spin"></i> : "Confirm Logout"}
-                        </button>
-                        <button 
-                            onClick={() => setShowLogoutConfirm(false)}
-                            disabled={isLoggingOut}
-                            className="w-full py-4 bg-slate-800 hover:bg-slate-700 text-slate-400 font-black rounded-2xl text-[10px] uppercase tracking-[4px] transition-all active:scale-95"
-                        >
-                            Stay Logged In
-                        </button>
-                    </div>
-                </div>
-            </div>
-        )}
       </div>
     </div>
   );

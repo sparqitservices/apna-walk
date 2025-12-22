@@ -60,7 +60,7 @@ export interface UserSettings {
   enableLocation: boolean;
   theme: 'green' | 'blue' | 'orange' | 'purple' | 'pink';
   coachVibe?: 'Energetic' | 'Strict' | 'Chill';
-  coachVoiceEnabled: boolean; // New feature
+  coachVoiceEnabled: boolean;
   notifications: {
     water: boolean;
     walk: boolean;
