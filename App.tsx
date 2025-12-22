@@ -45,11 +45,9 @@ import { getHydrationTip } from './services/geminiService';
 import { updateLiveLocation } from './services/buddyService';
 
 // --- GLOBAL CACHE CONTROL ---
-// Incrementing this will clear all user cache on load.
 const CURRENT_APP_VERSION = "2.4.0"; 
 
 const App: React.FC = () => {
-  // 1. Initial State from Cache (Optimistic)
   const [profile, setProfile] = useState<UserProfile>(() => {
     const savedVersion = localStorage.getItem('apnawalk_schema_version');
     if (savedVersion !== CURRENT_APP_VERSION) {
@@ -60,17 +58,20 @@ const App: React.FC = () => {
     return getProfile() || { name: '', email: '', isLoggedIn: false, isGuest: false };
   });
 
-  // 2. Loading State: Only show if we are likely transitioning
   const [isInitialLoading, setIsInitialLoading] = useState(() => {
       const isReturning = window.location.hash.includes('access_token=') || window.location.hash.includes('type=recovery');
-      // If we have a cached profile, don't show loading unless we are returning from a fresh OAuth login
       return isReturning && !profile.isLoggedIn;
   });
 
-  const [settings, setSettings] = useState<UserSettings>(() => getSettings() || {
-    weightKg: 70, heightCm: 175, strideLengthCm: 73, stepGoal: 6000,
-    sensitivity: 3, enableLocation: true, theme: 'green',
-    notifications: { water: true, walk: true, breath: true }
+  const [settings, setSettings] = useState<UserSettings>(() => {
+    const saved = getSettings();
+    const defaultSettings: UserSettings = {
+        weightKg: 70, heightCm: 175, strideLengthCm: 73, stepGoal: 6000,
+        sensitivity: 3, enableLocation: true, theme: 'green',
+        coachVibe: 'Energetic', coachVoiceEnabled: true,
+        notifications: { water: true, walk: true, breath: true, achievements: true }
+    };
+    return saved ? { ...defaultSettings, ...saved } : defaultSettings;
   });
 
   const { dailySteps, sessionSteps, isTrackingSession, lastStepTimestamp, requestPermission, startSession, stopSession } = usePedometer(profile.id, settings.sensitivity);
@@ -101,14 +102,10 @@ const App: React.FC = () => {
   const [currentSession, setCurrentSession] = useState<WalkSession | null>(null);
   const [visualShare, setVisualShare] = useState<{ isOpen: boolean; type: 'stats' | 'quote'; data: any; }>({ isOpen: false, type: 'stats', data: null as any });
 
-  // AUTH LIFECYCLE (Hard-Timeout Fail-safe)
   useEffect(() => {
     let mounted = true;
-    
-    // Hard escape hatch: 3 seconds max for loading screen
     const failSafe = setTimeout(() => {
         if (mounted && isInitialLoading) {
-            console.warn("Auth sync taking too long. Forcing dashboard load.");
             setIsInitialLoading(false);
         }
     }, 3000);
@@ -136,8 +133,6 @@ const App: React.FC = () => {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (!mounted) return;
-      console.log("Auth State Changed:", event);
-      
       if ((event === 'SIGNED_IN' || event === 'USER_UPDATED' || event === 'INITIAL_SESSION') && session?.user) {
         const userProfile = await syncProfile(session.user);
         setProfile(userProfile);
@@ -158,7 +153,6 @@ const App: React.FC = () => {
     };
   }, []);
 
-  // Background Data Sync
   useEffect(() => {
       if (profile.isLoggedIn && !profile.isGuest && profile.id) {
           fetchCloudHistory(profile.id).then(setFullHistory).catch(() => {});

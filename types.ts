@@ -40,15 +40,33 @@ export interface UserProfile {
   is_ghost_mode?: boolean; 
   is_verified?: boolean;
   public_key?: string;
-  // Privacy Flags
   is_stats_public?: boolean;
   is_mutuals_public?: boolean;
-  // Live Sharing Flags
   share_live_location?: boolean;
   share_fof_location?: boolean;
   last_lat?: number;
   last_lng?: number;
   last_location_update?: string;
+}
+
+export interface UserSettings {
+  weightKg: number;
+  heightCm: number;
+  strideLengthCm: number;
+  stepGoal: number;
+  distanceGoal?: number;
+  calorieGoal?: number;
+  sensitivity: number;
+  enableLocation: boolean;
+  theme: 'green' | 'blue' | 'orange' | 'purple' | 'pink';
+  coachVibe?: 'Energetic' | 'Strict' | 'Chill';
+  coachVoiceEnabled: boolean; // New feature
+  notifications: {
+    water: boolean;
+    walk: boolean;
+    breath: boolean;
+    achievements: boolean;
+  };
 }
 
 export interface LiveConnection {
@@ -57,8 +75,8 @@ export interface LiveConnection {
     avatar_url: string;
     lat: number;
     lng: number;
-    degree: 1 | 2; // 1 = Friend, 2 = Friend of Friend
-    bridge_username?: string; // The mutual friend's name for degree 2
+    degree: 1 | 2; 
+    bridge_username?: string; 
     last_active: string;
 }
 
@@ -151,24 +169,6 @@ export interface WeatherData {
   windSpeed: number;
   windDirection?: number;
   aqi?: number;
-}
-
-export interface UserSettings {
-  weightKg: number;
-  heightCm: number;
-  strideLengthCm: number;
-  stepGoal: number;
-  distanceGoal?: number; // In meters
-  calorieGoal?: number; // In Kcal
-  sensitivity: number;
-  enableLocation: boolean;
-  theme: 'green' | 'blue' | 'orange' | 'purple' | 'pink';
-  coachVibe?: 'Energetic' | 'Strict' | 'Chill';
-  notifications: {
-    water: boolean;
-    walk: boolean;
-    breath: boolean;
-  };
 }
 
 export interface HydrationLog {

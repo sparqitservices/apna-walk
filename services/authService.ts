@@ -61,6 +61,7 @@ export const verifyAdminOTP = async (email: string, token: string) => {
 };
 
 export const signOut = async () => {
+  // 1. Disable Google One Tap auto-select for next visit
   if (typeof google !== 'undefined' && google.accounts && google.accounts.id) {
     try {
         google.accounts.id.disableAutoSelect();
@@ -69,11 +70,22 @@ export const signOut = async () => {
     }
   }
   
+  // 2. Supabase Cloud Sign Out
   const { error } = await supabase.auth.signOut();
   if (error) console.error("Supabase SignOut Error:", error);
 
-  localStorage.removeItem('strideai_profile');
-  localStorage.removeItem('strideai_active_plan');
+  // 3. Complete Local Storage Purge for specific app keys
+  const keysToPurge = [
+    'strideai_profile',
+    'strideai_active_plan',
+    'strideai_settings',
+    'apnawalk_schema_version'
+  ];
+  
+  keysToPurge.forEach(key => localStorage.removeItem(key));
+  
+  // Force a reload to clear any remaining in-memory state
+  window.location.reload();
 };
 
 const generateRandomUsername = (email: string) => {
