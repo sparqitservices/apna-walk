@@ -27,25 +27,30 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onGuest, onSh
             callback: async (response: any) => {
               if (!isMounted) return;
               setIsLoading(true);
+              setErrorMsg(null);
               try {
+                // This is the response from One Tap
                 await signInWithGoogleOneTap(response.credential);
               } catch (err: any) {
-                console.error("One Tap Login Failed", err);
+                console.error("One Tap Sync Failed", err);
                 if (isMounted) {
-                  setErrorMsg("Credential sync failed. Please use the Gmail button.");
+                  setErrorMsg("One Tap failed. Please use the button below.");
                   setIsLoading(false);
                 }
               }
             },
-            auto_select: false,
+            auto_select: false, // Changed to false to prevent failing auto-login attempts
             itp_support: true,
             use_fedcm_for_prompt: true, 
           });
 
           google.accounts.id.prompt((notification: any) => {
             if (notification.isNotDisplayed()) {
-              console.warn("One Tap skipped:", notification.getNotDisplayedReason());
-              // If FedCM is blocked, we don't show an error yet, user can still use the manual button
+              console.warn("One Tap not displayed:", notification.getNotDisplayedReason());
+            } else if (notification.isSkippedMoment()) {
+              console.warn("One Tap skipped:", notification.getSkippedReason());
+            } else if (notification.isDismissedMoment()) {
+              console.warn("One Tap dismissed:", notification.getDismissedReason());
             }
           });
         } catch (e) {
@@ -54,8 +59,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onGuest, onSh
       }
     };
 
-    // Delay slightly to ensure script is fully ready
-    const timer = setTimeout(initializeOneTap, 2000);
+    // Delay initialization to ensure the DOM and GSI script are fully ready
+    const timer = setTimeout(initializeOneTap, 1500);
     return () => {
       isMounted = false;
       clearTimeout(timer);
@@ -68,12 +73,11 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onGuest, onSh
     try {
         await signInWithGoogle();
     } catch (error: any) {
-        console.error("Login Failed", error);
-        // Distinguish between user closing the popup and actual errors
+        console.error("Manual Login Failed", error);
         if (error.message?.includes("closed") || error.error_description?.includes("closed")) {
             setErrorMsg(null);
         } else {
-            setErrorMsg("Login blocked. Please ensure popups are allowed.");
+            setErrorMsg("Login issue. Please check if popups are enabled.");
         }
         setIsLoading(false);
     }
@@ -95,13 +99,13 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onGuest, onSh
                <ApnaWalkLogo size={56} />
            </div>
            <div className="h-0.5 w-12 bg-gradient-to-r from-transparent via-slate-700 to-transparent mx-auto mt-4 mb-2"></div>
-           <p className="text-slate-500 text-[10px] font-black tracking-[4px] uppercase text-center">Journey Towards Wellness</p>
+           <p className="text-slate-500 text-[10px] font-black tracking-[4px] uppercase text-center">Your Personal Fitness Companion</p>
         </div>
 
         <div className="w-full space-y-4 animate-message-pop" style={{ animationDelay: '0.2s' }}>
           
           {errorMsg && (
-              <div className="bg-red-500/10 border border-red-500/50 text-red-400 text-[10px] font-black uppercase tracking-widest p-3 rounded-2xl text-center mb-2">
+              <div className="bg-red-500/10 border border-red-500/50 text-red-400 text-[10px] font-black uppercase tracking-widest p-4 rounded-2xl text-center mb-2">
                   <i className="fa-solid fa-circle-exclamation mr-2"></i> {errorMsg}
               </div>
           )}
@@ -126,13 +130,14 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onGuest, onSh
                 <div className="w-full border-t border-white/5"></div>
             </div>
             <div className="relative flex justify-center text-[10px]">
-                <span className="bg-[#0a0f14] px-4 text-slate-600 uppercase font-black tracking-[5px]">Secure Access</span>
+                <span className="bg-[#0a0f14] px-4 text-slate-600 uppercase font-black tracking-[5px]">Secure & Private</span>
             </div>
           </div>
 
           <button 
             onClick={onGuest}
-            className="w-full bg-slate-800/40 hover:bg-slate-800/60 text-slate-300 font-black py-5 rounded-[2rem] border border-white/5 transition-all active:scale-95 flex items-center justify-center gap-3 uppercase text-[10px] tracking-[4px]"
+            disabled={isLoading}
+            className="w-full bg-slate-800/40 hover:bg-slate-800/60 text-slate-300 font-black py-5 rounded-[2rem] border border-white/5 transition-all active:scale-95 flex items-center justify-center gap-3 uppercase text-[10px] tracking-[4px] disabled:opacity-50"
           >
             <i className="fa-solid fa-user-secret opacity-50"></i> Start in Guest Mode
           </button>
@@ -148,8 +153,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onGuest, onSh
              
              <div className="pt-8 border-t border-white/5 mt-4">
                 <p className="text-[9px] text-slate-600 font-bold uppercase tracking-[2px] leading-loose">
-                    Handcrafted with Pride in India<br/>
-                    <span className="text-white opacity-80">By Afzal Hameed</span>
+                    Built with Excellence in India<br/>
+                    <span className="text-white opacity-80 font-black">Powered by Sparq IT Service</span>
                 </p>
              </div>
         </div>

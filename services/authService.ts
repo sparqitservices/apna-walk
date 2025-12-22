@@ -32,6 +32,12 @@ export const signInWithGoogleOneTap = async (idToken: string) => {
   });
 
   if (error) throw error;
+  
+  // After successful IdToken sign-in, we still want to ensure the profile is synced
+  if (data.user) {
+    await syncProfile(data.user);
+  }
+  
   return data;
 };
 
@@ -94,6 +100,7 @@ const generateRandomUsername = (email: string) => {
 };
 
 export const syncProfile = async (user: any): Promise<UserProfile> => {
+    // Attempt to get existing profile
     const { data: existingProfile } = await supabase
         .from('profiles')
         .select('*')
@@ -103,7 +110,7 @@ export const syncProfile = async (user: any): Promise<UserProfile> => {
     let finalProfile: UserProfile;
 
     if (existingProfile) {
-        const finalUsername = existingProfile.username || generateRandomUsername(existingProfile.email);
+        const finalUsername = existingProfile.username || generateRandomUsername(existingProfile.email || user.email);
         
         if (!existingProfile.username) {
             await supabase.from('profiles').update({ username: finalUsername }).eq('id', user.id);
@@ -113,7 +120,7 @@ export const syncProfile = async (user: any): Promise<UserProfile> => {
             id: existingProfile.id,
             name: existingProfile.full_name,
             username: finalUsername,
-            email: existingProfile.email,
+            email: existingProfile.email || user.email,
             avatar: existingProfile.avatar_url,
             bio: existingProfile.bio,
             pace: existingProfile.pace,
@@ -122,7 +129,8 @@ export const syncProfile = async (user: any): Promise<UserProfile> => {
             is_looking_for_buddy: existingProfile.is_looking_for_buddy,
             is_ghost_mode: existingProfile.is_ghost_mode,
             isLoggedIn: true,
-            isGuest: false
+            isGuest: false,
+            share_live_location: existingProfile.share_live_location
         };
     } else {
         const username = generateRandomUsername(user.email);
