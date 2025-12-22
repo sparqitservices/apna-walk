@@ -4,13 +4,15 @@ import { UserProfile } from '../types';
 
 declare const google: any;
 
+/**
+ * Standard Google OAuth flow using Supabase.
+ * This is the most reliable method as it handles the Client ID on the server side.
+ */
 export const signInWithGoogle = async () => {
-  const redirectTo = window.location.origin;
-  
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
     options: {
-      redirectTo: redirectTo,
+      redirectTo: window.location.origin,
       queryParams: {
         access_type: 'offline',
         prompt: 'consent',
@@ -40,58 +42,41 @@ export const signInWithGoogleOneTap = async (idToken: string) => {
   return data;
 };
 
+// Fix: Added sendAdminOTP to support admin authentication via email OTP
 export const sendAdminOTP = async (email: string) => {
-    if (email !== 'apnawalk@gmail.com') {
-        throw new Error("Access Denied: Restricted to admin email only.");
-    }
-    const { error } = await supabase.auth.signInWithOtp({
-        email,
-        options: {
-            emailRedirectTo: window.location.origin + '/admin',
-        },
-    });
-    if (error) throw error;
+  const { error } = await supabase.auth.signInWithOtp({
+    email,
+    options: {
+      shouldCreateUser: false,
+    },
+  });
+  if (error) throw error;
 };
 
+// Fix: Added verifyAdminOTP to support admin authentication verification
 export const verifyAdminOTP = async (email: string, token: string) => {
-    const { data, error } = await supabase.auth.verifyOtp({
-        email,
-        token,
-        type: 'email',
-    });
-    if (error) throw error;
-    return data;
+  const { data, error } = await supabase.auth.verifyOtp({
+    email,
+    token,
+    type: 'email',
+  });
+  if (error) throw error;
+  return data;
 };
 
-/**
- * Robust Sign Out
- * Force-clears local state to prevent "stuck" login sessions.
- */
 export const signOut = async () => {
-  console.log("Initiating global sign-out...");
-  
-  // 1. Attempt Google One Tap cleanup
   if (typeof google !== 'undefined' && google.accounts && google.accounts.id) {
     try {
         google.accounts.id.disableAutoSelect();
-    } catch (e) {
-        console.warn("One Tap disable error", e);
-    }
+    } catch (e) {}
   }
   
   try {
-    // 2. Attempt Supabase Cloud Sign Out
-    const signOutPromise = supabase.auth.signOut();
-    const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject('timeout'), 2000));
-    
-    await Promise.race([signOutPromise, timeoutPromise]);
+    await supabase.auth.signOut();
   } catch (error) {
-    console.warn("Supabase SignOut timed out or failed, proceeding with local purge.", error);
+    console.warn("Supabase SignOut failed, purging local state.");
   } finally {
-    // 3. NUCLEAR PURGE: Clear everything in local storage
     localStorage.clear();
-    
-    // 4. Force hard reload to home page to clear React state
     window.location.href = window.location.origin;
   }
 };
@@ -103,43 +88,28 @@ const generateRandomUsername = (email: string) => {
 };
 
 export const syncProfile = async (user: any): Promise<UserProfile> => {
-    if (!user?.id) throw new Error("Invalid user object for profile sync");
+    if (!user?.id) throw new Error("Invalid user object");
 
     try {
-        // Attempt to fetch from cloud
-        const { data: existingProfile, error: fetchError } = await supabase
+        const { data: existingProfile } = await supabase
             .from('profiles')
             .select('*')
             .eq('id', user.id)
             .maybeSingle();
 
-        if (fetchError) throw fetchError;
-
         let finalProfile: UserProfile;
 
         if (existingProfile) {
-            const finalUsername = existingProfile.username || generateRandomUsername(existingProfile.email || user.email);
-            
-            // Background update if username was missing
-            if (!existingProfile.username) {
-                supabase.from('profiles').update({ username: finalUsername }).eq('id', user.id).then();
-            }
-
             finalProfile = {
                 id: existingProfile.id,
                 name: existingProfile.full_name || user.user_metadata?.full_name,
-                username: finalUsername,
+                username: existingProfile.username || generateRandomUsername(user.email),
                 email: existingProfile.email || user.email,
                 avatar: existingProfile.avatar_url || user.user_metadata?.avatar_url,
-                bio: existingProfile.bio,
-                pace: existingProfile.pace,
-                preferred_time: existingProfile.preferred_time,
-                age: existingProfile.age,
-                is_looking_for_buddy: existingProfile.is_looking_for_buddy,
-                is_ghost_mode: existingProfile.is_ghost_mode,
                 isLoggedIn: true,
                 isGuest: false,
-                share_live_location: existingProfile.share_live_location
+                pace: existingProfile.pace,
+                preferred_time: existingProfile.preferred_time
             };
         } else {
             const username = generateRandomUsername(user.email);
@@ -148,12 +118,9 @@ export const syncProfile = async (user: any): Promise<UserProfile> => {
                 email: user.email,
                 full_name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'Apna Walker',
                 username: username,
-                avatar_url: user.user_metadata?.avatar_url || user.user_metadata?.picture,
-                is_looking_for_buddy: true,
-                is_ghost_mode: false
+                avatar_url: user.user_metadata?.avatar_url || user.user_metadata?.picture
             };
 
-            // Standard Insert (Try)
             await supabase.from('profiles').insert([newProfileData]);
 
             finalProfile = {
@@ -171,13 +138,11 @@ export const syncProfile = async (user: any): Promise<UserProfile> => {
         return finalProfile;
 
     } catch (dbError) {
-        console.warn("Database Sync Failed. Using Local-Only Auth fallback.", dbError);
-        // CRITICAL FALLBACK: If DB is broken/missing table, let them in with metadata
         const fallbackProfile: UserProfile = {
             id: user.id,
-            name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'Apna Walker',
+            name: user.user_metadata?.full_name || 'Apna Walker',
             email: user.email,
-            avatar: user.user_metadata?.avatar_url || user.user_metadata?.picture,
+            avatar: user.user_metadata?.avatar_url,
             username: user.email?.split('@')[0] || 'walker',
             isLoggedIn: true,
             isGuest: false

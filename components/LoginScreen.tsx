@@ -1,6 +1,7 @@
-import React, { useState, useEffect, useRef } from 'react';
+
+import React, { useState, useEffect } from 'react';
 import { ApnaWalkLogo } from './ApnaWalkLogo';
-import { signInWithGoogleOneTap } from '../services/authService';
+import { signInWithGoogle, signInWithGoogleOneTap } from '../services/authService';
 
 interface LoginScreenProps {
   onLogin: (name: string, email: string) => void; 
@@ -12,20 +13,15 @@ declare const google: any;
 
 export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onGuest, onShowLegal }) => {
   const [isLoading, setIsLoading] = useState(false);
-  const [isGsiReady, setIsGsiReady] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const googleBtnRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     let isMounted = true;
-    let checkInterval: number;
 
-    const initializeGSI = () => {
+    const initializeOneTap = () => {
       if (typeof google !== 'undefined' && google.accounts && google.accounts.id) {
-        if (checkInterval) clearInterval(checkInterval);
-        
         try {
-          // Official ApnaWalk OAuth Client ID
+          // Client ID for One Tap / FedCM (Must match GCP exactly)
           const client_id = "680287114674-8b6g3id67v9sq6o47is6n9m2v991j2sh.apps.googleusercontent.com";
           
           google.accounts.id.initialize({
@@ -37,9 +33,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onGuest, onSh
               try {
                 await signInWithGoogleOneTap(response.credential);
               } catch (err: any) {
-                console.error("Auth sync failed:", err);
                 if (isMounted) {
-                  setErrorMsg("Auth failed. Verify that apnawalk.com is an authorized origin in your Google Cloud Console.");
+                  setErrorMsg("One Tap failed. Use the button below.");
                   setIsLoading(false);
                 }
               }
@@ -50,39 +45,31 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onGuest, onSh
             context: 'signin'
           });
 
-          if (googleBtnRef.current) {
-            google.accounts.id.renderButton(googleBtnRef.current, {
-                type: 'standard',
-                theme: 'outline',
-                size: 'large',
-                text: 'continue_with',
-                shape: 'pill',
-                width: 320
-            });
-            setIsGsiReady(true);
-          }
-
-          // Trigger One Tap if appropriate
-          google.accounts.id.prompt((notification: any) => {
-              if (notification.isNotDisplayed()) {
-                  console.debug("One Tap display reason:", notification.getNotDisplayedReason());
-              }
-          });
+          google.accounts.id.prompt();
         } catch (e) {
-          console.warn("GSI setup error:", e);
+          console.debug("One Tap skip", e);
         }
       }
     };
 
-    // Check immediately and then periodically until library script is ready
-    initializeGSI();
-    checkInterval = window.setInterval(initializeGSI, 200);
-
+    const timer = setTimeout(initializeOneTap, 1000);
     return () => { 
         isMounted = false; 
-        if (checkInterval) clearInterval(checkInterval);
+        clearTimeout(timer);
     };
   }, []);
+
+  const handleGoogleLogin = async () => {
+    setIsLoading(true);
+    setErrorMsg(null);
+    if (navigator.vibrate) navigator.vibrate(15);
+    try {
+      await signInWithGoogle();
+    } catch (err: any) {
+      setErrorMsg(err.message || "Failed to initiate Google Login.");
+      setIsLoading(false);
+    }
+  };
 
   const handleGuestMode = () => {
       if (navigator.vibrate) navigator.vibrate(10);
@@ -91,7 +78,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onGuest, onSh
 
   return (
     <div className="min-h-screen bg-[#0a0f14] flex flex-col items-center justify-center p-6 relative overflow-hidden">
-      {/* Background Ambience */}
+      {/* Ambience */}
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full max-w-lg z-0 pointer-events-none">
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[300px] h-[300px] bg-[#FF6B00] opacity-[0.06] blur-[100px] rounded-full animate-pulse-slow"></div>
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] h-[400px] bg-[#22C55E] opacity-[0.04] blur-[120px] rounded-full animate-pulse-slow" style={{ animationDelay: '1s' }}></div>
@@ -99,7 +86,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onGuest, onSh
       
       <div className="w-full max-w-md relative z-10 flex flex-col items-center">
         
-        {/* Brand Reveal */}
         <div className="mb-14 text-center animate-fade-in">
            <div className="scale-125 mb-4 inline-block">
                <ApnaWalkLogo size={56} />
@@ -108,7 +94,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onGuest, onSh
            <p className="text-slate-500 text-[9px] font-black tracking-[5px] uppercase text-center">India's Smartest Step Counter</p>
         </div>
 
-        <div className="w-full space-y-6 flex flex-col items-center">
+        <div className="w-full space-y-5 flex flex-col items-center">
           
           {errorMsg && (
               <div className="w-full bg-red-500/10 border border-red-500/20 text-red-400 text-[10px] font-black uppercase tracking-widest p-4 rounded-2xl text-center animate-message-pop">
@@ -116,18 +102,21 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onGuest, onSh
               </div>
           )}
 
-          {/* Official Google GSI Button Container with Skeleton Loader */}
-          <div className="w-full flex justify-center min-h-[44px] relative">
-              {!isGsiReady && !isLoading && (
-                  <div className="absolute inset-0 flex justify-center items-center">
-                      <div className="w-[320px] h-[44px] bg-white/5 rounded-full animate-pulse border border-white/10 flex items-center justify-center gap-3">
-                          <div className="w-5 h-5 bg-white/10 rounded-full"></div>
-                          <div className="w-24 h-2 bg-white/10 rounded"></div>
-                      </div>
-                  </div>
-              )}
-              <div ref={googleBtnRef} className={`w-full flex justify-center transition-opacity duration-300 ${isGsiReady ? 'opacity-100' : 'opacity-0'}`}></div>
-          </div>
+          {/* Premium Custom Google Button (Reliable Redirect Flow) */}
+          <button 
+            onClick={handleGoogleLogin}
+            disabled={isLoading}
+            className="w-full max-w-[320px] h-[54px] bg-white text-slate-900 font-black rounded-full shadow-2xl flex items-center justify-center gap-4 transition-all hover:scale-[1.02] active:scale-95 disabled:opacity-50 group relative overflow-hidden"
+          >
+            {isLoading ? (
+                <i className="fa-solid fa-circle-notch fa-spin"></i>
+            ) : (
+                <>
+                    <img src="https://www.gstatic.com/images/branding/product/2x/googleg_48dp.png" className="w-6 h-6" alt="G" />
+                    <span className="uppercase text-[11px] tracking-[3px]">Continue with Google</span>
+                </>
+            )}
+          </button>
 
           <div className="relative py-4 w-full">
             <div className="absolute inset-0 flex items-center">
@@ -148,7 +137,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onGuest, onSh
 
         </div>
 
-        {/* Legal & Branding */}
+        {/* Legal */}
         <div className="mt-16 text-center space-y-6 animate-fade-in" style={{ animationDelay: '0.4s' }}>
              <div className="flex justify-center gap-8">
                 <button onClick={() => onShowLegal('terms')} className="text-[9px] font-black text-slate-600 hover:text-brand-500 uppercase tracking-widest transition-colors">Terms</button>
