@@ -15,7 +15,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onGuest, onSh
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  // Initialize Google One Tap with FedCM support
+  // Initialize Google One Tap with modern browser support
   useEffect(() => {
     let isMounted = true;
 
@@ -29,58 +29,58 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onGuest, onSh
               setIsLoading(true);
               setErrorMsg(null);
               try {
-                // One Tap callback
+                // Exchange One Tap JWT for Supabase session
                 await signInWithGoogleOneTap(response.credential);
               } catch (err: any) {
-                console.error("One Tap Failed", err);
+                console.error("One Tap Sync Failed", err);
                 if (isMounted) {
                   setErrorMsg("One Tap issue. Please click 'Continue with Gmail' below.");
                   setIsLoading(false);
                 }
               }
             },
-            auto_select: false, // Prevents forced login loops that might error
+            auto_select: false, // Safer: User must click their account. Prevents confusing loops.
             itp_support: true,
-            use_fedcm_for_prompt: true, // Required for newer browsers
+            use_fedcm_for_prompt: true, // Modern browser standard
           });
 
-          // Only prompt if we aren't already loading something
-          if (!isLoading) {
-              google.accounts.id.prompt((notification: any) => {
-                if (notification.isNotDisplayed()) {
-                  console.warn("One Tap not displayed:", notification.getNotDisplayedReason());
-                }
-              });
-          }
+          // Trigger prompt (Delayed slightly for smooth entry)
+          setTimeout(() => {
+            if (isMounted) {
+                google.accounts.id.prompt((notification: any) => {
+                    if (notification.isNotDisplayed()) {
+                      console.debug("One Tap Hidden:", notification.getNotDisplayedReason());
+                    }
+                });
+            }
+          }, 1500);
         } catch (e) {
           console.warn("GSI initialization error", e);
         }
       }
     };
 
-    const timer = setTimeout(initializeOneTap, 1000);
-    return () => {
-      isMounted = false;
-      clearTimeout(timer);
-    };
+    initializeOneTap();
+    return () => { isMounted = false; };
   }, []);
 
   const handleGoogleLogin = async () => {
+    // Immediate visual feedback
     setIsLoading(true);
     setErrorMsg(null);
     try {
         await signInWithGoogle();
-        // Redirect handled by Supabase automatically
+        // Redirect logic handled by Supabase/App.tsx
     } catch (error: any) {
         console.error("Manual Login Failed", error);
-        setErrorMsg("Login failed. Please check your internet connection.");
+        setErrorMsg("Connection issue. Please try again.");
         setIsLoading(false);
     }
   };
 
   return (
     <div className="min-h-screen bg-[#0a0f14] flex flex-col items-center justify-center p-6 relative overflow-hidden">
-      {/* Dynamic Brand Glow Backdrop */}
+      {/* Background Glows */}
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full max-w-lg z-0 pointer-events-none">
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[300px] h-[300px] bg-[#FF6B00] opacity-[0.08] blur-[100px] rounded-full animate-pulse-slow"></div>
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] h-[400px] bg-[#22C55E] opacity-[0.05] blur-[120px] rounded-full animate-pulse-slow" style={{ animationDelay: '1s' }}></div>
@@ -88,23 +88,24 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onGuest, onSh
       
       <div className="w-full max-w-md relative z-10 flex flex-col items-center">
         
-        {/* Centered Premium Logo Area */}
-        <div className="mb-14 animate-fade-in text-center">
+        {/* Modern Brand Intro */}
+        <div className="mb-14 text-center animate-fade-in">
            <div className="scale-125 mb-4 inline-block">
                <ApnaWalkLogo size={56} />
            </div>
            <div className="h-0.5 w-12 bg-gradient-to-r from-transparent via-slate-700 to-transparent mx-auto mt-4 mb-2"></div>
-           <p className="text-slate-500 text-[10px] font-black tracking-[4px] uppercase text-center">Desi Smart Fitness Tracker</p>
+           <p className="text-slate-500 text-[10px] font-black tracking-[4px] uppercase text-center">Desi Fitness Revolution</p>
         </div>
 
-        <div className="w-full space-y-4 animate-message-pop" style={{ animationDelay: '0.2s' }}>
+        <div className="w-full space-y-4">
           
           {errorMsg && (
-              <div className="bg-red-500/10 border border-red-500/50 text-red-400 text-[10px] font-black uppercase tracking-widest p-4 rounded-2xl text-center mb-2">
+              <div className="bg-red-500/10 border border-red-500/50 text-red-400 text-[10px] font-black uppercase tracking-widest p-4 rounded-2xl text-center mb-2 animate-message-pop">
                   <i className="fa-solid fa-circle-exclamation mr-2"></i> {errorMsg}
               </div>
           )}
 
+          {/* Core Login Action */}
           <button 
             onClick={handleGoogleLogin}
             disabled={isLoading}
@@ -125,7 +126,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onGuest, onSh
                 <div className="w-full border-t border-white/5"></div>
             </div>
             <div className="relative flex justify-center text-[10px]">
-                <span className="bg-[#0a0f14] px-4 text-slate-600 uppercase font-black tracking-[5px]">Secure & Private</span>
+                <span className="bg-[#0a0f14] px-4 text-slate-600 uppercase font-black tracking-[5px]">Secure & Encrypted</span>
             </div>
           </div>
 
@@ -134,12 +135,13 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onGuest, onSh
             disabled={isLoading}
             className="w-full bg-slate-800/40 hover:bg-slate-800/60 text-slate-300 font-black py-5 rounded-[2rem] border border-white/5 transition-all active:scale-95 flex items-center justify-center gap-3 uppercase text-[10px] tracking-[4px] disabled:opacity-50"
           >
-            <i className="fa-solid fa-user-secret opacity-50"></i> Start in Guest Mode
+            <i className="fa-solid fa-user-secret opacity-50"></i> Trial Guest Mode
           </button>
 
         </div>
 
-        <div className="mt-16 text-center space-y-6 animate-fade-in" style={{ animationDelay: '0.5s' }}>
+        {/* Footnotes */}
+        <div className="mt-16 text-center space-y-6 animate-fade-in" style={{ animationDelay: '0.4s' }}>
              <div className="flex justify-center gap-6">
                 <button onClick={() => onShowLegal('terms')} className="text-[10px] font-black text-slate-500 hover:text-brand-500 uppercase tracking-widest transition-colors">Terms</button>
                 <div className="w-1 h-1 bg-slate-800 rounded-full my-auto"></div>
@@ -148,8 +150,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onGuest, onSh
              
              <div className="pt-8 border-t border-white/5 mt-4">
                 <p className="text-[9px] text-slate-600 font-bold uppercase tracking-[2px] leading-loose">
-                    Built with Excellence in India<br/>
-                    <span className="text-white opacity-80 font-black">Powered by Sparq IT Service</span>
+                    Proudly Made in Bharat<br/>
+                    <span className="text-white opacity-80 font-black tracking-widest uppercase">Sparq IT Ecosystem</span>
                 </p>
              </div>
         </div>

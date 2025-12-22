@@ -44,13 +44,25 @@ import { getLocalityName } from './services/parkService';
 import { getHydrationTip } from './services/geminiService';
 import { updateLiveLocation } from './services/buddyService';
 
+// --- GLOBAL CACHE CONTROL ---
+// Increment this to force-clear localStorage for all users (useful after DB updates)
+const CURRENT_APP_VERSION = "2.2.1"; 
+
 const App: React.FC = () => {
-  // Authentication States
-  const [profile, setProfile] = useState<UserProfile>(() => getProfile() || { name: '', email: '', isLoggedIn: false, isGuest: false });
-  
-  // Only show loading if we don't have a profile AND we aren't a guest
-  // This allows "Optimistic Loading" where the dashboard shows immediately on refresh
-  const [isInitialLoading, setIsInitialLoading] = useState(!getProfile()?.isLoggedIn);
+  // 1. Initial State from Cache (Optimistic)
+  const [profile, setProfile] = useState<UserProfile>(() => {
+    // Immediate cache flush check
+    const savedVersion = localStorage.getItem('apnawalk_schema_version');
+    if (savedVersion !== CURRENT_APP_VERSION) {
+        localStorage.clear(); // Complete flush
+        localStorage.setItem('apnawalk_schema_version', CURRENT_APP_VERSION);
+        return { name: '', email: '', isLoggedIn: false, isGuest: false };
+    }
+    return getProfile() || { name: '', email: '', isLoggedIn: false, isGuest: false };
+  });
+
+  // Only block UI if we absolutely have no cached profile AND we aren't already on the login screen
+  const [isSyncing, setIsSyncing] = useState(false);
 
   const [settings, setSettings] = useState<UserSettings>(() => getSettings() || {
     weightKg: 70, heightCm: 175, strideLengthCm: 73, stepGoal: 6000,
@@ -95,65 +107,47 @@ const App: React.FC = () => {
   const [currentSession, setCurrentSession] = useState<WalkSession | null>(null);
   const [visualShare, setVisualShare] = useState<{ isOpen: boolean; type: 'stats' | 'quote'; data: any; }>({ isOpen: false, type: 'stats', data: null as any });
 
-  // AUTH INITIALIZER
+  // AUTH LIFECYCLE (Non-Blocking)
   useEffect(() => {
     let mounted = true;
-    
-    // Safety Fallback: If identity sync hangs, force UI to load anyway after 3 seconds
-    const fallbackTimer = setTimeout(() => {
-        if (mounted) setIsInitialLoading(false);
-    }, 3000);
 
-    const initAuth = async () => {
+    const verifyIdentity = async () => {
         try {
-            // Check session (handles OAuth redirects & refreshes)
+            // Check if Supabase session is still valid in background
             const { data: { session } } = await supabase.auth.getSession();
             if (session?.user && mounted) {
                 const userProfile = await syncProfile(session.user);
                 setProfile(userProfile);
                 saveProfile(userProfile);
             } else if (!session?.user && profile.isLoggedIn && !profile.isGuest) {
-                // If local storage says logged in but supabase says no, log out
+                // Background logout if session expired
                 setProfile({ name: '', email: '', isLoggedIn: false });
                 localStorage.removeItem('strideai_profile');
             }
-        } catch (err) {
-            console.error("Auth sync failed:", err);
-        } finally {
-            if (mounted) {
-                setIsInitialLoading(false);
-                clearTimeout(fallbackTimer);
-            }
-        }
+        } catch (e) { console.warn("Background Identity Sync Paused."); }
     };
 
-    initAuth();
+    verifyIdentity();
 
-    // Listener for subsequent events (One Tap login, sign out, etc)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (!mounted) return;
-      console.log("Auth Event:", event);
-
       if ((event === 'SIGNED_IN' || event === 'USER_UPDATED') && session?.user) {
         const userProfile = await syncProfile(session.user);
         setProfile(userProfile);
         saveProfile(userProfile);
-        setIsInitialLoading(false);
       } else if (event === 'SIGNED_OUT') {
         setProfile({ name: '', email: '', isLoggedIn: false, isGuest: false });
         localStorage.removeItem('strideai_profile');
-        setIsInitialLoading(false);
       }
     });
 
     return () => {
         mounted = false;
         subscription.unsubscribe();
-        clearTimeout(fallbackTimer);
     };
   }, []);
 
-  // Sync Cloud Data when logged in
+  // Sync Cloud Data
   useEffect(() => {
       if (profile.isLoggedIn && !profile.isGuest && profile.id) {
           syncCloudData(profile.id);
@@ -168,7 +162,7 @@ const App: React.FC = () => {
           ]);
           setFullHistory(cloudHist);
           setHydration(cloudHydra);
-      } catch (e) { console.warn("Background sync failed."); }
+      } catch (e) { console.warn("Cloud Sync Deferred."); }
   };
 
   const handleLogout = async () => {
@@ -197,10 +191,10 @@ const App: React.FC = () => {
                   try {
                       await updateLiveLocation(profile.id!, pos.coords.latitude, pos.coords.longitude);
                   } catch (e) {}
-              }, null, { enableHighAccuracy: true });
+              }, null, { enableHighAccuracy: false }); // Use lower accuracy for background sync to save battery
           };
           syncLocation();
-          interval = window.setInterval(syncLocation, 30000); 
+          interval = window.setInterval(syncLocation, 45000); 
       }
       return () => { if (interval) clearInterval(interval); };
   }, [profile.isLoggedIn, profile.share_live_location, profile.id]);
@@ -259,18 +253,6 @@ const App: React.FC = () => {
     return fullHistory.find(h => h.date === todayStr) || { steps: 0, sessions: [] };
   }, [fullHistory]);
 
-  if (isInitialLoading) {
-    return (
-        <div className="min-h-screen bg-[#0a0f14] flex flex-col items-center justify-center p-6">
-            <div className="relative w-20 h-20 mb-8">
-                <div className="absolute inset-0 border-4 border-slate-800 rounded-2xl"></div>
-                <div className="absolute inset-0 border-4 border-brand-500 rounded-2xl border-t-transparent animate-spin"></div>
-            </div>
-            <p className="text-slate-500 text-[10px] font-black uppercase tracking-[5px] animate-pulse">Syncing Identity...</p>
-        </div>
-    );
-  }
-
   if (!profile.isLoggedIn) {
     return <LoginScreen 
         onLogin={() => {}} 
@@ -280,7 +262,7 @@ const App: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-[#0a0f14] text-white font-sans pb-32 overflow-x-hidden">
+    <div className="min-h-screen bg-[#0a0f14] text-white font-sans pb-32 overflow-x-hidden animate-fade-in">
       
       <header className="p-6 flex justify-between items-center border-b border-white/5 bg-[#0a0f14]/80 backdrop-blur-xl sticky top-0 z-40">
         <div className="flex flex-col">
