@@ -45,24 +45,25 @@ import { getHydrationTip } from './services/geminiService';
 import { updateLiveLocation } from './services/buddyService';
 
 // --- GLOBAL CACHE CONTROL ---
-// Increment this to force-clear localStorage for all users (useful after DB updates)
-const CURRENT_APP_VERSION = "2.2.1"; 
+const CURRENT_APP_VERSION = "2.3.0"; 
 
 const App: React.FC = () => {
-  // 1. Initial State from Cache (Optimistic)
+  // 1. Check if we are returning from OAuth (tokens in URL)
+  const isReturningFromAuth = window.location.hash.includes('access_token=') || window.location.hash.includes('type=recovery');
+
+  // 2. Initial State from Cache (Optimistic)
   const [profile, setProfile] = useState<UserProfile>(() => {
-    // Immediate cache flush check
     const savedVersion = localStorage.getItem('apnawalk_schema_version');
     if (savedVersion !== CURRENT_APP_VERSION) {
-        localStorage.clear(); // Complete flush
+        localStorage.clear(); 
         localStorage.setItem('apnawalk_schema_version', CURRENT_APP_VERSION);
         return { name: '', email: '', isLoggedIn: false, isGuest: false };
     }
     return getProfile() || { name: '', email: '', isLoggedIn: false, isGuest: false };
   });
 
-  // Only block UI if we absolutely have no cached profile AND we aren't already on the login screen
-  const [isSyncing, setIsSyncing] = useState(false);
+  // Only show loading if we have NO profile AND we are returning from OAuth
+  const [isInitialLoading, setIsInitialLoading] = useState(!profile.isLoggedIn && isReturningFromAuth);
 
   const [settings, setSettings] = useState<UserSettings>(() => getSettings() || {
     weightKg: 70, heightCm: 175, strideLengthCm: 73, stepGoal: 6000,
@@ -70,16 +71,7 @@ const App: React.FC = () => {
     notifications: { water: true, walk: true, breath: true }
   });
 
-  const { 
-    dailySteps, 
-    sessionSteps, 
-    isTrackingSession, 
-    lastStepTimestamp, 
-    requestPermission, 
-    startSession, 
-    stopSession
-  } = usePedometer(profile.id, settings.sensitivity);
-  
+  const { dailySteps, sessionSteps, isTrackingSession, lastStepTimestamp, requestPermission, startSession, stopSession } = usePedometer(profile.id, settings.sensitivity);
   const { bpm, isPlaying, togglePlay, setBpm } = useMetronome(115);
 
   // UI States
@@ -107,34 +99,39 @@ const App: React.FC = () => {
   const [currentSession, setCurrentSession] = useState<WalkSession | null>(null);
   const [visualShare, setVisualShare] = useState<{ isOpen: boolean; type: 'stats' | 'quote'; data: any; }>({ isOpen: false, type: 'stats', data: null as any });
 
-  // AUTH LIFECYCLE (Non-Blocking)
+  // AUTH LIFECYCLE (Optimized)
   useEffect(() => {
     let mounted = true;
 
-    const verifyIdentity = async () => {
+    const initSession = async () => {
         try {
-            // Check if Supabase session is still valid in background
+            // Immediately check for session
             const { data: { session } } = await supabase.auth.getSession();
             if (session?.user && mounted) {
                 const userProfile = await syncProfile(session.user);
                 setProfile(userProfile);
                 saveProfile(userProfile);
-            } else if (!session?.user && profile.isLoggedIn && !profile.isGuest) {
-                // Background logout if session expired
-                setProfile({ name: '', email: '', isLoggedIn: false });
-                localStorage.removeItem('strideai_profile');
+                // Clear the hash from URL without refreshing
+                if (window.location.hash) window.history.replaceState(null, '', window.location.pathname);
             }
-        } catch (e) { console.warn("Background Identity Sync Paused."); }
+        } catch (e) { 
+            console.error("Auth init failed", e);
+        } finally {
+            if (mounted) setIsInitialLoading(false);
+        }
     };
 
-    verifyIdentity();
+    initSession();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (!mounted) return;
-      if ((event === 'SIGNED_IN' || event === 'USER_UPDATED') && session?.user) {
+      console.log("Supabase Auth Event:", event);
+      
+      if (session?.user) {
         const userProfile = await syncProfile(session.user);
         setProfile(userProfile);
         saveProfile(userProfile);
+        setIsInitialLoading(false);
       } else if (event === 'SIGNED_OUT') {
         setProfile({ name: '', email: '', isLoggedIn: false, isGuest: false });
         localStorage.removeItem('strideai_profile');
@@ -147,23 +144,13 @@ const App: React.FC = () => {
     };
   }, []);
 
-  // Sync Cloud Data
+  // Background Data Sync
   useEffect(() => {
       if (profile.isLoggedIn && !profile.isGuest && profile.id) {
-          syncCloudData(profile.id);
+          fetchCloudHistory(profile.id).then(setFullHistory).catch(() => {});
+          fetchCloudHydration(profile.id).then(setHydration).catch(() => {});
       }
   }, [profile.isLoggedIn, profile.isGuest, profile.id]);
-
-  const syncCloudData = async (userId: string) => {
-      try {
-          const [cloudHist, cloudHydra] = await Promise.all([
-              fetchCloudHistory(userId),
-              fetchCloudHydration(userId)
-          ]);
-          setFullHistory(cloudHist);
-          setHydration(cloudHydra);
-      } catch (e) { console.warn("Cloud Sync Deferred."); }
-  };
 
   const handleLogout = async () => {
     await signOut();
@@ -171,7 +158,6 @@ const App: React.FC = () => {
     setShowSettings(false);
   };
 
-  // Auto-Tracker
   const { isAutoRecording, autoRoute } = useAutoTracker(
       profile.isLoggedIn, 
       dailySteps, 
@@ -182,35 +168,19 @@ const App: React.FC = () => {
       }
   );
 
-  // Background Live Location Sync
-  useEffect(() => {
-      let interval: number;
-      if (profile.isLoggedIn && !profile.isGuest && profile.share_live_location && profile.id) {
-          const syncLocation = () => {
-              navigator.geolocation.getCurrentPosition(async (pos) => {
-                  try {
-                      await updateLiveLocation(profile.id!, pos.coords.latitude, pos.coords.longitude);
-                  } catch (e) {}
-              }, null, { enableHighAccuracy: false }); // Use lower accuracy for background sync to save battery
-          };
-          syncLocation();
-          interval = window.setInterval(syncLocation, 45000); 
-      }
-      return () => { if (interval) clearInterval(interval); };
-  }, [profile.isLoggedIn, profile.share_live_location, profile.id]);
-
+  // Geo & Weather Background
   useEffect(() => {
     if (settings.enableLocation && profile.isLoggedIn) {
-        setWeatherLoading(true);
         navigator.geolocation.getCurrentPosition(async (pos) => {
-            const data = await getWeather(pos.coords.latitude, pos.coords.longitude);
-            const locData = await getLocalityName(pos.coords.latitude, pos.coords.longitude);
-            setWeather(data);
-            setLocality(locData.locality);
-            setWeatherLoading(false);
-            const tip = await getHydrationTip(hydration.currentMl, hydration.goalMl, dailySteps, data);
+            const [w, l] = await Promise.all([
+                getWeather(pos.coords.latitude, pos.coords.longitude),
+                getLocalityName(pos.coords.latitude, pos.coords.longitude)
+            ]);
+            setWeather(w);
+            setLocality(l.locality);
+            const tip = await getHydrationTip(hydration.currentMl, hydration.goalMl, dailySteps, w);
             setHydrationTip(tip);
-        }, () => setWeatherLoading(false));
+        }, null, { enableHighAccuracy: false });
     }
   }, [settings.enableLocation, profile.isLoggedIn]);
 
@@ -235,11 +205,7 @@ const App: React.FC = () => {
         setShowCoach(true);
     } else {
         const granted = await requestPermission();
-        if (granted) {
-            startSession();
-        } else {
-            alert("Motion sensor access is required for tracking.");
-        }
+        if (granted) startSession();
     }
   };
 
@@ -252,6 +218,18 @@ const App: React.FC = () => {
     const todayStr = new Date().toISOString().split('T')[0];
     return fullHistory.find(h => h.date === todayStr) || { steps: 0, sessions: [] };
   }, [fullHistory]);
+
+  if (isInitialLoading) {
+    return (
+        <div className="min-h-screen bg-[#0a0f14] flex flex-col items-center justify-center p-6">
+            <div className="relative w-16 h-16 mb-8">
+                <div className="absolute inset-0 border-4 border-slate-800 rounded-2xl"></div>
+                <div className="absolute inset-0 border-4 border-brand-500 rounded-2xl border-t-transparent animate-spin"></div>
+            </div>
+            <p className="text-slate-500 text-[9px] font-black uppercase tracking-[5px] animate-pulse">Establishing Session...</p>
+        </div>
+    );
+  }
 
   if (!profile.isLoggedIn) {
     return <LoginScreen 

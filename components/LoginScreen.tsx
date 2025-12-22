@@ -29,48 +29,50 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onGuest, onSh
               setIsLoading(true);
               setErrorMsg(null);
               try {
-                // Exchange One Tap JWT for Supabase session
                 await signInWithGoogleOneTap(response.credential);
               } catch (err: any) {
                 console.error("One Tap Sync Failed", err);
                 if (isMounted) {
-                  setErrorMsg("One Tap issue. Please click 'Continue with Gmail' below.");
+                  setErrorMsg("One Tap failed. Please use 'Continue with Gmail' button.");
                   setIsLoading(false);
                 }
               }
             },
-            auto_select: false, // Safer: User must click their account. Prevents confusing loops.
+            auto_select: false, 
             itp_support: true,
-            use_fedcm_for_prompt: true, // Modern browser standard
+            use_fedcm_for_prompt: true, 
           });
 
-          // Trigger prompt (Delayed slightly for smooth entry)
-          setTimeout(() => {
-            if (isMounted) {
-                google.accounts.id.prompt((notification: any) => {
-                    if (notification.isNotDisplayed()) {
-                      console.debug("One Tap Hidden:", notification.getNotDisplayedReason());
-                    }
-                });
+          // Show One Tap prompt
+          google.accounts.id.prompt((notification: any) => {
+            if (notification.isNotDisplayed()) {
+              console.warn("One Tap Hidden:", notification.getNotDisplayedReason());
             }
-          }, 1500);
+            if (notification.isSkippedMoment()) {
+              // If skipped, we don't force it again to respect user choice
+              console.log("One Tap skipped by user");
+            }
+          });
         } catch (e) {
           console.warn("GSI initialization error", e);
         }
       }
     };
 
-    initializeOneTap();
-    return () => { isMounted = false; };
+    // Fast trigger
+    const timer = setTimeout(initializeOneTap, 500);
+    return () => { 
+        isMounted = false; 
+        clearTimeout(timer);
+    };
   }, []);
 
   const handleGoogleLogin = async () => {
-    // Immediate visual feedback
     setIsLoading(true);
     setErrorMsg(null);
     try {
         await signInWithGoogle();
-        // Redirect logic handled by Supabase/App.tsx
+        // Browser will redirect, handling token in hash on return
     } catch (error: any) {
         console.error("Manual Login Failed", error);
         setErrorMsg("Connection issue. Please try again.");
@@ -105,7 +107,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onGuest, onSh
               </div>
           )}
 
-          {/* Core Login Action */}
           <button 
             onClick={handleGoogleLogin}
             disabled={isLoading}
