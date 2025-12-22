@@ -29,38 +29,36 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onGuest, onSh
               setIsLoading(true);
               setErrorMsg(null);
               try {
-                // This is the response from One Tap
+                // One Tap callback
                 await signInWithGoogleOneTap(response.credential);
               } catch (err: any) {
-                console.error("One Tap Sync Failed", err);
+                console.error("One Tap Failed", err);
                 if (isMounted) {
-                  setErrorMsg("One Tap failed. Please use the button below.");
+                  setErrorMsg("One Tap issue. Please click 'Continue with Gmail' below.");
                   setIsLoading(false);
                 }
               }
             },
-            auto_select: false, // Changed to false to prevent failing auto-login attempts
+            auto_select: false, // Prevents forced login loops that might error
             itp_support: true,
-            use_fedcm_for_prompt: true, 
+            use_fedcm_for_prompt: true, // Required for newer browsers
           });
 
-          google.accounts.id.prompt((notification: any) => {
-            if (notification.isNotDisplayed()) {
-              console.warn("One Tap not displayed:", notification.getNotDisplayedReason());
-            } else if (notification.isSkippedMoment()) {
-              console.warn("One Tap skipped:", notification.getSkippedReason());
-            } else if (notification.isDismissedMoment()) {
-              console.warn("One Tap dismissed:", notification.getDismissedReason());
-            }
-          });
+          // Only prompt if we aren't already loading something
+          if (!isLoading) {
+              google.accounts.id.prompt((notification: any) => {
+                if (notification.isNotDisplayed()) {
+                  console.warn("One Tap not displayed:", notification.getNotDisplayedReason());
+                }
+              });
+          }
         } catch (e) {
           console.warn("GSI initialization error", e);
         }
       }
     };
 
-    // Delay initialization to ensure the DOM and GSI script are fully ready
-    const timer = setTimeout(initializeOneTap, 1500);
+    const timer = setTimeout(initializeOneTap, 1000);
     return () => {
       isMounted = false;
       clearTimeout(timer);
@@ -72,13 +70,10 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onGuest, onSh
     setErrorMsg(null);
     try {
         await signInWithGoogle();
+        // Redirect handled by Supabase automatically
     } catch (error: any) {
         console.error("Manual Login Failed", error);
-        if (error.message?.includes("closed") || error.error_description?.includes("closed")) {
-            setErrorMsg(null);
-        } else {
-            setErrorMsg("Login issue. Please check if popups are enabled.");
-        }
+        setErrorMsg("Login failed. Please check your internet connection.");
         setIsLoading(false);
     }
   };
@@ -99,7 +94,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onGuest, onSh
                <ApnaWalkLogo size={56} />
            </div>
            <div className="h-0.5 w-12 bg-gradient-to-r from-transparent via-slate-700 to-transparent mx-auto mt-4 mb-2"></div>
-           <p className="text-slate-500 text-[10px] font-black tracking-[4px] uppercase text-center">Your Personal Fitness Companion</p>
+           <p className="text-slate-500 text-[10px] font-black tracking-[4px] uppercase text-center">Desi Smart Fitness Tracker</p>
         </div>
 
         <div className="w-full space-y-4 animate-message-pop" style={{ animationDelay: '0.2s' }}>

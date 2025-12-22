@@ -89,8 +89,7 @@ export const signOut = async () => {
   localStorage.removeItem('strideai_profile');
   localStorage.removeItem('strideai_active_plan');
   
-  // We keep history and hydration locally by default as per "Local First" policy, 
-  // but the session identity is now fully purged.
+  // We keep history and hydration locally by default as per "Local First" policy
 };
 
 const generateRandomUsername = (email: string) => {
@@ -100,6 +99,8 @@ const generateRandomUsername = (email: string) => {
 };
 
 export const syncProfile = async (user: any): Promise<UserProfile> => {
+    if (!user?.id) throw new Error("Invalid user object for profile sync");
+
     // Attempt to get existing profile
     const { data: existingProfile } = await supabase
         .from('profiles')
@@ -112,16 +113,17 @@ export const syncProfile = async (user: any): Promise<UserProfile> => {
     if (existingProfile) {
         const finalUsername = existingProfile.username || generateRandomUsername(existingProfile.email || user.email);
         
+        // If username was missing, update it in background
         if (!existingProfile.username) {
-            await supabase.from('profiles').update({ username: finalUsername }).eq('id', user.id);
+            supabase.from('profiles').update({ username: finalUsername }).eq('id', user.id).then();
         }
 
         finalProfile = {
             id: existingProfile.id,
-            name: existingProfile.full_name,
+            name: existingProfile.full_name || user.user_metadata?.full_name,
             username: finalUsername,
             email: existingProfile.email || user.email,
-            avatar: existingProfile.avatar_url,
+            avatar: existingProfile.avatar_url || user.user_metadata?.avatar_url,
             bio: existingProfile.bio,
             pace: existingProfile.pace,
             preferred_time: existingProfile.preferred_time,
@@ -133,6 +135,7 @@ export const syncProfile = async (user: any): Promise<UserProfile> => {
             share_live_location: existingProfile.share_live_location
         };
     } else {
+        // Create new profile
         const username = generateRandomUsername(user.email);
         const newProfile = {
             id: user.id,
@@ -144,6 +147,7 @@ export const syncProfile = async (user: any): Promise<UserProfile> => {
             is_ghost_mode: false
         };
 
+        // Don't await the insert if we want maximum speed, but standard practice is to await here
         await supabase.from('profiles').insert([newProfile]);
 
         finalProfile = {
