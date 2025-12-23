@@ -406,7 +406,7 @@ const App: React.FC = () => {
         <section className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <HydrationCard data={hydration} recommendation={hydrationTip} onClick={() => setShowHydration(true)} onQuickAdd={() => handleHydrationUpdate({...hydration, currentMl: hydration.currentMl + 250})} />
-                <ReliefCard data={relief} onClick={() => setShowRelief(true)} onQuickAdd={() => handleReliefUpdate({...relief, count: relief.count + 1, lastReliefTimestamp: Date.now()})} />
+                <ReliefCard data={relief} currentHydrationMl={hydration.currentMl} onClick={() => setShowRelief(true)} onQuickAdd={() => handleReliefUpdate({...relief, count: relief.count + 1, lastReliefTimestamp: Date.now()})} />
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <BreathExerciseCard onClick={() => setShowBreath(true)} />
@@ -449,7 +449,7 @@ const App: React.FC = () => {
       <BuddyFinder isOpen={showBuddy} onClose={() => setShowBuddy(false)} profile={profile} />
       <ParkFinder isOpen={showParks} onClose={() => setShowParks(false)} profile={profile} />
       <HydrationModal isOpen={showHydration} onClose={() => setShowHydration(false)} data={hydration} onUpdate={handleHydrationUpdate} />
-      <ReliefModal isOpen={showRelief} onClose={() => setShowRelief(false)} data={relief} onUpdate={handleReliefUpdate} />
+      <ReliefModal isOpen={showRelief} onClose={() => setShowRelief(false)} data={relief} currentHydrationMl={hydration.currentMl} onUpdate={handleReliefUpdate} />
       <BreathExerciseModal isOpen={showBreath} onClose={() => setShowBreath(false)} />
       <SleepModal isOpen={showSleep} onClose={() => setShowSleep(false)} />
       <WeatherDetailedModal isOpen={showWeatherDetail} onClose={() => setShowWeatherDetail(false)} weather={weather} />
