@@ -1,3 +1,4 @@
+
 import { supabase } from './supabaseClient';
 import { WalkingGroup, Challenge, GroupMember, GroupPost, ChallengeParticipant, GroupMemberStats } from '../types';
 
@@ -319,6 +320,7 @@ export const fetchLeaderboard = async (challengeId: string): Promise<ChallengePa
     if (error) throw error;
     return data.map((row: any, index: number) => ({
         user_id: row.user_id,
+        challenge_id: challengeId,
         current_steps: row.current_steps,
         rank: index + 1,
         profile: row.profile
