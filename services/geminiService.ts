@@ -152,8 +152,6 @@ async function decodeAudioData(data: Uint8Array, ctx: AudioContext, sampleRate: 
     return buffer;
 }
 
-// ... rest of the existing exports (getWalkingInsight, chatWithCoach, etc) remain identical ...
-
 export const generatePersonalizedNudge = async (
     type: 'SEDENTARY' | 'GOAL_50' | 'GOAL_100' | 'HYDRATION' | 'MORNING',
     context: { locality: string, steps: number, goal: number, weather?: WeatherData | null, coachVibe?: string }
@@ -220,7 +218,9 @@ export const chatWithCoach = async (history: {role: string, text: string}[], mes
 
         const response = await ai.models.generateContent({
             model: TEXT_MODEL,
-            config: { systemInstruction: "You are 'Apna Coach', a witty, energetic, Desi fitness companion. Strictly Hinglish." },
+            config: { 
+                systemInstruction: "You are 'Apna Coach', a witty, energetic, Desi fitness companion. Strictly Hinglish. AFTER your message, you MUST ALWAYS provide 3 relevant follow-up questions for the user in this exact format at the very end: [SUGGESTIONS: \"Question 1\", \"Question 2\", \"Question 3\"]" 
+            },
             contents: contents
         });
         recordUsage();
