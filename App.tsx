@@ -18,7 +18,6 @@ import { BreathExerciseModal } from './components/BreathExerciseModal';
 import { BreathExerciseCard } from './components/BreathExerciseCard';
 import { SleepModal } from './components/SleepModal';
 import { SleepCard } from './components/SleepCard';
-import { WeatherCard } from './components/WeatherCard';
 import { WeatherDetailedModal } from './components/WeatherDetailedModal';
 import { VirtualTrekCard } from './components/VirtualTrekCard';
 import { RhythmGuide } from './components/RhythmGuide';
@@ -41,12 +40,10 @@ import {
 } from './services/storageService';
 import { signOut, syncProfile } from './services/authService';
 import { supabase } from './services/supabaseClient';
-import { getWeather } from './services/weatherService';
+import { getWeather, getWeatherIcon, getAQIStatus } from './services/weatherService';
 import { getLocalityName } from './services/parkService';
 import { getHydrationTip } from './services/geminiService';
-import { updateLiveLocation } from './services/buddyService';
 
-// --- GLOBAL CACHE CONTROL ---
 const CURRENT_APP_VERSION = "2.4.0"; 
 
 const App: React.FC = () => {
@@ -80,7 +77,6 @@ const App: React.FC = () => {
   const { dailySteps, sessionSteps, isTrackingSession, lastStepTimestamp, requestPermission, startSession, stopSession } = usePedometer(profile.id, settings.sensitivity);
   const { bpm, isPlaying, togglePlay, setBpm } = useMetronome(115);
 
-  // UI States
   const [showCoach, setShowCoach] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showPlanner, setShowPlanner] = useState(false);
@@ -96,11 +92,9 @@ const App: React.FC = () => {
   const [showAutoHistory, setShowAutoHistory] = useState(false);
   const [selectedForensicSession, setSelectedForensicSession] = useState<WalkSession | null>(null);
 
-  // Data States
   const [hydration, setHydration] = useState<HydrationLog>(() => getHydration());
   const [hydrationTip, setHydrationTip] = useState<string>("");
   const [weather, setWeather] = useState<WeatherData | null>(null);
-  const [weatherLoading, setWeatherLoading] = useState(false);
   const [locality, setLocality] = useState<string>("Detecting...");
   const [fullHistory, setFullHistory] = useState<DailyHistory[]>(() => getHistory());
   const [currentSession, setCurrentSession] = useState<WalkSession | null>(null);
@@ -108,12 +102,7 @@ const App: React.FC = () => {
 
   useEffect(() => {
     let mounted = true;
-    const failSafe = setTimeout(() => {
-        if (mounted && isInitialLoading) {
-            setIsInitialLoading(false);
-        }
-    }, 3000);
-
+    const failSafe = setTimeout(() => { if (mounted && isInitialLoading) setIsInitialLoading(false); }, 3000);
     const initSession = async () => {
         try {
             const { data: { session } } = await supabase.auth.getSession();
@@ -123,18 +112,9 @@ const App: React.FC = () => {
                 saveProfile(userProfile);
                 if (window.location.hash) window.history.replaceState(null, '', window.location.pathname);
             }
-        } catch (e) { 
-            console.error("Auth init issue:", e);
-        } finally {
-            if (mounted) {
-                setIsInitialLoading(false);
-                clearTimeout(failSafe);
-            }
-        }
+        } catch (e) { console.error(e); } finally { if (mounted) { setIsInitialLoading(false); clearTimeout(failSafe); } }
     };
-
     initSession();
-
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (!mounted) return;
       if ((event === 'SIGNED_IN' || event === 'USER_UPDATED' || event === 'INITIAL_SESSION') && session?.user) {
@@ -145,16 +125,10 @@ const App: React.FC = () => {
         clearTimeout(failSafe);
       } else if (event === 'SIGNED_OUT') {
         setProfile({ name: '', email: '', isLoggedIn: false, isGuest: false });
-        localStorage.removeItem('strideai_profile');
         setIsInitialLoading(false);
       }
     });
-
-    return () => {
-        mounted = false;
-        subscription.unsubscribe();
-        clearTimeout(failSafe);
-    };
+    return () => { mounted = false; subscription.unsubscribe(); clearTimeout(failSafe); };
   }, []);
 
   useEffect(() => {
@@ -202,14 +176,7 @@ const App: React.FC = () => {
   const handleToggleTracking = async () => {
     if (isTrackingSession) {
         const finalSteps = stopSession();
-        const session: WalkSession = {
-            id: `manual-${Date.now()}`,
-            startTime: Date.now() - (finalSteps > 0 ? 300 : 0), 
-            steps: finalSteps,
-            distanceMeters: (finalSteps * settings.strideLengthCm) / 100,
-            calories: Math.round((finalSteps * 0.04) * (settings.weightKg / 70)),
-            durationSeconds: 0 
-        };
+        const session: WalkSession = { id: `manual-${Date.now()}`, startTime: Date.now() - (finalSteps > 0 ? 300 : 0), steps: finalSteps, distanceMeters: (finalSteps * settings.strideLengthCm) / 100, calories: Math.round((finalSteps * 0.04) * (settings.weightKg / 70)), durationSeconds: 0 };
         const updated = await saveHistory(profile.id, session.steps, session);
         setFullHistory(updated);
         setCurrentSession(session);
@@ -237,12 +204,7 @@ const App: React.FC = () => {
         if (type in totals) totals[type as keyof typeof totals] += s.distanceMeters;
     });
     const sum = (totals.walking + totals.cycling + totals.driving) || 1;
-    return {
-        wP: (totals.walking / sum) * 100,
-        cP: (totals.cycling / sum) * 100,
-        dP: (totals.driving / sum) * 100,
-        totalKm: (sum / 1000).toFixed(1)
-    };
+    return { wP: (totals.walking / sum) * 100, cP: (totals.cycling / sum) * 100, dP: (totals.driving / sum) * 100, totalKm: (sum / 1000).toFixed(1) };
   }, [todayData.sessions]);
 
   if (isInitialLoading) {
@@ -258,17 +220,13 @@ const App: React.FC = () => {
   }
 
   if (!profile.isLoggedIn) {
-    return <LoginScreen 
-        onLogin={() => {}} 
-        onGuest={() => setProfile({ ...profile, isLoggedIn: true, isGuest: true, id: 'guest' })} 
-        onShowLegal={() => {}} 
-    />;
+    return <LoginScreen onLogin={() => {}} onGuest={() => setProfile({ ...profile, isLoggedIn: true, isGuest: true, id: 'guest' })} onShowLegal={() => {}} />;
   }
 
   return (
     <div className="min-h-screen bg-[#0a0f14] text-white font-sans pb-32 overflow-x-hidden animate-fade-in">
       
-      <header className="p-6 flex justify-between items-center border-b border-white/5 bg-[#0a0f14]/80 backdrop-blur-xl sticky top-0 z-40">
+      <header className="p-4 sm:p-6 flex justify-between items-center border-b border-white/5 bg-[#0a0f14]/80 backdrop-blur-xl sticky top-0 z-40">
         <div className="flex flex-col">
             <div className="flex items-center gap-2">
                 <i className="fa-solid fa-person-running text-brand-500 text-xl"></i>
@@ -279,18 +237,41 @@ const App: React.FC = () => {
                     <span className={`${isAutoRecording ? 'animate-ping' : ''} absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75`}></span>
                     <span className={`relative inline-flex rounded-full h-2 w-2 ${isAutoRecording ? 'bg-emerald-500' : 'bg-slate-700'}`}></span>
                 </span>
-                <p className="text-[10px] text-slate-500 font-black uppercase tracking-[2px] truncate max-w-[200px] leading-tight">
+                <p className="text-[10px] text-slate-500 font-black uppercase tracking-[2px] truncate max-w-[120px] sm:max-w-[200px] leading-tight">
                     {locality}
                 </p>
             </div>
         </div>
-        <button onClick={() => setShowSettings(true)} className="w-12 h-12 rounded-2xl bg-slate-800 border border-slate-700 flex items-center justify-center shadow-lg active:scale-90 transition-transform">
-            <i className="fa-solid fa-user-gear text-slate-400"></i>
-        </button>
+
+        <div className="flex items-center gap-3">
+            {/* NEW: Weather Mini-Pill in Navbar */}
+            {weather && (
+                <button 
+                    onClick={() => setShowWeatherDetail(true)}
+                    className="flex items-center gap-2.5 px-4 h-12 rounded-2xl bg-white/5 border border-white/5 shadow-inner hover:bg-white/10 transition-all active:scale-95 group"
+                >
+                    <div className={getWeatherIcon(weather.weatherCode, weather.isDay).color}>
+                        <i className={`fa-solid ${getWeatherIcon(weather.weatherCode, weather.isDay).icon} text-sm`}></i>
+                    </div>
+                    <div className="flex flex-col items-start leading-none">
+                        <span className="text-sm font-black italic tabular-nums">{Math.round(weather.temperature)}°</span>
+                        {weather.aqi !== undefined && (
+                            <div className="flex items-center gap-1 mt-0.5">
+                                <div className={`w-1.5 h-1.5 rounded-full ${getAQIStatus(weather.aqi).color.replace('text-', 'bg-')} shadow-[0_0_5px_currentColor]`}></div>
+                                <span className="text-[7px] font-black uppercase text-slate-500 tracking-tighter">AQI {weather.aqi}</span>
+                            </div>
+                        )}
+                    </div>
+                </button>
+            )}
+
+            <button onClick={() => setShowSettings(true)} className="w-12 h-12 rounded-2xl bg-slate-800 border border-slate-700 flex items-center justify-center shadow-lg active:scale-90 transition-transform">
+                <i className="fa-solid fa-user-gear text-slate-400"></i>
+            </button>
+        </div>
       </header>
 
       <main className="max-w-xl mx-auto px-6 pt-10 space-y-12">
-        
         <section className="flex flex-col items-center">
             <RadialProgress current={displaySteps} total={settings.stepGoal} label={isTrackingSession ? "Session Live" : "Today's Walk"} subLabel="Tap to control" lastStepTime={lastStepTimestamp} isActive={isTrackingSession} onClick={handleToggleTracking} />
             <div className="w-full grid grid-cols-1 gap-6 mt-8">
@@ -302,7 +283,6 @@ const App: React.FC = () => {
                         <button onClick={handleToggleTracking} className="flex-1 bg-gradient-to-r from-red-600 to-orange-600 text-white font-black py-5 rounded-[2rem] shadow-xl text-xs uppercase tracking-[5px] flex items-center justify-center gap-3 border border-white/10"><i className="fa-solid fa-square"></i> Finish Walk</button>
                     )}
                 </div>
-                {/* Journey Log with Mode Distribution */}
                 <div onClick={() => setShowJourneyHub(true)} className="bg-slate-800/40 border border-slate-700/50 rounded-[2.5rem] p-6 flex flex-col gap-6 hover:bg-slate-800/60 transition-all cursor-pointer group shadow-2xl relative overflow-hidden">
                     <div className="flex justify-between items-center relative z-10">
                         <div>
@@ -317,21 +297,15 @@ const App: React.FC = () => {
                     <div className="w-full h-20 bg-slate-900/60 rounded-2xl flex items-center justify-center border border-white/5 relative z-10">
                         {autoRoute.length > 1 ? <PathSnailTrail route={autoRoute} className="h-16 w-full opacity-60" /> : <div className="flex items-center gap-3 opacity-20"><i className="fa-solid fa-satellite-dish animate-pulse"></i><span className="text-[10px] font-black uppercase tracking-widest">Awaiting Movement</span></div>}
                     </div>
-                    {/* Mode Breakdown Bar */}
                     <div className="flex h-1.5 w-full bg-slate-900 rounded-full overflow-hidden relative z-10">
                         <div className="bg-brand-500 h-full" style={{ width: `${todayBreakdown.wP}%` }}></div>
                         <div className="bg-blue-500 h-full" style={{ width: `${todayBreakdown.cP}%` }}></div>
                         <div className="bg-orange-500 h-full" style={{ width: `${todayBreakdown.dP}%` }}></div>
                     </div>
-                    <div className="flex justify-between items-center pt-2 relative z-10">
-                        <span className="text-[9px] text-slate-500 font-bold uppercase tracking-[3px]">Tap to browse timeline</span>
-                        <div className="flex items-center gap-2 text-brand-500"><span className="text-[10px] font-black uppercase tracking-widest">Explore Path</span><i className="fa-solid fa-chevron-right text-xs"></i></div>
-                    </div>
                 </div>
             </div>
         </section>
 
-        {/* REDESIGNED: Tool Cards Section */}
         <section className="grid grid-cols-2 gap-4">
             <ToolCard icon="fa-calendar-day" label="AI Plan" sub="Guidance" iconColor="text-brand-400" onClick={() => setShowPlanner(true)} />
             <ToolCard icon="fa-users-line" label="Social" sub="Squads" iconColor="text-orange-400" onClick={() => setShowSocial(true)} />
@@ -350,7 +324,6 @@ const App: React.FC = () => {
         </section>
 
         <section className="space-y-8 pb-10">
-            <WeatherCard weather={weather} loading={weatherLoading} onClick={() => setShowWeatherDetail(true)} />
             <DailyQuote onShare={(q) => setVisualShare({ isOpen: true, type: 'quote', data: q })} />
             <Achievements totalSteps={dailySteps} earnedBadges={[]} />
             <AutoTrackerCard isActive={settings.autoTravelHistory} currentMode={activeActivityType} history={fullHistory} onClick={() => setShowAutoHistory(true)} />
@@ -382,28 +355,11 @@ const App: React.FC = () => {
 };
 
 const ToolCard = ({ icon, label, sub, iconColor, onClick }: { icon: string, label: string, sub: string, iconColor: string, onClick: () => void }) => (
-    <button 
-        onClick={onClick} 
-        className={`bg-slate-800/40 p-5 sm:p-6 rounded-[2.5rem] border border-slate-700/50 shadow-2xl flex flex-col gap-4 transition-all hover:bg-slate-800/60 active:scale-95 group backdrop-blur-sm relative overflow-hidden text-left`}
-    >
-        {/* Shimmer Background Icon */}
-        <div className={`absolute top-0 right-0 p-4 opacity-[0.03] text-6xl ${iconColor} rotate-12 pointer-events-none transition-all duration-700 group-hover:scale-125 group-hover:rotate-0`}>
-            <i className={`fa-solid ${icon}`}></i>
-        </div>
-
-        <div className={`w-14 h-14 rounded-[1.5rem] bg-slate-900 border border-white/5 flex items-center justify-center ${iconColor} text-xl shadow-inner group-hover:rotate-12 transition-transform shrink-0`}>
-            <i className={`fa-solid ${icon}`}></i>
-        </div>
-        
-        <div className="relative z-10">
-            <h3 className="text-white font-black text-lg italic tracking-tighter uppercase leading-none mb-1.5">{label}</h3>
-            <p className="text-[9px] text-slate-500 font-black uppercase tracking-[3px]">{sub}</p>
-        </div>
-
-        {/* Interactive Indicator */}
-        <div className="absolute bottom-4 right-6 opacity-0 group-hover:opacity-100 transition-all transform translate-x-2 group-hover:translate-x-0">
-             <i className={`fa-solid fa-chevron-right text-[10px] ${iconColor}`}></i>
-        </div>
+    <button onClick={onClick} className={`bg-slate-800/40 p-5 sm:p-6 rounded-[2.5rem] border border-slate-700/50 shadow-2xl flex flex-col gap-4 transition-all hover:bg-slate-800/60 active:scale-95 group backdrop-blur-sm relative overflow-hidden text-left`}>
+        <div className={`absolute top-0 right-0 p-4 opacity-[0.03] text-6xl ${iconColor} rotate-12 pointer-events-none transition-all duration-700 group-hover:scale-125 group-hover:rotate-0`}><i className={`fa-solid ${icon}`}></i></div>
+        <div className={`w-14 h-14 rounded-[1.5rem] bg-slate-900 border border-white/5 flex items-center justify-center ${iconColor} text-xl shadow-inner group-hover:rotate-12 transition-transform shrink-0`}><i className={`fa-solid ${icon}`}></i></div>
+        <div className="relative z-10"><h3 className="text-white font-black text-lg italic tracking-tighter uppercase leading-none mb-1.5">{label}</h3><p className="text-[9px] text-slate-500 font-black uppercase tracking-[3px]">{sub}</p></div>
+        <div className="absolute bottom-4 right-6 opacity-0 group-hover:opacity-100 transition-all transform translate-x-2 group-hover:translate-x-0"><i className={`fa-solid fa-chevron-right text-[10px] ${iconColor}`}></i></div>
     </button>
 );
 

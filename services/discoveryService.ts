@@ -1,3 +1,4 @@
+
 import { GoogleGenAI } from "@google/genai";
 import { Park } from "../types";
 
@@ -8,18 +9,16 @@ export const discoverRealPlaces = async (
     lng: number, 
     category: string
 ): Promise<{ places: Park[], sources: any[] }> => {
-    // We use gemini-2.5-flash for Maps grounding as per instructions.
-    // Prompt refined to strictly limit radius to 20km and emphasize local results.
-    const prompt = `Find top-rated ${category} locations for walking, running, and outdoor fitness within a strict 20km radius of coordinates ${lat}, ${lng}. 
-    Focus on places with walking tracks, parks, or fitness centers. 
-    IMPORTANT: Only provide results that are actually nearby these coordinates (local to the user's city/region).
-    Provide names, exact local addresses, and descriptions of their fitness amenities.`;
+    // Optimized for speed with Gemini 2.5 Flash and strict radius.
+    const prompt = `FAST SCAN: List 8 high-rated ${category} locations for outdoor fitness within 20km of ${lat}, ${lng}. 
+    Focus on places with walking tracks. Only provide names and verified addresses.`;
 
     try {
         const response = await ai.models.generateContent({
             model: "gemini-2.5-flash",
             contents: prompt,
             config: {
+                thinkingConfig: { thinkingBudget: 0 }, // Minimal latency
                 tools: [{ googleMaps: {} }],
                 toolConfig: {
                     retrievalConfig: {
@@ -34,17 +33,13 @@ export const discoverRealPlaces = async (
 
         const groundingChunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
         
-        // Transform grounding chunks into our Park type
         const discoveredPlaces: Park[] = groundingChunks
             .filter((chunk: any) => chunk.maps?.uri)
             .map((chunk: any, index: number) => {
                 const mapPlace = chunk.maps;
                 
-                // If the AI returns specific metadata about coordinates, use it.
-                // Otherwise, generate a tight distribution within 20km for visual display on the map.
-                // Note: Actual lat/lng is often in the metadata candidate parts, but for simplicity 
-                // in this PWA we use a controlled offset to ensure markers appear in the user's view.
-                const randomRadius = Math.random() * 0.15; // Roughly up to 15-20km offset
+                // Tight visual distribution for the map markers.
+                const randomRadius = Math.random() * 0.12; // ~12-15km radius offset
                 const randomAngle = Math.random() * Math.PI * 2;
                 
                 return {
