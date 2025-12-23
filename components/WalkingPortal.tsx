@@ -63,7 +63,7 @@ export const WalkingPortal: React.FC<WalkingPortalProps> = ({
     };
 
     return (
-        <div className="fixed inset-0 bg-black z-[200] flex flex-col animate-fade-in touch-none overflow-hidden select-none">
+        <div className="fixed inset-0 bg-[#0a0f14] z-[200] flex flex-col animate-fade-in touch-none overflow-hidden select-none">
             {/* Immersive Background */}
             <div className="absolute inset-0 opacity-20 pointer-events-none">
                 <div className={`absolute top-1/4 left-1/4 w-72 h-72 rounded-full blur-[120px] animate-pulse transition-colors duration-1000 ${isTracking ? 'bg-brand-500' : 'bg-slate-700'}`}></div>
@@ -77,15 +77,11 @@ export const WalkingPortal: React.FC<WalkingPortalProps> = ({
                     </h2>
                     <p className="text-slate-500 text-[9px] font-black uppercase tracking-[4px] mt-1">Manual Intelligence Mode</p>
                 </div>
-                {isTracking ? (
-                    <div className="bg-slate-900 border border-white/5 px-6 py-2.5 rounded-2xl shadow-inner">
-                        <span className="text-brand-500 text-sm font-black tabular-nums">{formatTime(seconds)}</span>
-                    </div>
-                ) : (
-                    <button onClick={onClose} className="w-12 h-12 rounded-2xl bg-slate-800 text-slate-400 flex items-center justify-center active:scale-90 transition-all border border-slate-700">
-                        <i className="fa-solid fa-xmark"></i>
-                    </button>
-                )}
+                
+                <button onClick={onClose} className="w-12 h-12 rounded-2xl bg-slate-800 text-slate-400 flex flex-col items-center justify-center active:scale-90 transition-all border border-slate-700 shadow-xl group">
+                    <i className="fa-solid fa-xmark text-lg group-hover:text-white"></i>
+                    <span className="text-[7px] font-black uppercase mt-0.5 opacity-50">Hide</span>
+                </button>
             </header>
 
             <main className="flex-1 flex flex-col items-center justify-center p-6 z-10">
@@ -111,8 +107,8 @@ export const WalkingPortal: React.FC<WalkingPortalProps> = ({
                             <p className="text-white font-black italic text-lg leading-none">{km.toFixed(2)}<small className="text-[10px] opacity-40 uppercase ml-1 not-italic">km</small></p>
                         </div>
                         <div className="bg-slate-900/60 backdrop-blur-md border border-white/5 p-4 rounded-3xl text-center shadow-xl">
-                            <p className="text-slate-500 text-[8px] font-black uppercase tracking-widest mb-1">Pace</p>
-                            <p className="text-white font-black italic text-lg leading-none">{paceMin}'{paceSec.toString().padStart(2, '0')}"</p>
+                            <p className="text-slate-500 text-[8px] font-black uppercase tracking-widest mb-1">Time</p>
+                            <p className="text-brand-400 font-black italic text-lg leading-none tabular-nums">{formatTime(seconds)}</p>
                         </div>
                         <div className="bg-slate-900/60 backdrop-blur-md border border-white/5 p-4 rounded-3xl text-center shadow-xl">
                             <p className="text-slate-500 text-[8px] font-black uppercase tracking-widest mb-1">Energy</p>
@@ -132,29 +128,29 @@ export const WalkingPortal: React.FC<WalkingPortalProps> = ({
                 </div>
             </main>
 
-            <footer className="p-10 shrink-0 z-10 flex flex-col items-center">
+            <footer className="p-10 shrink-0 z-10 flex flex-col items-center bg-gradient-to-t from-[#0a0f14] to-transparent">
                 {!isTracking ? (
                     <button 
                         onClick={onStart}
-                        className="w-full py-6 rounded-[2.5rem] bg-gradient-to-tr from-brand-600 to-emerald-500 text-white font-black text-sm uppercase tracking-[8px] shadow-[0_20px_50px_rgba(16,185,129,0.3)] active:scale-95 transition-all border border-white/10"
+                        className="w-full max-w-sm py-6 rounded-[2.5rem] bg-gradient-to-tr from-brand-600 to-emerald-500 text-white font-black text-sm uppercase tracking-[8px] shadow-[0_20px_50px_rgba(16,185,129,0.3)] active:scale-95 transition-all border border-white/10"
                     >
                         Start Session
                     </button>
                 ) : (
                     <button 
                         onClick={onFinish}
-                        className="w-full py-6 rounded-[2.5rem] bg-gradient-to-tr from-red-600 to-orange-500 text-white font-black text-sm uppercase tracking-[8px] shadow-[0_20px_50px_rgba(220,38,38,0.3)] active:scale-95 transition-all border border-white/10"
+                        className="w-full max-w-sm py-6 rounded-[2.5rem] bg-gradient-to-tr from-red-600 to-orange-500 text-white font-black text-sm uppercase tracking-[8px] shadow-[0_20px_50px_rgba(220,38,38,0.3)] active:scale-95 transition-all border border-white/10"
                     >
                         Finish Session
                     </button>
                 )}
                 
                 <div className="mt-8 flex items-center gap-3 opacity-30">
-                    <div className={`w-1 h-1 rounded-full animate-pulse ${isTracking ? 'bg-emerald-500' : 'bg-slate-500'}`}></div>
+                    <div className={`w-1.5 h-1.5 rounded-full animate-pulse ${isTracking ? 'bg-emerald-500' : 'bg-slate-500'}`}></div>
                     <span className="text-[8px] font-black text-slate-500 uppercase tracking-[4px]">
                         {isTracking ? 'Local Signature Recording Active' : 'Standby for Encryption'}
                     </span>
-                    <div className={`w-1 h-1 rounded-full animate-pulse ${isTracking ? 'bg-emerald-500' : 'bg-slate-500'}`}></div>
+                    <div className={`w-1.5 h-1.5 rounded-full animate-pulse ${isTracking ? 'bg-emerald-500' : 'bg-slate-500'}`}></div>
                 </div>
             </footer>
 

@@ -175,12 +175,16 @@ const App: React.FC = () => {
   const displayCalories = Math.round((displaySteps * 0.04) * (settings.weightKg / 70));
 
   const openWalkingPortal = () => {
+      if (navigator.vibrate) navigator.vibrate(10);
       setIsWalkingPortalOpen(true);
   };
 
   const handleStartSession = async () => {
       const granted = await requestPermission();
-      if (granted) startSession();
+      if (granted) {
+          if (navigator.vibrate) navigator.vibrate([30, 50]);
+          startSession();
+      }
   };
 
   const handleFinishSession = async () => {
@@ -247,8 +251,8 @@ const App: React.FC = () => {
             </div>
             <div className="flex items-center gap-2 mt-1 ml-8 overflow-hidden">
                 <span className="relative flex h-2 w-2 shrink-0">
-                    <span className={`${isAutoRecording ? 'animate-ping' : ''} absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75`}></span>
-                    <span className={`relative inline-flex rounded-full h-2 w-2 ${isAutoRecording ? 'bg-emerald-500' : 'bg-slate-700'}`}></span>
+                    <span className={`${isAutoRecording || isTrackingSession ? 'animate-ping' : ''} absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75`}></span>
+                    <span className={`relative inline-flex rounded-full h-2 w-2 ${isAutoRecording || isTrackingSession ? 'bg-emerald-500' : 'bg-slate-700'}`}></span>
                 </span>
                 <p className="text-[10px] text-slate-500 font-black uppercase tracking-[2px] truncate max-w-[120px] sm:max-w-[200px] leading-tight">
                     {locality}
@@ -285,11 +289,25 @@ const App: React.FC = () => {
 
       <main className="max-w-xl mx-auto px-6 pt-10 space-y-12">
         <section className="flex flex-col items-center">
-            <RadialProgress current={displaySteps} total={settings.stepGoal} label="Today's Walk" subLabel="Pao Pao Guru!" lastStepTime={lastStepTimestamp} onClick={openWalkingPortal} />
+            <RadialProgress 
+                current={displaySteps} 
+                total={settings.stepGoal} 
+                label={isTrackingSession ? "Session Live" : "Today's Walk"} 
+                subLabel={isTrackingSession ? "Finish Inside Portal" : "Pao Pao Guru!"} 
+                lastStepTime={lastStepTimestamp} 
+                isActive={isTrackingSession}
+                onClick={openWalkingPortal} 
+            />
             <div className="w-full grid grid-cols-1 gap-6 mt-8">
                 <StatsGrid calories={displayCalories} distance={displayDistance} duration={0} onStatClick={() => {}} />
                 <div className="flex gap-4 w-full">
-                    <button onClick={openWalkingPortal} className="flex-1 bg-gradient-to-r from-brand-600 to-emerald-500 text-white font-black py-5 rounded-[2rem] shadow-xl text-xs uppercase tracking-[5px] flex items-center justify-center gap-3 border border-white/10"><i className="fa-solid fa-play"></i> Start Walk</button>
+                    <button 
+                        onClick={openWalkingPortal} 
+                        className={`flex-1 transition-all duration-500 font-black py-5 rounded-[2rem] shadow-xl text-xs uppercase tracking-[5px] flex items-center justify-center gap-3 border border-white/10 ${isTrackingSession ? 'bg-emerald-500 text-white animate-pulse shadow-[0_0_20px_rgba(16,185,129,0.3)]' : 'bg-gradient-to-r from-brand-600 to-emerald-500 text-white'}`}
+                    >
+                        <i className={`fa-solid ${isTrackingSession ? 'fa-chart-line' : 'fa-play'}`}></i> 
+                        {isTrackingSession ? 'View Active Walk' : 'Start Walk'}
+                    </button>
                 </div>
                 <div onClick={() => setShowJourneyHub(true)} className="bg-slate-800/40 border border-slate-700/50 rounded-[2.5rem] p-6 flex flex-col gap-6 hover:bg-slate-800/60 transition-all cursor-pointer group shadow-2xl relative overflow-hidden">
                     <div className="flex justify-between items-center relative z-10">
