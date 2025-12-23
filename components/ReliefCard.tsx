@@ -49,13 +49,13 @@ export const ReliefCard: React.FC<ReliefCardProps> = ({ data, currentHydrationMl
                     </div>
                 </div>
                 
-                {/* MATCHING HYDRATION CARD QUICK ADD BUTTON */}
+                {/* DRAIN BUTTON - Changed to '-' for output logic with humor */}
                 <button 
                     onClick={handleQuickAdd}
-                    className="w-11 h-11 rounded-xl bg-slate-800 border border-slate-700 text-amber-400 hover:bg-amber-500 hover:text-white hover:border-amber-500 transition-all active:scale-95 flex items-center justify-center shadow-lg group-active:scale-90"
-                    title="Quick Log Relief"
+                    className="w-11 h-11 rounded-xl bg-slate-800 border border-slate-700 text-amber-500 hover:bg-amber-500 hover:text-white hover:border-amber-500 transition-all active:scale-95 flex items-center justify-center shadow-lg group-active:scale-90"
+                    title="Drain the Tank"
                 >
-                    <i className="fa-solid fa-plus text-lg"></i>
+                    <i className="fa-solid fa-minus text-lg"></i>
                 </button>
             </div>
 
@@ -79,7 +79,7 @@ export const ReliefCard: React.FC<ReliefCardProps> = ({ data, currentHydrationMl
             <div className="flex justify-between mt-2">
                  <span className="text-[8px] text-slate-600 font-black uppercase tracking-widest">Metabolic Loop</span>
                  <span className="text-[8px] text-slate-500 font-black uppercase tracking-widest group-hover:text-amber-500 transition-colors">
-                    Log session
+                    Weight Reduction
                  </span>
             </div>
         </div>

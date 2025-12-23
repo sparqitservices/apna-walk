@@ -90,8 +90,8 @@ export const ReliefModal: React.FC<ReliefModalProps> = ({ isOpen, onClose, data,
                 onClick={handleLog}
                 className="w-full py-8 bg-gradient-to-tr from-amber-600 to-amber-400 rounded-[2.5rem] shadow-2xl active:scale-[0.98] transition-all flex flex-col items-center justify-center gap-2 group relative overflow-hidden"
             >
-                <i className="fa-solid fa-plus text-3xl text-white"></i>
-                <span className="text-white font-black text-xs uppercase tracking-[5px]">Expel Fluid</span>
+                <i className="fa-solid fa-minus text-3xl text-white"></i>
+                <span className="text-white font-black text-xs uppercase tracking-[5px]">Release Pressure</span>
             </button>
 
             <div className="mt-12 space-y-6">
