@@ -31,6 +31,16 @@ export const ReliefModal: React.FC<ReliefModalProps> = ({ isOpen, onClose, data,
     });
   };
 
+  const handleReset = () => {
+    if (window.confirm("Arre Boss, are you sure? This will reset your relief count for today to zero.")) {
+        onUpdate({
+            ...data,
+            count: 0,
+            lastReliefTimestamp: undefined
+        });
+    }
+  };
+
   const getTimeSinceLast = () => {
     if (!data.lastReliefTimestamp) return "No logs today";
     const mins = Math.floor((Date.now() - data.lastReliefTimestamp) / 60000);
@@ -73,6 +83,7 @@ export const ReliefModal: React.FC<ReliefModalProps> = ({ isOpen, onClose, data,
             <div className="text-center mb-10">
                 <div className="text-6xl font-black text-white italic tabular-nums tracking-tighter">{data.count}<span className="text-2xl text-slate-600 ml-2">/ {expectedReliefs}</span></div>
                 <p className="text-amber-500 text-[10px] font-black uppercase tracking-[4px] mt-2">Relief Sessions Logged</p>
+                <p className="text-slate-500 text-[8px] font-bold uppercase tracking-widest mt-2">Last Session: {getTimeSinceLast()}</p>
             </div>
 
             <button 
@@ -99,6 +110,13 @@ export const ReliefModal: React.FC<ReliefModalProps> = ({ isOpen, onClose, data,
                     ))}
                 </div>
             </div>
+
+            <button 
+                onClick={handleReset}
+                className="w-full mt-10 text-[9px] text-slate-700 hover:text-red-400 font-black uppercase tracking-[4px] transition-colors py-4"
+            >
+                Reset Daily Count
+            </button>
         </div>
 
         <div className="p-8 bg-slate-900/50 border-t border-white/5 shrink-0">
