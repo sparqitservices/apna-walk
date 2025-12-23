@@ -1,11 +1,12 @@
 
-import { GoogleGenAI, Type } from "@google/genai";
+import { GoogleGenAI, Type, Modality } from "@google/genai";
 import { WalkSession, AIInsight, DailyHistory, Badge, WeeklyPlan, WeatherData, FitnessEvent } from "../types";
 
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-const MODEL_ID = "gemini-3-flash-preview";
+const TEXT_MODEL = "gemini-3-flash-preview";
+const TTS_MODEL = "gemini-2.5-flash-preview-tts";
 
-// --- RATE LIMITING LOGIC (Abuse Prevention) ---
+// --- RATE LIMITING LOGIC ---
 const USAGE_KEY = 'apnawalk_ai_usage';
 const MAX_REQUESTS_PER_HOUR = 15;
 
@@ -21,7 +22,6 @@ const checkUsageLimit = (): UsageStatus => {
     const usageStr = localStorage.getItem(USAGE_KEY);
     let timestamps: number[] = usageStr ? JSON.parse(usageStr) : [];
 
-    // Filter out timestamps older than 1 hour
     timestamps = timestamps.filter(ts => now - ts < oneHour);
 
     if (timestamps.length >= MAX_REQUESTS_PER_HOUR) {
@@ -48,6 +48,112 @@ const recordUsage = () => {
 
 export const getUsageStatus = (): UsageStatus => checkUsageLimit();
 
+/**
+ * generateSpecialBadge: Creates a unique, culturally relevant badge based on session metrics.
+ */
+export const generateSpecialBadge = async (session: WalkSession, location: string): Promise<Badge | null> => {
+    if (!checkUsageLimit().allowed) return null;
+
+    const distKm = (session.distanceMeters / 1000).toFixed(2);
+    const prompt = `Finish Walk: ${distKm}km at ${location}. Create a unique, witty "Desi" title and description for a digital badge. 
+    Example: "Sultan of South Delhi", "Mumbai Monsoon Warrior". 
+    Return JSON: { title: string, description: string, icon: string (fa-icon-name), color: string (hex) }`;
+
+    try {
+        const response = await ai.models.generateContent({
+            model: TEXT_MODEL,
+            contents: prompt,
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: {
+                    type: Type.OBJECT,
+                    properties: {
+                        title: { type: Type.STRING },
+                        description: { type: Type.STRING },
+                        icon: { type: Type.STRING },
+                        color: { type: Type.STRING }
+                    },
+                    required: ["title", "description", "icon", "color"]
+                }
+            }
+        });
+        recordUsage();
+        const data = JSON.parse(response.text || '{}');
+        return {
+            id: `ai-badge-${Date.now()}`,
+            title: data.title,
+            description: data.description,
+            icon: data.icon || 'fa-medal',
+            color: data.color || '#4CAF50',
+            isAiGenerated: true,
+            dateEarned: new Date().toISOString()
+        };
+    } catch (e) {
+        console.error("Badge gen failed", e);
+        return null;
+    }
+};
+
+/**
+ * synthesizeSpeech: Converts text to speech using Gemini's TTS model.
+ */
+export const synthesizeSpeech = async (text: string): Promise<void> => {
+    try {
+        const response = await ai.models.generateContent({
+            model: TTS_MODEL,
+            contents: [{ parts: [{ text: `Say with enthusiasm: ${text}` }] }],
+            config: {
+                responseModalities: [Modality.AUDIO],
+                speechConfig: {
+                    voiceConfig: {
+                        prebuiltVoiceConfig: { voiceName: 'Kore' },
+                    },
+                },
+            },
+        });
+
+        const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+        if (!base64Audio) return;
+
+        const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
+        const audioBuffer = await decodeAudioData(decodeBase64(base64Audio), audioCtx, 24000, 1);
+        
+        const source = audioCtx.createBufferSource();
+        source.buffer = audioBuffer;
+        source.connect(audioCtx.destination);
+        source.start();
+    } catch (e) {
+        console.error("TTS failed", e);
+    }
+};
+
+// --- AUDIO HELPERS ---
+
+function decodeBase64(base64: string) {
+    const binaryString = atob(base64);
+    const len = binaryString.length;
+    const bytes = new Uint8Array(len);
+    for (let i = 0; i < len; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+    }
+    return bytes;
+}
+
+async function decodeAudioData(data: Uint8Array, ctx: AudioContext, sampleRate: number, numChannels: number): Promise<AudioBuffer> {
+    const dataInt16 = new Int16Array(data.buffer);
+    const frameCount = dataInt16.length / numChannels;
+    const buffer = ctx.createBuffer(numChannels, frameCount, sampleRate);
+    for (let channel = 0; channel < numChannels; channel++) {
+        const channelData = buffer.getChannelData(channel);
+        for (let i = 0; i < frameCount; i++) {
+            channelData[i] = dataInt16[i * numChannels + channel] / 32768.0;
+        }
+    }
+    return buffer;
+}
+
+// ... rest of the existing exports (getWalkingInsight, chatWithCoach, etc) remain identical ...
+
 export const generatePersonalizedNudge = async (
     type: 'SEDENTARY' | 'GOAL_50' | 'GOAL_100' | 'HYDRATION' | 'MORNING',
     context: { locality: string, steps: number, goal: number, weather?: WeatherData | null, coachVibe?: string }
@@ -58,7 +164,7 @@ export const generatePersonalizedNudge = async (
 
     try {
         const response = await ai.models.generateContent({
-            model: MODEL_ID,
+            model: TEXT_MODEL,
             contents: prompt,
             config: {
                 responseMimeType: "application/json",
@@ -82,7 +188,7 @@ export const getWalkingInsight = async (session: WalkSession): Promise<AIInsight
 
   try {
     const response = await ai.models.generateContent({
-      model: MODEL_ID,
+      model: TEXT_MODEL,
       contents: prompt,
       config: {
         responseMimeType: "application/json",
@@ -113,7 +219,7 @@ export const chatWithCoach = async (history: {role: string, text: string}[], mes
         ];
 
         const response = await ai.models.generateContent({
-            model: MODEL_ID,
+            model: TEXT_MODEL,
             config: { systemInstruction: "You are 'Apna Coach', a witty, energetic, Desi fitness companion. Strictly Hinglish." },
             contents: contents
         });
@@ -127,7 +233,7 @@ export const generateWeeklyPlan = async (goal: string, intensityLevel: string): 
     const prompt = `Create 7-Day Walking Schedule for: "${goal}" at "${intensityLevel}" intensity. Return STRICT JSON.`;
     try {
         const response = await ai.models.generateContent({
-            model: MODEL_ID,
+            model: TEXT_MODEL,
             contents: prompt,
             config: {
                 responseMimeType: "application/json",
@@ -164,7 +270,7 @@ export const getHydrationTip = async (c: number, g: number, s: number, w: any): 
   const prompt = `Coach advice: Hydration ${c}/${g}ml, Steps ${s}. Hinglish, max 10 words.`;
   try {
     const response = await ai.models.generateContent({
-      model: MODEL_ID,
+      model: TEXT_MODEL,
       contents: prompt,
       config: { maxOutputTokens: 60, thinkingConfig: { thinkingBudget: 0 } }
     });
@@ -173,9 +279,6 @@ export const getHydrationTip = async (c: number, g: number, s: number, w: any): 
   } catch (error) { return "Pani piyo stamina banega!"; }
 };
 
-/**
- * findLocalEvents: Fetches local fitness events using Google Search grounding.
- */
 export const findLocalEvents = async (location: string): Promise<{ events: FitnessEvent[], sources: any[] }> => {
     if (!checkUsageLimit().allowed) return { events: [], sources: [] };
 
@@ -187,7 +290,7 @@ export const findLocalEvents = async (location: string): Promise<{ events: Fitne
 
     try {
         const response = await ai.models.generateContent({
-            model: MODEL_ID,
+            model: TEXT_MODEL,
             contents: prompt,
             config: {
                 tools: [{ googleSearch: {} }]
@@ -197,7 +300,6 @@ export const findLocalEvents = async (location: string): Promise<{ events: Fitne
         recordUsage();
         
         const text = response.text || "[]";
-        // Extract JSON block safely
         const jsonMatch = text.match(/\[\s*\{.*\}\s*\]/s);
         const jsonStr = jsonMatch ? jsonMatch[0] : (text.startsWith('[') ? text : "[]");
         const sources = response.candidates?.[0]?.groundingMetadata?.groundingChunks || [];

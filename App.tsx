@@ -32,17 +32,17 @@ import { WalkingPortal } from './components/WalkingPortal';
 import { usePedometer } from './hooks/usePedometer';
 import { useMetronome } from './hooks/useMetronome';
 import { useAutoTracker } from './hooks/useAutoTracker';
-import { UserProfile, UserSettings, WalkSession, HydrationLog, WeatherData, DailyHistory, RoutePoint } from './types';
+import { UserProfile, UserSettings, WalkSession, HydrationLog, WeatherData, DailyHistory, RoutePoint, Badge } from './types';
 import { 
     getProfile, saveProfile, getSettings, saveSettings, saveHistory, 
     getHydration, saveHydration, saveActivePlan, getHistory, 
-    fetchCloudHistory, fetchCloudHydration 
+    fetchCloudHistory, fetchCloudHydration, getBadges, saveBadges 
 } from './services/storageService';
 import { signOut, syncProfile } from './services/authService';
 import { supabase } from './services/supabaseClient';
 import { getWeather, getWeatherIcon, getAQIStatus } from './services/weatherService';
 import { getLocalityName } from './services/parkService';
-import { getHydrationTip } from './services/geminiService';
+import { getHydrationTip, generateSpecialBadge } from './services/geminiService';
 import { calculateDistance } from './services/trackingService';
 
 const CURRENT_APP_VERSION = "2.4.0"; 
@@ -99,10 +99,10 @@ const App: React.FC = () => {
   const [weather, setWeather] = useState<WeatherData | null>(null);
   const [locality, setLocality] = useState<string>("Detecting...");
   const [fullHistory, setFullHistory] = useState<DailyHistory[]>(() => getHistory());
+  const [badges, setBadges] = useState<Badge[]>(() => getBadges());
   const [currentSession, setCurrentSession] = useState<WalkSession | null>(null);
   const [visualShare, setVisualShare] = useState<{ isOpen: boolean; type: 'stats' | 'quote'; data: any; }>({ isOpen: false, type: 'stats', data: null as any });
 
-  // REFINED GPS TRACKING STATE FOR SESSIONS
   const [sessionRoute, setSessionRoute] = useState<RoutePoint[]>([]);
   const watchIdRef = useRef<number | null>(null);
 
@@ -137,7 +137,6 @@ const App: React.FC = () => {
     return () => { mounted = false; subscription.unsubscribe(); clearTimeout(failSafe); };
   }, []);
 
-  // REFINED REAL-TIME GPS WATCHER
   useEffect(() => {
     if (isTrackingSession && settings.enableLocation) {
         setSessionRoute([]);
@@ -153,18 +152,13 @@ const App: React.FC = () => {
                 setSessionRoute(prev => {
                     if (prev.length === 0) return [newPoint];
                     const last = prev[prev.length - 1];
-                    // Ultra-accurate distance filter: Capture anything > 1.5m to handle sharp turns
                     const d = calculateDistance(last, newPoint);
                     if (d > 1.5) return [...prev, newPoint];
                     return prev;
                 });
             },
             (err) => console.warn("Session GPS Error:", err),
-            { 
-                enableHighAccuracy: true, 
-                maximumAge: 0, // NO CACHE: Get actual hardware coordinate every time
-                timeout: 5000 
-            }
+            { enableHighAccuracy: true, maximumAge: 0, timeout: 5000 }
         );
     } else {
         if (watchIdRef.current !== null) {
@@ -250,6 +244,17 @@ const App: React.FC = () => {
         setCurrentSession(session);
         setIsWalkingPortalOpen(false);
         setShowCoach(true);
+
+        // AI BADGE GENERATION FOR INVESTOR WOW FACTOR
+        if (session.distanceMeters > 500 && !profile.isGuest) {
+            generateSpecialBadge(session, locality).then(newBadge => {
+                if (newBadge) {
+                    const updatedBadges = [...badges, newBadge];
+                    setBadges(updatedBadges);
+                    saveBadges(updatedBadges);
+                }
+            });
+        }
     } else {
         setIsWalkingPortalOpen(false);
     }
@@ -403,7 +408,7 @@ const App: React.FC = () => {
 
         <section className="space-y-8 pb-10">
             <DailyQuote onShare={(q) => setVisualShare({ isOpen: true, type: 'quote', data: q })} />
-            <Achievements totalSteps={dailySteps} earnedBadges={[]} />
+            <Achievements totalSteps={dailySteps} earnedBadges={badges} />
             <AutoTrackerCard isActive={settings.autoTravelHistory} currentMode={activeActivityType} history={fullHistory} onClick={() => setShowAutoHistory(true)} />
         </section>
       </main>
@@ -427,7 +432,7 @@ const App: React.FC = () => {
       <JourneyHubModal isOpen={showJourneyHub} onClose={() => setShowJourneyHub(false)} history={fullHistory} onViewSegment={(s) => setSelectedForensicSession(s)} />
       <AutoHistoryModal isOpen={showAutoHistory} onClose={() => setShowAutoHistory(false)} history={fullHistory} />
       <SessionDetailModal session={selectedForensicSession} onClose={() => setSelectedForensicSession(null)} onShare={(s) => setVisualShare({ isOpen: true, type: 'stats', data: s })} />
-      <AICoachModal session={currentSession} isOpen={showCoach} onClose={() => setShowCoach(false)} isGuest={profile.isGuest!} profile={profile} onLoginRequest={() => {}} onShareStats={() => {}} />
+      <AICoachModal session={currentSession} isOpen={showCoach} onClose={() => setShowCoach(false)} isGuest={profile.isGuest!} profile={profile} settings={settings} onLoginRequest={() => {}} onShareStats={() => {}} />
       <SettingsModal isOpen={showSettings} onClose={() => setShowSettings(false)} settings={settings} profile={profile} onSave={(s, p) => { setSettings(s); saveSettings(profile.id, s); setProfile(p); saveProfile(p); }} onLogout={handleLogout} onLoginRequest={() => {}} />
       <WorkoutPlannerModal isOpen={showPlanner} onClose={() => setShowPlanner(false)} onSavePlan={(p) => { saveActivePlan(p); setShowPlanner(false); }} />
       <SocialHub isOpen={showSocial} onClose={() => setShowSocial(false)} profile={profile} />

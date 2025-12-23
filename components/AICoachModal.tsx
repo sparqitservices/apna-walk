@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { WalkSession, AIInsight, UserProfile } from '../types';
-import { getWalkingInsight, chatWithCoach, getUsageStatus, UsageStatus } from '../services/geminiService';
+import { WalkSession, AIInsight, UserProfile, UserSettings } from '../types';
+import { getWalkingInsight, chatWithCoach, getUsageStatus, UsageStatus, synthesizeSpeech } from '../services/geminiService';
 import { RouteMap } from './RouteMap';
 
 interface AICoachModalProps {
@@ -10,6 +10,7 @@ interface AICoachModalProps {
   onClose: () => void;
   isGuest: boolean;
   profile: UserProfile; 
+  settings: UserSettings;
   onLoginRequest: () => void;
   onShareStats: (session: WalkSession) => void;
 }
@@ -28,7 +29,7 @@ const SUGGESTIONS = [
   "Weight loss tips batao ⚖️"
 ];
 
-export const AICoachModal: React.FC<AICoachModalProps> = ({ session, isOpen, onClose, isGuest, profile, onLoginRequest, onShareStats }) => {
+export const AICoachModal: React.FC<AICoachModalProps> = ({ session, isOpen, onClose, isGuest, profile, settings, onLoginRequest, onShareStats }) => {
   const [activeTab, setActiveTab] = useState<'insight' | 'chat'>('insight');
   const [insight, setInsight] = useState<AIInsight | null>(null);
   const [loading, setLoading] = useState(false);
@@ -54,7 +55,12 @@ export const AICoachModal: React.FC<AICoachModalProps> = ({ session, isOpen, onC
     if (isOpen && session && !insight && !isGuest && usage.allowed) {
       setLoading(true);
       getWalkingInsight(session)
-        .then(setInsight)
+        .then((data) => {
+            setInsight(data);
+            if (settings.coachVoiceEnabled) {
+                synthesizeSpeech(data.summary);
+            }
+        })
         .catch((err) => {
             if (err.message === "LIMIT_REACHED") setUsage(getUsageStatus());
         })
@@ -82,6 +88,9 @@ export const AICoachModal: React.FC<AICoachModalProps> = ({ session, isOpen, onC
             setUsage(getUsageStatus());
         } else {
             setMessages(prev => [...prev, { role: 'model', text: response, timestamp: time }]);
+            if (settings.coachVoiceEnabled) {
+                synthesizeSpeech(response);
+            }
         }
     } catch (err) {
         setMessages(prev => [...prev, { role: 'model', text: "Arre yaar, retry karo!", timestamp: time }]);
@@ -183,7 +192,6 @@ export const AICoachModal: React.FC<AICoachModalProps> = ({ session, isOpen, onC
                                     <div className="py-10 text-center space-y-6 animate-fade-in">
                                         <div className="w-16 h-16 bg-slate-800 rounded-full flex items-center justify-center mx-auto text-brand-400 border border-slate-700 shadow-xl"><i className="fa-solid fa-comments text-2xl"></i></div>
                                         <div className="px-10 flex flex-col items-center">
-                                            {/* CONCISE NAMASTE BADGE - ONE LINE */}
                                             <div className="flex flex-col items-center">
                                                 <div className="relative inline-block">
                                                     <p className="text-white font-black italic text-2xl uppercase tracking-tighter">NAMASTE {firstName}!</p>
