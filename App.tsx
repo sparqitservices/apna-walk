@@ -189,7 +189,7 @@ const App: React.FC = () => {
 
   const handleFinishSession = async () => {
     const finalSteps = stopSession();
-    // Only save if some steps were taken during session
+    // Only save if some steps were taken during session or at least time passed
     if (finalSteps >= 0) {
         const session: WalkSession = { 
             id: `manual-${Date.now()}`, 
@@ -200,7 +200,7 @@ const App: React.FC = () => {
             durationSeconds: 0,
             activityType: 'walking'
         };
-        const updated = await saveHistory(profile.id, 0, session); // 0 steps here as usePedometer already adds them to daily
+        const updated = await saveHistory(profile.id, 0, session); 
         setFullHistory(updated);
         setCurrentSession(session);
         setIsWalkingPortalOpen(false);
@@ -381,7 +381,7 @@ const App: React.FC = () => {
       <JourneyHubModal isOpen={showJourneyHub} onClose={() => setShowJourneyHub(false)} history={fullHistory} onViewSegment={(s) => setSelectedForensicSession(s)} />
       <AutoHistoryModal isOpen={showAutoHistory} onClose={() => setShowAutoHistory(false)} history={fullHistory} />
       <SessionDetailModal session={selectedForensicSession} onClose={() => setSelectedForensicSession(null)} onShare={(s) => setVisualShare({ isOpen: true, type: 'stats', data: s })} />
-      <AICoachModal session={currentSession} isOpen={showCoach} onClose={() => setShowCoach(false)} isGuest={profile.isGuest!} onLoginRequest={() => {}} onShareStats={() => {}} />
+      <AICoachModal session={currentSession} isOpen={showCoach} onClose={() => setShowCoach(false)} isGuest={profile.isGuest!} profile={profile} onLoginRequest={() => {}} onShareStats={() => {}} />
       <SettingsModal isOpen={showSettings} onClose={() => setShowSettings(false)} settings={settings} profile={profile} onSave={(s, p) => { setSettings(s); saveSettings(profile.id, s); setProfile(p); saveProfile(p); }} onLogout={handleLogout} onLoginRequest={() => {}} />
       <WorkoutPlannerModal isOpen={showPlanner} onClose={() => setShowPlanner(false)} onSavePlan={(p) => { saveActivePlan(p); setShowPlanner(false); }} />
       <SocialHub isOpen={showSocial} onClose={() => setShowSocial(false)} profile={profile} />

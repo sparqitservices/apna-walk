@@ -58,6 +58,14 @@ export const WalkingPortal: React.FC<WalkingPortalProps> = ({
         return `${h > 0 ? h + ':' : ''}${m.toString().padStart(2, '0')}:${sec.toString().padStart(2, '0')}`;
     };
 
+    const handleProgressClick = () => {
+        if (isTracking) {
+            onFinish();
+        } else {
+            onStart();
+        }
+    };
+
     return (
         <div className="fixed inset-0 bg-[#0a0f14] z-[200] flex flex-col animate-fade-in touch-none overflow-hidden select-none">
             {/* Immersive Background */}
@@ -102,10 +110,10 @@ export const WalkingPortal: React.FC<WalkingPortalProps> = ({
                         current={steps} 
                         total={settings.stepGoal} 
                         label={isTracking ? "Walk Steps" : "Ready Guru!"} 
-                        subLabel={isTracking ? "Sensor Signature Captured" : "Tap Start to Record"} 
+                        subLabel={isTracking ? "Tap to Stop" : "Tap to Start"} 
                         isActive={isTracking} 
                         lastStepTime={lastStepTime} 
-                        onClick={!isTracking ? onStart : onFinish}
+                        onClick={handleProgressClick}
                     />
                     
                     {/* Visual Pulse Ring */}

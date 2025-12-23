@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { WalkSession, AIInsight } from '../types';
+import { WalkSession, AIInsight, UserProfile } from '../types';
 import { getWalkingInsight, chatWithCoach, getUsageStatus, UsageStatus } from '../services/geminiService';
 import { RouteMap } from './RouteMap';
 
@@ -9,6 +9,7 @@ interface AICoachModalProps {
   isOpen: boolean;
   onClose: () => void;
   isGuest: boolean;
+  profile: UserProfile; // Added profile to access user name
   onLoginRequest: () => void;
   onShareStats: (session: WalkSession) => void;
 }
@@ -27,7 +28,7 @@ const SUGGESTIONS = [
   "Weight loss tips batao ⚖️"
 ];
 
-export const AICoachModal: React.FC<AICoachModalProps> = ({ session, isOpen, onClose, isGuest, onLoginRequest, onShareStats }) => {
+export const AICoachModal: React.FC<AICoachModalProps> = ({ session, isOpen, onClose, isGuest, profile, onLoginRequest, onShareStats }) => {
   const [activeTab, setActiveTab] = useState<'insight' | 'chat'>('insight');
   const [insight, setInsight] = useState<AIInsight | null>(null);
   const [loading, setLoading] = useState(false);
@@ -36,9 +37,10 @@ export const AICoachModal: React.FC<AICoachModalProps> = ({ session, isOpen, onC
   const [chatLoading, setChatLoading] = useState(false);
   const [usage, setUsage] = useState<UsageStatus>(getUsageStatus());
   
-  const [isListening, setIsListening] = useState(false);
-  const recognitionRef = useRef<any>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  
+  // Extract first name for personalized greeting
+  const firstName = profile.name ? profile.name.split(' ')[0] : 'Walker';
 
   useEffect(() => {
     if (isOpen) {
@@ -93,7 +95,7 @@ export const AICoachModal: React.FC<AICoachModalProps> = ({ session, isOpen, onC
 
   return (
     <div className="fixed inset-0 bg-black/90 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-dark-card w-full max-w-lg rounded-[2.5rem] overflow-hidden border border-slate-700 shadow-2xl flex flex-col h-[85vh] relative animate-message-pop">
+      <div className="bg-[#111827] w-full max-w-lg rounded-[2.5rem] overflow-hidden border border-slate-800 shadow-2xl flex flex-col h-[85vh] relative animate-message-pop">
         
         {/* Header */}
         <div className="p-5 border-b border-slate-700 flex justify-between items-center bg-slate-900/50 shrink-0">
@@ -181,9 +183,16 @@ export const AICoachModal: React.FC<AICoachModalProps> = ({ session, isOpen, onC
                                 {messages.length === 0 && (
                                     <div className="py-10 text-center space-y-6 animate-fade-in">
                                         <div className="w-16 h-16 bg-slate-800 rounded-full flex items-center justify-center mx-auto text-brand-400 border border-slate-700 shadow-xl"><i className="fa-solid fa-comments text-2xl"></i></div>
-                                        <div className="px-10">
-                                            <p className="text-white font-black italic text-lg uppercase tracking-tight">Namaste!</p>
-                                            <p className="text-slate-500 text-xs mt-1">Poocho kuch bhi about fitness, ya bas gup-shup!</p>
+                                        <div className="px-10 flex flex-col items-center">
+                                            {/* NAMASTE BADGE */}
+                                            <div className="flex items-center mb-1">
+                                                <div className="bg-[#111827] border-2 border-red-600 px-4 py-1.5 shadow-[4px_4px_0_#CC0000]">
+                                                     <p className="text-white font-black italic text-xl uppercase tracking-tighter">NAMASTE!</p>
+                                                </div>
+                                                <div className="w-12 h-0.5 bg-red-600 ml-2 shadow-[0_4px_0_#CC0000]"></div>
+                                            </div>
+                                            <p className="text-white font-black italic text-2xl uppercase tracking-tighter mt-4">{firstName}!</p>
+                                            <p className="text-slate-500 text-xs mt-2 max-w-[200px] leading-relaxed">Poocho kuch bhi about fitness, ya bas gup-shup!</p>
                                         </div>
                                         <div className="flex flex-wrap justify-center gap-2 px-6">
                                             {SUGGESTIONS.map((s, i) => (
