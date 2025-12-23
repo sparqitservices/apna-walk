@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { RadialProgress } from './components/RadialProgress';
 import { StatsGrid } from './components/StatsGrid';
 import { AICoachModal } from './components/AICoachModal';
@@ -32,7 +32,7 @@ import { WalkingPortal } from './components/WalkingPortal';
 import { usePedometer } from './hooks/usePedometer';
 import { useMetronome } from './hooks/useMetronome';
 import { useAutoTracker } from './hooks/useAutoTracker';
-import { UserProfile, UserSettings, WalkSession, HydrationLog, WeatherData, DailyHistory } from './types';
+import { UserProfile, UserSettings, WalkSession, HydrationLog, WeatherData, DailyHistory, RoutePoint } from './types';
 import { 
     getProfile, saveProfile, getSettings, saveSettings, saveHistory, 
     getHydration, saveHydration, saveActivePlan, getHistory, 
@@ -43,6 +43,7 @@ import { supabase } from './services/supabaseClient';
 import { getWeather, getWeatherIcon, getAQIStatus } from './services/weatherService';
 import { getLocalityName } from './services/parkService';
 import { getHydrationTip } from './services/geminiService';
+import { calculateDistance } from './services/trackingService';
 
 const CURRENT_APP_VERSION = "2.4.0"; 
 
@@ -101,6 +102,10 @@ const App: React.FC = () => {
   const [currentSession, setCurrentSession] = useState<WalkSession | null>(null);
   const [visualShare, setVisualShare] = useState<{ isOpen: boolean; type: 'stats' | 'quote'; data: any; }>({ isOpen: false, type: 'stats', data: null as any });
 
+  // REFINED GPS TRACKING STATE FOR SESSIONS
+  const [sessionRoute, setSessionRoute] = useState<RoutePoint[]>([]);
+  const watchIdRef = useRef<number | null>(null);
+
   useEffect(() => {
     let mounted = true;
     const failSafe = setTimeout(() => { if (mounted && isInitialLoading) setIsInitialLoading(false); }, 3000);
@@ -131,6 +136,44 @@ const App: React.FC = () => {
     });
     return () => { mounted = false; subscription.unsubscribe(); clearTimeout(failSafe); };
   }, []);
+
+  // REFINED REAL-TIME GPS WATCHER
+  useEffect(() => {
+    if (isTrackingSession && settings.enableLocation) {
+        setSessionRoute([]);
+        watchIdRef.current = navigator.geolocation.watchPosition(
+            (pos) => {
+                const newPoint: RoutePoint = {
+                    lat: pos.coords.latitude,
+                    lng: pos.coords.longitude,
+                    timestamp: Date.now(),
+                    speed: pos.coords.speed || 0
+                };
+                
+                setSessionRoute(prev => {
+                    if (prev.length === 0) return [newPoint];
+                    const last = prev[prev.length - 1];
+                    // Ultra-accurate distance filter: Capture anything > 1.5m to handle sharp turns
+                    const d = calculateDistance(last, newPoint);
+                    if (d > 1.5) return [...prev, newPoint];
+                    return prev;
+                });
+            },
+            (err) => console.warn("Session GPS Error:", err),
+            { 
+                enableHighAccuracy: true, 
+                maximumAge: 0, // NO CACHE: Get actual hardware coordinate every time
+                timeout: 5000 
+            }
+        );
+    } else {
+        if (watchIdRef.current !== null) {
+            navigator.geolocation.clearWatch(watchIdRef.current);
+            watchIdRef.current = null;
+        }
+    }
+    return () => { if (watchIdRef.current !== null) navigator.geolocation.clearWatch(watchIdRef.current); };
+  }, [isTrackingSession, settings.enableLocation]);
 
   useEffect(() => {
       if (profile.isLoggedIn && !profile.isGuest && profile.id) {
@@ -189,8 +232,9 @@ const App: React.FC = () => {
 
   const handleFinishSession = async () => {
     const finalSteps = stopSession();
-    // Only save if some steps were taken during session or at least time passed
-    if (finalSteps >= 0) {
+    const finalRoute = [...sessionRoute];
+    
+    if (finalSteps >= 0 || finalRoute.length > 2) {
         const session: WalkSession = { 
             id: `manual-${Date.now()}`, 
             startTime: Date.now() - 300, 
@@ -198,7 +242,8 @@ const App: React.FC = () => {
             distanceMeters: (finalSteps * settings.strideLengthCm) / 100, 
             calories: Math.round((finalSteps * 0.04) * (settings.weightKg / 70)), 
             durationSeconds: 0,
-            activityType: 'walking'
+            activityType: 'walking',
+            route: finalRoute.length > 0 ? finalRoute : undefined
         };
         const updated = await saveHistory(profile.id, 0, session); 
         setFullHistory(updated);
@@ -208,6 +253,7 @@ const App: React.FC = () => {
     } else {
         setIsWalkingPortalOpen(false);
     }
+    setSessionRoute([]);
   };
 
   const handleHydrationUpdate = (newLog: HydrationLog) => {

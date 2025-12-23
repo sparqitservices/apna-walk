@@ -15,11 +15,9 @@ export const useAutoTracker = (
     
     const watchIdRef = useRef<number | null>(null);
     const lastStepCountRef = useRef(dailySteps);
-    const lastActivityChangeRef = useRef(Date.now());
     const inactivityTimerRef = useRef<number | null>(null);
     const sessionDataRef = useRef({ distance: 0, startTime: 0, stepsAtStart: 0, maxSpeed: 0, type: 'stationary' as any });
 
-    // Speed thresholds (km/h)
     const SPEED_WALK_MAX = 7;
     const SPEED_CYCLE_MAX = 25;
 
@@ -31,18 +29,16 @@ export const useAutoTracker = (
 
         const checkInterval = setInterval(() => {
             if (!isAutoRecording) {
-                // Periodically check location to see if we should start recording
                 navigator.geolocation.getCurrentPosition((pos) => {
                     const speed = (pos.coords.speed || 0) * 3.6;
-                    // Start if moving > 3km/h or if steps increased significantly
                     const stepsTaken = dailySteps - lastStepCountRef.current;
-                    if (speed > 3 || stepsTaken > 15) {
+                    if (speed > 2.5 || stepsTaken > 12) {
                         startAutoSession();
                     }
                     lastStepCountRef.current = dailySteps;
                 }, null, { enableHighAccuracy: true });
             }
-        }, 20000); // Check every 20 seconds
+        }, 20000);
 
         return () => clearInterval(checkInterval);
     }, [dailySteps, isLoggedIn, isAutoRecording, settings.autoTravelHistory]);
@@ -92,7 +88,7 @@ export const useAutoTracker = (
                 if (prev.length > 0) {
                     const lastPoint = prev[prev.length - 1];
                     const d = calculateDistance(lastPoint, newPoint);
-                    if (d > 5) { 
+                    if (d > 3) { // 3m filter for auto mode to save battery
                         sessionDataRef.current.distance += d;
                         sessionDataRef.current.maxSpeed = Math.max(sessionDataRef.current.maxSpeed, speedKmh);
                         const newRoute = [...prev, newPoint];
@@ -108,8 +104,8 @@ export const useAutoTracker = (
             console.warn("AutoTracker GPS warning:", err);
         }, {
             enableHighAccuracy: true,
-            maximumAge: 0,
-            timeout: 10000
+            maximumAge: 0, // Ensure hardware updates for precision
+            timeout: 8000
         });
     };
 
@@ -117,7 +113,7 @@ export const useAutoTracker = (
         if (inactivityTimerRef.current) window.clearTimeout(inactivityTimerRef.current);
         inactivityTimerRef.current = window.setTimeout(() => {
             stopAutoSession();
-        }, 180000); // 3 minutes of inactivity stops recording
+        }, 180000); 
     };
 
     const stopAutoSession = () => {
@@ -127,7 +123,6 @@ export const useAutoTracker = (
         }
 
         const finalDist = sessionDataRef.current.distance;
-        // Save if they moved at least 100m
         if (finalDist > 100) { 
             const duration = Math.round((Date.now() - sessionDataRef.current.startTime) / 1000);
             const steps = Math.max(0, dailySteps - sessionDataRef.current.stepsAtStart);
@@ -136,7 +131,7 @@ export const useAutoTracker = (
                 id: `auto-${Date.now()}`,
                 startTime: sessionDataRef.current.startTime,
                 endTime: Date.now(),
-                steps: sessionDataRef.current.type === 'walking' ? steps : 0, // only count steps if walking
+                steps: sessionDataRef.current.type === 'walking' ? steps : 0,
                 distanceMeters: finalDist,
                 calories: sessionDataRef.current.type === 'walking' ? Math.round(0.04 * steps * (settings.weightKg / 70)) : 0,
                 durationSeconds: duration,
