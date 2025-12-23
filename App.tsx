@@ -230,6 +230,21 @@ const App: React.FC = () => {
     return fullHistory.find(h => h.date === todayStr) || { steps: 0, sessions: [] };
   }, [fullHistory]);
 
+  const todayBreakdown = useMemo(() => {
+    const totals = { walking: 0, cycling: 0, driving: 0 };
+    todayData.sessions?.forEach(s => {
+        const type = s.activityType || 'walking';
+        if (type in totals) totals[type as keyof typeof totals] += s.distanceMeters;
+    });
+    const sum = (totals.walking + totals.cycling + totals.driving) || 1;
+    return {
+        wP: (totals.walking / sum) * 100,
+        cP: (totals.cycling / sum) * 100,
+        dP: (totals.driving / sum) * 100,
+        totalKm: (sum / 1000).toFixed(1)
+    };
+  }, [todayData.sessions]);
+
   if (isInitialLoading) {
     return (
         <div className="min-h-screen bg-[#0a0f14] flex flex-col items-center justify-center p-6">
@@ -287,22 +302,30 @@ const App: React.FC = () => {
                         <button onClick={handleToggleTracking} className="flex-1 bg-gradient-to-r from-red-600 to-orange-600 text-white font-black py-5 rounded-[2rem] shadow-xl text-xs uppercase tracking-[5px] flex items-center justify-center gap-3 border border-white/10"><i className="fa-solid fa-square"></i> Finish Walk</button>
                     )}
                 </div>
+                {/* IMPROVED: Journey Log with Mode Distribution */}
                 <div onClick={() => setShowJourneyHub(true)} className="bg-slate-800/40 border border-slate-700/50 rounded-[2.5rem] p-6 flex flex-col gap-6 hover:bg-slate-800/60 transition-all cursor-pointer group shadow-2xl relative overflow-hidden">
                     <div className="flex justify-between items-center relative z-10">
                         <div>
                             <p className="text-brand-400 text-[10px] font-black uppercase tracking-[4px] mb-1">Journey Log</p>
                             <h4 className="text-white font-black text-2xl italic tracking-tighter uppercase">{todayData.sessions?.length || 0} Path Segments</h4>
                         </div>
-                        <div className="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center text-slate-400 group-hover:text-brand-500 transition-colors">
-                            <i className="fa-solid fa-map-location-dot text-xl"></i>
+                        <div className="text-right">
+                            <p className="text-white font-black text-xl italic tabular-nums leading-none">{todayBreakdown.totalKm} <small className="text-[10px] opacity-40 uppercase not-italic font-bold">KM</small></p>
+                            <p className="text-[8px] text-slate-500 font-bold uppercase tracking-widest mt-1">Today's Range</p>
                         </div>
                     </div>
                     <div className="w-full h-20 bg-slate-900/60 rounded-2xl flex items-center justify-center border border-white/5 relative z-10">
                         {autoRoute.length > 1 ? <PathSnailTrail route={autoRoute} className="h-16 w-full opacity-60" /> : <div className="flex items-center gap-3 opacity-20"><i className="fa-solid fa-satellite-dish animate-pulse"></i><span className="text-[10px] font-black uppercase tracking-widest">Awaiting Movement</span></div>}
                     </div>
+                    {/* Mode Breakdown Bar */}
+                    <div className="flex h-1.5 w-full bg-slate-900 rounded-full overflow-hidden relative z-10">
+                        <div className="bg-brand-500 h-full" style={{ width: `${todayBreakdown.wP}%` }}></div>
+                        <div className="bg-blue-500 h-full" style={{ width: `${todayBreakdown.cP}%` }}></div>
+                        <div className="bg-orange-500 h-full" style={{ width: `${todayBreakdown.dP}%` }}></div>
+                    </div>
                     <div className="flex justify-between items-center pt-2 relative z-10">
-                        <span className="text-[9px] text-slate-500 font-bold uppercase tracking-[3px]">Tap to browse history</span>
-                        <div className="flex items-center gap-2 text-brand-500"><span className="text-[10px] font-black uppercase tracking-widest">Full Access</span><i className="fa-solid fa-chevron-right text-xs"></i></div>
+                        <span className="text-[9px] text-slate-500 font-bold uppercase tracking-[3px]">Tap to browse timeline</span>
+                        <div className="flex items-center gap-2 text-brand-500"><span className="text-[10px] font-black uppercase tracking-widest">Explore Path</span><i className="fa-solid fa-chevron-right text-xs"></i></div>
                     </div>
                 </div>
             </div>
@@ -329,8 +352,8 @@ const App: React.FC = () => {
             <WeatherCard weather={weather} loading={weatherLoading} onClick={() => setShowWeatherDetail(true)} />
             <DailyQuote onShare={(q) => setVisualShare({ isOpen: true, type: 'quote', data: q })} />
             <Achievements totalSteps={dailySteps} earnedBadges={[]} />
-            {/* New AutoTracker Card at the bottom */}
-            <AutoTrackerCard isActive={settings.autoTravelHistory} currentMode={activeActivityType} onClick={() => setShowAutoHistory(true)} />
+            {/* IMPROVED: Passed history to AutoTrackerCard for Sparkline */}
+            <AutoTrackerCard isActive={settings.autoTravelHistory} currentMode={activeActivityType} history={fullHistory} onClick={() => setShowAutoHistory(true)} />
         </section>
       </main>
 
