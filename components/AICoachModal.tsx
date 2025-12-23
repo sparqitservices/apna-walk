@@ -9,7 +9,7 @@ interface AICoachModalProps {
   isOpen: boolean;
   onClose: () => void;
   isGuest: boolean;
-  profile: UserProfile; // Added profile to access user name
+  profile: UserProfile; 
   onLoginRequest: () => void;
   onShareStats: (session: WalkSession) => void;
 }
@@ -39,7 +39,6 @@ export const AICoachModal: React.FC<AICoachModalProps> = ({ session, isOpen, onC
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
-  // Extract first name for personalized greeting
   const firstName = profile.name ? profile.name.split(' ')[0] : 'Walker';
 
   useEffect(() => {
@@ -184,15 +183,14 @@ export const AICoachModal: React.FC<AICoachModalProps> = ({ session, isOpen, onC
                                     <div className="py-10 text-center space-y-6 animate-fade-in">
                                         <div className="w-16 h-16 bg-slate-800 rounded-full flex items-center justify-center mx-auto text-brand-400 border border-slate-700 shadow-xl"><i className="fa-solid fa-comments text-2xl"></i></div>
                                         <div className="px-10 flex flex-col items-center">
-                                            {/* NAMASTE BADGE */}
-                                            <div className="flex items-center mb-1">
-                                                <div className="bg-[#111827] border-2 border-red-600 px-4 py-1.5 shadow-[4px_4px_0_#CC0000]">
-                                                     <p className="text-white font-black italic text-xl uppercase tracking-tighter">NAMASTE!</p>
+                                            {/* CONCISE NAMASTE BADGE - ONE LINE */}
+                                            <div className="flex flex-col items-center">
+                                                <div className="relative inline-block">
+                                                    <p className="text-white font-black italic text-2xl uppercase tracking-tighter">NAMASTE {firstName}!</p>
+                                                    <div className="absolute -bottom-1 left-0 right-0 h-1 bg-red-600 shadow-[0_2px_4px_#CC0000]"></div>
                                                 </div>
-                                                <div className="w-12 h-0.5 bg-red-600 ml-2 shadow-[0_4px_0_#CC0000]"></div>
                                             </div>
-                                            <p className="text-white font-black italic text-2xl uppercase tracking-tighter mt-4">{firstName}!</p>
-                                            <p className="text-slate-500 text-xs mt-2 max-w-[200px] leading-relaxed">Poocho kuch bhi about fitness, ya bas gup-shup!</p>
+                                            <p className="text-slate-500 text-xs mt-6 max-w-[200px] leading-relaxed">Poocho kuch bhi about fitness, ya bas gup-shup!</p>
                                         </div>
                                         <div className="flex flex-wrap justify-center gap-2 px-6">
                                             {SUGGESTIONS.map((s, i) => (
