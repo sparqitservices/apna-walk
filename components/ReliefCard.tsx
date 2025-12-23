@@ -27,6 +27,12 @@ export const ReliefCard: React.FC<ReliefCardProps> = ({ data, currentHydrationMl
 
   const status = getLoadStatus();
 
+  const handleQuickAdd = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (navigator.vibrate) navigator.vibrate(15);
+    onQuickAdd();
+  };
+
   return (
     <div 
         onClick={onClick}
@@ -34,12 +40,23 @@ export const ReliefCard: React.FC<ReliefCardProps> = ({ data, currentHydrationMl
     >
         <div className="p-5 relative z-10">
             <div className="flex justify-between items-start mb-4">
-                <div className="w-12 h-12 bg-amber-500/10 rounded-2xl flex items-center justify-center text-amber-400 border border-amber-500/10">
-                    <i className="fa-solid fa-faucet-drip text-xl"></i>
+                <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 bg-amber-500/10 rounded-2xl flex items-center justify-center text-amber-400 border border-amber-500/10">
+                        <i className="fa-solid fa-faucet-drip text-xl"></i>
+                    </div>
+                    <div className={`px-3 py-1 rounded-full border border-white/5 ${status.bg} ${status.color} text-[8px] font-black uppercase tracking-widest`}>
+                        {status.label}
+                    </div>
                 </div>
-                <div className={`px-3 py-1 rounded-full border border-white/5 ${status.bg} ${status.color} text-[8px] font-black uppercase tracking-widest`}>
-                    {status.label}
-                </div>
+                
+                {/* MATCHING HYDRATION CARD QUICK ADD BUTTON */}
+                <button 
+                    onClick={handleQuickAdd}
+                    className="w-11 h-11 rounded-xl bg-slate-800 border border-slate-700 text-amber-400 hover:bg-amber-500 hover:text-white hover:border-amber-500 transition-all active:scale-95 flex items-center justify-center shadow-lg group-active:scale-90"
+                    title="Quick Log Relief"
+                >
+                    <i className="fa-solid fa-plus text-lg"></i>
+                </button>
             </div>
 
             <div>
@@ -61,12 +78,9 @@ export const ReliefCard: React.FC<ReliefCardProps> = ({ data, currentHydrationMl
             </div>
             <div className="flex justify-between mt-2">
                  <span className="text-[8px] text-slate-600 font-black uppercase tracking-widest">Metabolic Loop</span>
-                 <button 
-                    onClick={(e) => { e.stopPropagation(); onQuickAdd(); }}
-                    className="text-[8px] text-amber-500 font-black uppercase tracking-widest hover:text-white transition-colors"
-                 >
-                    + Log Relief
-                 </button>
+                 <span className="text-[8px] text-slate-500 font-black uppercase tracking-widest group-hover:text-amber-500 transition-colors">
+                    Log session
+                 </span>
             </div>
         </div>
     </div>
