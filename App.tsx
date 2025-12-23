@@ -302,7 +302,7 @@ const App: React.FC = () => {
                         <button onClick={handleToggleTracking} className="flex-1 bg-gradient-to-r from-red-600 to-orange-600 text-white font-black py-5 rounded-[2rem] shadow-xl text-xs uppercase tracking-[5px] flex items-center justify-center gap-3 border border-white/10"><i className="fa-solid fa-square"></i> Finish Walk</button>
                     )}
                 </div>
-                {/* IMPROVED: Journey Log with Mode Distribution */}
+                {/* Journey Log with Mode Distribution */}
                 <div onClick={() => setShowJourneyHub(true)} className="bg-slate-800/40 border border-slate-700/50 rounded-[2.5rem] p-6 flex flex-col gap-6 hover:bg-slate-800/60 transition-all cursor-pointer group shadow-2xl relative overflow-hidden">
                     <div className="flex justify-between items-center relative z-10">
                         <div>
@@ -331,11 +331,12 @@ const App: React.FC = () => {
             </div>
         </section>
 
-        <section className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            <ToolCard icon="fa-calendar-day" label="AI Plan" color="bg-slate-800/40" iconColor="text-brand-400" onClick={() => setShowPlanner(true)} />
-            <ToolCard icon="fa-users-line" label="Social" color="bg-slate-800/40" iconColor="text-orange-400" onClick={() => setShowSocial(true)} />
-            <ToolCard icon="fa-people-arrows" label="Buddy" color="bg-slate-800/40" iconColor="text-blue-400" onClick={() => setShowBuddy(true)} />
-            <ToolCard icon="fa-map-location-dot" label="Parks" color="bg-slate-800/40" iconColor="text-emerald-400" onClick={() => setShowParks(true)} />
+        {/* REDESIGNED: Tool Cards Section */}
+        <section className="grid grid-cols-2 gap-4">
+            <ToolCard icon="fa-calendar-day" label="AI Plan" sub="Guidance" iconColor="text-brand-400" onClick={() => setShowPlanner(true)} />
+            <ToolCard icon="fa-users-line" label="Social" sub="Squads" iconColor="text-orange-400" onClick={() => setShowSocial(true)} />
+            <ToolCard icon="fa-people-arrows" label="Buddy" sub="Muqabla" iconColor="text-blue-400" onClick={() => setShowBuddy(true)} />
+            <ToolCard icon="fa-map-location-dot" label="Parks" sub="Radar" iconColor="text-emerald-400" onClick={() => setShowParks(true)} />
         </section>
 
         <section className="space-y-4">
@@ -352,7 +353,6 @@ const App: React.FC = () => {
             <WeatherCard weather={weather} loading={weatherLoading} onClick={() => setShowWeatherDetail(true)} />
             <DailyQuote onShare={(q) => setVisualShare({ isOpen: true, type: 'quote', data: q })} />
             <Achievements totalSteps={dailySteps} earnedBadges={[]} />
-            {/* IMPROVED: Passed history to AutoTrackerCard for Sparkline */}
             <AutoTrackerCard isActive={settings.autoTravelHistory} currentMode={activeActivityType} history={fullHistory} onClick={() => setShowAutoHistory(true)} />
         </section>
       </main>
@@ -381,12 +381,29 @@ const App: React.FC = () => {
   );
 };
 
-const ToolCard = ({ icon, label, color, iconColor, onClick }: { icon: string, label: string, color: string, iconColor: string, onClick: () => void }) => (
-    <button onClick={onClick} className={`${color} p-6 rounded-[2rem] border border-white/5 shadow-xl flex flex-col items-center justify-center gap-4 transition-all hover:scale-[1.03] active:scale-95 group backdrop-blur-sm`}>
-        <div className={`w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center ${iconColor} text-xl shadow-inner group-hover:rotate-12 transition-transform`}>
+const ToolCard = ({ icon, label, sub, iconColor, onClick }: { icon: string, label: string, sub: string, iconColor: string, onClick: () => void }) => (
+    <button 
+        onClick={onClick} 
+        className={`bg-slate-800/40 p-5 sm:p-6 rounded-[2.5rem] border border-slate-700/50 shadow-2xl flex flex-col gap-4 transition-all hover:bg-slate-800/60 active:scale-95 group backdrop-blur-sm relative overflow-hidden text-left`}
+    >
+        {/* Shimmer Background Icon */}
+        <div className={`absolute top-0 right-0 p-4 opacity-[0.03] text-6xl ${iconColor} rotate-12 pointer-events-none transition-all duration-700 group-hover:scale-125 group-hover:rotate-0`}>
             <i className={`fa-solid ${icon}`}></i>
         </div>
-        <span className="text-[9px] font-black uppercase tracking-[3px] text-slate-400 text-center">{label}</span>
+
+        <div className={`w-14 h-14 rounded-[1.5rem] bg-slate-900 border border-white/5 flex items-center justify-center ${iconColor} text-xl shadow-inner group-hover:rotate-12 transition-transform shrink-0`}>
+            <i className={`fa-solid ${icon}`}></i>
+        </div>
+        
+        <div className="relative z-10">
+            <h3 className="text-white font-black text-lg italic tracking-tighter uppercase leading-none mb-1.5">{label}</h3>
+            <p className="text-[9px] text-slate-500 font-black uppercase tracking-[3px]">{sub}</p>
+        </div>
+
+        {/* Interactive Indicator */}
+        <div className="absolute bottom-4 right-6 opacity-0 group-hover:opacity-100 transition-all transform translate-x-2 group-hover:translate-x-0">
+             <i className={`fa-solid fa-chevron-right text-[10px] ${iconColor}`}></i>
+        </div>
     </button>
 );
 

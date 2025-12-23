@@ -36,6 +36,9 @@ export const AutoHistoryModal: React.FC<AutoHistoryModalProps> = ({ isOpen, onCl
         return result;
     }, [history]);
 
+    // Reverse the 7-day data specifically for the timeline list view (newest first)
+    const timelineData = useMemo(() => [...last7Days].reverse(), [last7Days]);
+
     if (!isOpen) return null;
 
     const getActivityIcon = (type?: string) => {
@@ -83,7 +86,7 @@ export const AutoHistoryModal: React.FC<AutoHistoryModalProps> = ({ isOpen, onCl
                     </div>
                 </div>
 
-                {/* Performance Chart */}
+                {/* Performance Chart - Kept in chronological order */}
                 <div className="bg-slate-900/30 rounded-[2.5rem] border border-slate-800 p-6 h-72 shadow-2xl relative">
                     <p className="absolute top-4 left-6 text-[9px] font-black uppercase tracking-[3px] text-slate-600">Distance Telemetry (KM)</p>
                     <ResponsiveContainer width="100%" height="100%">
@@ -101,10 +104,10 @@ export const AutoHistoryModal: React.FC<AutoHistoryModalProps> = ({ isOpen, onCl
                     </ResponsiveContainer>
                 </div>
 
-                {/* Day-by-Day Granular Breakdown */}
+                {/* Day-by-Day Granular Breakdown - Now Newest First */}
                 <div className="space-y-4">
                     <h3 className="text-[10px] font-black uppercase tracking-[5px] text-slate-500 ml-2">Recent Timeline</h3>
-                    {last7Days.map((day, idx) => (
+                    {timelineData.map((day, idx) => (
                         <div key={idx} className="bg-slate-800/20 border border-slate-800/50 rounded-3xl p-5 overflow-hidden relative">
                             <div className="flex justify-between items-center mb-4">
                                 <div className="flex items-center gap-3">
