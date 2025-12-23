@@ -22,12 +22,12 @@ import { WeatherDetailedModal } from './components/WeatherDetailedModal';
 import { VirtualTrekCard } from './components/VirtualTrekCard';
 import { RhythmGuide } from './components/RhythmGuide';
 import { RhythmDetailModal } from './components/RhythmDetailModal';
-import { LiveTracker } from './components/LiveTracker';
 import { SessionDetailModal } from './components/SessionDetailModal';
 import { JourneyHubModal } from './components/JourneyHubModal';
 import { PathSnailTrail } from './components/PathSnailTrail';
 import { AutoTrackerCard } from './components/AutoTrackerCard';
 import { AutoHistoryModal } from './components/AutoHistoryModal';
+import { ActiveSessionOverlay } from './components/ActiveSessionOverlay';
 
 import { usePedometer } from './hooks/usePedometer';
 import { useMetronome } from './hooks/useMetronome';
@@ -169,22 +169,29 @@ const App: React.FC = () => {
     }
   }, [settings.enableLocation, profile.isLoggedIn, dailySteps]);
 
-  const displaySteps = isTrackingSession ? sessionSteps : dailySteps;
+  const displaySteps = dailySteps;
   const displayDistance = (displaySteps * settings.strideLengthCm) / 100;
   const displayCalories = Math.round((displaySteps * 0.04) * (settings.weightKg / 70));
 
-  const handleToggleTracking = async () => {
-    if (isTrackingSession) {
-        const finalSteps = stopSession();
-        const session: WalkSession = { id: `manual-${Date.now()}`, startTime: Date.now() - (finalSteps > 0 ? 300 : 0), steps: finalSteps, distanceMeters: (finalSteps * settings.strideLengthCm) / 100, calories: Math.round((finalSteps * 0.04) * (settings.weightKg / 70)), durationSeconds: 0 };
-        const updated = await saveHistory(profile.id, session.steps, session);
-        setFullHistory(updated);
-        setCurrentSession(session);
-        setShowCoach(true);
-    } else {
-        const granted = await requestPermission();
-        if (granted) startSession();
-    }
+  const handleStartWalk = async () => {
+    const granted = await requestPermission();
+    if (granted) startSession();
+  };
+
+  const handleFinishWalk = async () => {
+    const finalSteps = stopSession();
+    const session: WalkSession = { 
+        id: `manual-${Date.now()}`, 
+        startTime: Date.now() - 300, // Small buffer
+        steps: finalSteps, 
+        distanceMeters: (finalSteps * settings.strideLengthCm) / 100, 
+        calories: Math.round((finalSteps * 0.04) * (settings.weightKg / 70)), 
+        durationSeconds: 0 
+    };
+    const updated = await saveHistory(profile.id, session.steps, session);
+    setFullHistory(updated);
+    setCurrentSession(session);
+    setShowCoach(true);
   };
 
   const handleHydrationUpdate = (newLog: HydrationLog) => {
@@ -244,7 +251,6 @@ const App: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-3">
-            {/* NEW: Weather Mini-Pill in Navbar */}
             {weather && (
                 <button 
                     onClick={() => setShowWeatherDetail(true)}
@@ -273,15 +279,11 @@ const App: React.FC = () => {
 
       <main className="max-w-xl mx-auto px-6 pt-10 space-y-12">
         <section className="flex flex-col items-center">
-            <RadialProgress current={displaySteps} total={settings.stepGoal} label={isTrackingSession ? "Session Live" : "Today's Walk"} subLabel="Tap to control" lastStepTime={lastStepTimestamp} isActive={isTrackingSession} onClick={handleToggleTracking} />
+            <RadialProgress current={displaySteps} total={settings.stepGoal} label="Today's Walk" subLabel="Pao Pao Guru!" lastStepTime={lastStepTimestamp} onClick={handleStartWalk} />
             <div className="w-full grid grid-cols-1 gap-6 mt-8">
                 <StatsGrid calories={displayCalories} distance={displayDistance} duration={0} onStatClick={() => {}} />
                 <div className="flex gap-4 w-full">
-                    {!isTrackingSession ? (
-                        <button onClick={handleToggleTracking} className="flex-1 bg-gradient-to-r from-brand-600 to-emerald-500 text-white font-black py-5 rounded-[2rem] shadow-xl text-xs uppercase tracking-[5px] flex items-center justify-center gap-3 border border-white/10"><i className="fa-solid fa-play"></i> Start Walk</button>
-                    ) : (
-                        <button onClick={handleToggleTracking} className="flex-1 bg-gradient-to-r from-red-600 to-orange-600 text-white font-black py-5 rounded-[2rem] shadow-xl text-xs uppercase tracking-[5px] flex items-center justify-center gap-3 border border-white/10"><i className="fa-solid fa-square"></i> Finish Walk</button>
-                    )}
+                    <button onClick={handleStartWalk} className="flex-1 bg-gradient-to-r from-brand-600 to-emerald-500 text-white font-black py-5 rounded-[2rem] shadow-xl text-xs uppercase tracking-[5px] flex items-center justify-center gap-3 border border-white/10"><i className="fa-solid fa-play"></i> Start Walk</button>
                 </div>
                 <div onClick={() => setShowJourneyHub(true)} className="bg-slate-800/40 border border-slate-700/50 rounded-[2.5rem] p-6 flex flex-col gap-6 hover:bg-slate-800/60 transition-all cursor-pointer group shadow-2xl relative overflow-hidden">
                     <div className="flex justify-between items-center relative z-10">
@@ -334,6 +336,8 @@ const App: React.FC = () => {
         <i className="fa-solid fa-robot text-2xl group-hover:animate-bounce"></i>
         <span className="text-[8px] font-black uppercase tracking-widest mt-1">Coach</span>
       </button>
+
+      <ActiveSessionOverlay isOpen={isTrackingSession} steps={sessionSteps} settings={settings} lastStepTime={lastStepTimestamp} onFinish={handleFinishWalk} />
 
       <JourneyHubModal isOpen={showJourneyHub} onClose={() => setShowJourneyHub(false)} history={fullHistory} onViewSegment={(s) => setSelectedForensicSession(s)} />
       <AutoHistoryModal isOpen={showAutoHistory} onClose={() => setShowAutoHistory(false)} history={fullHistory} />
