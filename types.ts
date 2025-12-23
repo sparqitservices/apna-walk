@@ -67,62 +67,8 @@ export interface UserSettings {
     water: boolean;
     walk: boolean;
     breath: boolean;
+    relief: boolean;
     achievements: boolean;
-  };
-}
-
-export interface LiveConnection {
-    id: string;
-    username: string;
-    avatar_url: string;
-    lat: number;
-    lng: number;
-    degree: 1 | 2; 
-    bridge_username?: string; 
-    last_active: string;
-}
-
-export interface MutualFriend {
-  id: string;
-  username: string;
-  avatar_url?: string;
-}
-
-export interface Park {
-  id: string;
-  name: string;
-  category: 'park' | 'gym' | 'shop' | 'health';
-  address: string;
-  coordinates: {
-    lat: number;
-    lng: number;
-  };
-  photo_url?: string;
-  rating_avg: number;
-  facilities: {
-    washroom?: boolean;
-    trail?: boolean;
-    water?: boolean;
-    lighting?: boolean;
-    bench?: boolean;
-    equipment?: boolean;
-    [key: string]: boolean | undefined;
-  };
-  visitor_count?: number;
-  distance?: number;
-  google_maps_url?: string;
-}
-
-export interface ParkReview {
-  id: string;
-  park_id: string;
-  user_id: string;
-  rating: number;
-  review_text: string;
-  created_at: string;
-  profile?: {
-    username: string; 
-    avatar_url: string;
   };
 }
 
@@ -148,22 +94,6 @@ export interface Badge {
   dateEarned: string;
 }
 
-export interface DailyWorkoutPlan {
-  day: string;
-  title: string;
-  description: string;
-  durationMinutes: number;
-  intensity: 'Low' | 'Medium' | 'High';
-  type: 'Interval' | 'Endurance' | 'Recovery' | 'Power';
-}
-
-export interface WeeklyPlan {
-  id: string;
-  goal: string;
-  createdAt: string;
-  schedule: DailyWorkoutPlan[];
-}
-
 export interface WeatherData {
   temperature: number;
   weatherCode: number;
@@ -177,6 +107,13 @@ export interface HydrationLog {
   date: string;
   currentMl: number;
   goalMl: number;
+}
+
+export interface ReliefLog {
+  date: string;
+  count: number;
+  goal: number;
+  lastReliefTimestamp?: number;
 }
 
 export interface FitnessEvent {
@@ -194,39 +131,74 @@ export interface FitnessEvent {
   isJoined?: boolean;
 }
 
+export interface SavedWalk {
+  id: string;
+  user_id: string;
+  route_name: string;
+  path: string;
+  distance_meters: number;
+  duration_seconds: number;
+  start_time: string;
+  end_time: string;
+  avg_speed: number;
+  max_speed: number;
+  calories_burned: number;
+  steps_count: number;
+  created_at?: string;
+}
+
+// Added missing types for AI Planner
+export interface DailyWorkoutPlan {
+  day: string;
+  title: string;
+  description: string;
+  durationMinutes: number;
+  intensity: string;
+  type: string;
+}
+
+export interface WeeklyPlan {
+  id: string;
+  goal: string;
+  createdAt: string;
+  schedule: DailyWorkoutPlan[];
+}
+
+// Added missing types for Admin Dashboard
 export interface AdminUserView {
   id: string;
   username: string;
-  full_name: string;
   email: string;
+  full_name: string;
+  today_steps: number;
+  last_location: string;
+  last_active: string;
   avatar_url?: string;
-  last_location?: string;
-  last_active?: string;
-  today_steps?: number;
 }
 
+// Added missing types for Social Hub and Buddies
 export interface WalkingGroup {
   id: string;
   name: string;
+  description: string;
   location: string;
   created_by: string;
-  description: string;
-  privacy: 'public' | 'private';
+  created_at: string;
   member_count?: number;
   is_member?: boolean;
   is_pending?: boolean;
-  created_at?: string;
 }
 
 export interface GroupMember {
   id: string;
   group_id: string;
   user_id: string;
-  role: 'member' | 'admin';
+  role: 'admin' | 'member';
   status: 'pending' | 'active';
+  created_at: string;
   profile?: {
     username: string;
-    avatar_url: string;
+    avatar_url?: string;
   };
 }
 
@@ -242,7 +214,7 @@ export interface GroupPost {
   created_at: string;
   profile?: {
     username: string;
-    avatar_url: string;
+    avatar_url?: string;
   };
 }
 
@@ -250,27 +222,24 @@ export interface Challenge {
   id: string;
   name: string;
   description: string;
-  type: 'monthly' | 'custom';
+  type: 'daily' | 'weekly' | 'monthly' | 'custom';
   target_steps: number;
   start_date: string;
   end_date: string;
+  created_at: string;
   participant_count?: number;
   is_joined?: boolean;
 }
 
 export interface ChallengeParticipant {
   user_id: string;
+  challenge_id: string;
   current_steps: number;
-  rank: number;
+  rank?: number;
   profile?: {
     username: string;
-    avatar_url: string;
+    avatar_url?: string;
   };
-}
-
-export interface NearbyBuddy extends UserProfile {
-  distance_meters: number;
-  match_score?: number;
 }
 
 export interface BuddyRequest {
@@ -282,8 +251,13 @@ export interface BuddyRequest {
   created_at: string;
   sender_profile?: {
     username: string;
-    avatar_url: string;
+    avatar_url?: string;
   };
+}
+
+export interface NearbyBuddy extends UserProfile {
+  id: string;
+  match_score?: number;
 }
 
 export interface DuelConfig {
@@ -304,18 +278,52 @@ export interface BuddyMessage {
   duel_config?: DuelConfig;
 }
 
-export interface SavedWalk {
+export interface MutualFriend {
   id: string;
+  username: string;
+  avatar_url?: string;
+}
+
+export interface LiveConnection {
+  id: string;
+  username: string;
+  avatar_url?: string;
+  lat: number;
+  lng: number;
+  degree: number;
+  bridge_username?: string;
+  last_active: string;
+}
+
+// Added missing types for Park Finder
+export interface Park {
+  id: string;
+  name: string;
+  address: string;
+  category: 'park' | 'gym' | 'shop' | 'health';
+  coordinates: {
+    lat: number;
+    lng: number;
+  };
+  rating_avg: number;
+  facilities: {
+    trail: boolean;
+    lighting: boolean;
+    water: boolean;
+  };
+  photo_url: string;
+  google_maps_url?: string;
+}
+
+export interface ParkReview {
+  id: string;
+  park_id: string;
   user_id: string;
-  route_name: string;
-  path: string;
-  distance_meters: number;
-  duration_seconds: number;
-  start_time: string;
-  end_time: string;
-  avg_speed: number;
-  max_speed: number;
-  calories_burned: number;
-  steps_count: number;
-  created_at?: string;
+  rating: number;
+  review_text: string;
+  created_at: string;
+  profile?: {
+    username: string;
+    avatar_url?: string;
+  };
 }

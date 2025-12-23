@@ -14,6 +14,8 @@ import { BuddyFinder } from './components/BuddyFinder';
 import { ParkFinder } from './components/ParkFinder';
 import { HydrationModal } from './components/HydrationModal';
 import { HydrationCard } from './components/HydrationCard';
+import { ReliefCard } from './components/ReliefCard';
+import { ReliefModal } from './components/ReliefModal';
 import { BreathExerciseModal } from './components/BreathExerciseModal';
 import { BreathExerciseCard } from './components/BreathExerciseCard';
 import { SleepModal } from './components/SleepModal';
@@ -32,10 +34,10 @@ import { WalkingPortal } from './components/WalkingPortal';
 import { usePedometer } from './hooks/usePedometer';
 import { useMetronome } from './hooks/useMetronome';
 import { useAutoTracker } from './hooks/useAutoTracker';
-import { UserProfile, UserSettings, WalkSession, HydrationLog, WeatherData, DailyHistory, RoutePoint, Badge } from './types';
+import { UserProfile, UserSettings, WalkSession, HydrationLog, ReliefLog, WeatherData, DailyHistory, RoutePoint, Badge } from './types';
 import { 
     getProfile, saveProfile, getSettings, saveSettings, saveHistory, 
-    getHydration, saveHydration, saveActivePlan, getHistory, 
+    getHydration, saveHydration, getRelief, saveRelief, saveActivePlan, getHistory, 
     fetchCloudHistory, fetchCloudHydration, getBadges, saveBadges 
 } from './services/storageService';
 import { signOut, syncProfile } from './services/authService';
@@ -70,7 +72,7 @@ const App: React.FC = () => {
         sensitivity: 3, enableLocation: true, theme: 'green',
         autoTravelHistory: false,
         coachVibe: 'Energetic', coachVoiceEnabled: true,
-        notifications: { water: true, walk: true, breath: true, achievements: true }
+        notifications: { water: true, walk: true, breath: true, relief: true, achievements: true }
     };
     return saved ? { ...defaultSettings, ...saved } : defaultSettings;
   });
@@ -85,6 +87,7 @@ const App: React.FC = () => {
   const [showBuddy, setShowBuddy] = useState(false);
   const [showParks, setShowParks] = useState(false);
   const [showHydration, setShowHydration] = useState(false);
+  const [showRelief, setShowRelief] = useState(false);
   const [showBreath, setShowBreath] = useState(false);
   const [showSleep, setShowSleep] = useState(false);
   const [showWeatherDetail, setShowWeatherDetail] = useState(false);
@@ -95,6 +98,7 @@ const App: React.FC = () => {
   const [selectedForensicSession, setSelectedForensicSession] = useState<WalkSession | null>(null);
 
   const [hydration, setHydration] = useState<HydrationLog>(() => getHydration());
+  const [relief, setRelief] = useState<ReliefLog>(() => getRelief());
   const [hydrationTip, setHydrationTip] = useState<string>("");
   const [weather, setWeather] = useState<WeatherData | null>(null);
   const [locality, setLocality] = useState<string>("Detecting...");
@@ -148,7 +152,6 @@ const App: React.FC = () => {
                     timestamp: Date.now(),
                     speed: pos.coords.speed || 0
                 };
-                
                 setSessionRoute(prev => {
                     if (prev.length === 0) return [newPoint];
                     const last = prev[prev.length - 1];
@@ -245,7 +248,6 @@ const App: React.FC = () => {
         setIsWalkingPortalOpen(false);
         setShowCoach(true);
 
-        // AI BADGE GENERATION FOR INVESTOR WOW FACTOR
         if (session.distanceMeters > 500 && !profile.isGuest) {
             generateSpecialBadge(session, locality).then(newBadge => {
                 if (newBadge) {
@@ -264,6 +266,11 @@ const App: React.FC = () => {
   const handleHydrationUpdate = (newLog: HydrationLog) => {
     setHydration(newLog);
     saveHydration(profile.id, newLog);
+  };
+
+  const handleReliefUpdate = (newLog: ReliefLog) => {
+    setRelief(newLog);
+    saveRelief(profile.id, newLog);
   };
 
   const todayData = useMemo(() => {
@@ -397,7 +404,10 @@ const App: React.FC = () => {
         </section>
 
         <section className="space-y-4">
-            <HydrationCard data={hydration} recommendation={hydrationTip} onClick={() => setShowHydration(true)} onQuickAdd={() => handleHydrationUpdate({...hydration, currentMl: hydration.currentMl + 250})} />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <HydrationCard data={hydration} recommendation={hydrationTip} onClick={() => setShowHydration(true)} onQuickAdd={() => handleHydrationUpdate({...hydration, currentMl: hydration.currentMl + 250})} />
+                <ReliefCard data={relief} onClick={() => setShowRelief(true)} onQuickAdd={() => handleReliefUpdate({...relief, count: relief.count + 1, lastReliefTimestamp: Date.now()})} />
+            </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <BreathExerciseCard onClick={() => setShowBreath(true)} />
                 <SleepCard onClick={() => setShowSleep(true)} />
@@ -439,6 +449,7 @@ const App: React.FC = () => {
       <BuddyFinder isOpen={showBuddy} onClose={() => setShowBuddy(false)} profile={profile} />
       <ParkFinder isOpen={showParks} onClose={() => setShowParks(false)} profile={profile} />
       <HydrationModal isOpen={showHydration} onClose={() => setShowHydration(false)} data={hydration} onUpdate={handleHydrationUpdate} />
+      <ReliefModal isOpen={showRelief} onClose={() => setShowRelief(false)} data={relief} onUpdate={handleReliefUpdate} />
       <BreathExerciseModal isOpen={showBreath} onClose={() => setShowBreath(false)} />
       <SleepModal isOpen={showSleep} onClose={() => setShowSleep(false)} />
       <WeatherDetailedModal isOpen={showWeatherDetail} onClose={() => setShowWeatherDetail(false)} weather={weather} />
