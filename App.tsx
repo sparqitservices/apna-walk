@@ -189,19 +189,25 @@ const App: React.FC = () => {
 
   const handleFinishSession = async () => {
     const finalSteps = stopSession();
-    const session: WalkSession = { 
-        id: `manual-${Date.now()}`, 
-        startTime: Date.now() - 300, 
-        steps: finalSteps, 
-        distanceMeters: (finalSteps * settings.strideLengthCm) / 100, 
-        calories: Math.round((finalSteps * 0.04) * (settings.weightKg / 70)), 
-        durationSeconds: 0 
-    };
-    const updated = await saveHistory(profile.id, session.steps, session);
-    setFullHistory(updated);
-    setCurrentSession(session);
-    setIsWalkingPortalOpen(false);
-    setShowCoach(true);
+    // Only save if some steps were taken during session
+    if (finalSteps >= 0) {
+        const session: WalkSession = { 
+            id: `manual-${Date.now()}`, 
+            startTime: Date.now() - 300, 
+            steps: finalSteps, 
+            distanceMeters: (finalSteps * settings.strideLengthCm) / 100, 
+            calories: Math.round((finalSteps * 0.04) * (settings.weightKg / 70)), 
+            durationSeconds: 0,
+            activityType: 'walking'
+        };
+        const updated = await saveHistory(profile.id, 0, session); // 0 steps here as usePedometer already adds them to daily
+        setFullHistory(updated);
+        setCurrentSession(session);
+        setIsWalkingPortalOpen(false);
+        setShowCoach(true);
+    } else {
+        setIsWalkingPortalOpen(false);
+    }
   };
 
   const handleHydrationUpdate = (newLog: HydrationLog) => {
@@ -363,7 +369,7 @@ const App: React.FC = () => {
 
       <WalkingPortal 
           isOpen={isWalkingPortalOpen} 
-          onClose={() => setIsWalkingPortalOpen(false)} 
+          onClose={isTrackingSession ? handleFinishSession : () => setIsWalkingPortalOpen(false)} 
           isTracking={isTrackingSession}
           steps={sessionSteps}
           settings={settings}
